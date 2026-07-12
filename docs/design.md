@@ -25,13 +25,20 @@ docgrad/
 │   ├── init.md           # 掃描＋問卷 → 寫入目標 repo 的 .docgrad.yml
 │   ├── rubric.md         # 五維星等錨點（評分穩定性的關鍵，見下）
 │   ├── audit.md          # 單次評分流程：腳本 → LLM 抽查 → scorecard
-│   └── improve.md        # 單輪收斂流程：挑最低維 → 修 → 重評 → commit
+│   └── improve.md        # 收斂輪流程（improve 與 loop 共用）
 ├── scripts/
+│   ├── lib.mjs           # 共用模組：YAML 子集解析/config/walker/token/markdown 解析
 │   ├── inventory.mjs     # 文件清單＋CJK-aware token 量測＋成本試算輸入
-│   ├── links.mjs         # 死鏈/anchor/孤兒（從索引入口 transitive 可達性）
+│   ├── links.mjs         # 死鏈/anchor/孤兒（從索引＋entry 檔 transitive 可達性）
 │   └── freshness.mjs     # 日期訊號覆蓋率＋git log 真實日期對照
-├── docs/design.md        # 本檔
-├── NOTICE.md             # 出處致謝（ln-21 claim-ledger、Diátaxis、HumanLayer）
+├── tests/                # node --test；fixtures/basic/ 迷你目標 repo
+├── docs/
+│   ├── design.md         # 本檔
+│   ├── how-to.md         # 常見開發任務（加維度/改 rubric/擴充 lib）
+│   └── superpowers/      # 歷史實作 plan（.docgrad.yml 列 exclude）
+├── .docgrad.yml          # 本 repo 自己的 docgrad 設定（dogfood）
+├── NOTICE.md             # 出處致謝（ln-21 claim-ledger、Diátaxis、HumanLayer、impeccable）
+├── LICENSE               # MIT
 └── README.md             # 安裝方式（clone 到 ~/.claude/skills/docgrad）
 ```
 
