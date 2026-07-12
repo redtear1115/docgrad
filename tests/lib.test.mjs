@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseYamlSubset, loadConfig, resolveRoot, collectFiles, estimateTokens, githubSlug, extractHeadings, extractLinks } from '../scripts/lib.mjs';
+import { parseYamlSubset, loadConfig, resolveRoot, collectFiles, estimateTokens, githubSlug, extractHeadings, extractLinks, extractClaimedDate } from '../scripts/lib.mjs';
 import { fileURLToPath } from 'node:url';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/basic/', import.meta.url));
@@ -110,4 +110,13 @@ test('extractLinks: 抓 inline link、跳過 code fence', () => {
     { target: 'x.md', line: 1 },
     { target: 'p.png', line: 5 },
   ]);
+});
+
+test('extractClaimedDate: frontmatter / heading-line / none', () => {
+  const fm = '---\ntitle: x\nlast_updated: 2026-07-01\n---\n# T\n';
+  assert.equal(extractClaimedDate(fm, { convention: 'frontmatter', field: 'last_updated' }), '2026-07-01');
+  assert.equal(extractClaimedDate('# T\n', { convention: 'frontmatter', field: 'last_updated' }), null);
+  const hl = '# T\n\n> Last updated: 2026-06-15\n';
+  assert.equal(extractClaimedDate(hl, { convention: 'heading-line', field: 'Last updated:' }), '2026-06-15');
+  assert.equal(extractClaimedDate(hl, { convention: 'none', field: null }), null);
 });

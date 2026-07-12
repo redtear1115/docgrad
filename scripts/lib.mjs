@@ -201,3 +201,26 @@ export function extractLinks(text) {
   });
   return links;
 }
+
+// --- 新鮮度日期抽取 ----
+
+const DATE_RE = /(\d{4}-\d{2}-\d{2})/;
+
+export function extractClaimedDate(text, freshness) {
+  if (freshness.convention === 'frontmatter') {
+    const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (!fm) return null;
+    const line = fm[1].split(/\r?\n/).find((l) => l.trimStart().startsWith(`${freshness.field}:`));
+    const m = line && line.match(DATE_RE);
+    return m ? m[1] : null;
+  }
+  if (freshness.convention === 'heading-line') {
+    for (const line of text.split(/\r?\n/).slice(0, 30)) {
+      if (line.includes(freshness.field)) {
+        const m = line.match(DATE_RE);
+        if (m) return m[1];
+      }
+    }
+  }
+  return null;
+}
