@@ -21,7 +21,7 @@ license: Apache 2.0. See NOTICE.md for attribution.
 | `audit` | 先讀 [reference/rubric.md](reference/rubric.md)，再照 [reference/audit.md](reference/audit.md) 跑（純報告，不改檔） |
 | `improve` | 先讀 rubric.md，再照 [reference/improve.md](reference/improve.md) 跑一輪 |
 | `loop` | 同 improve，反覆到停止條件 |
-| `report` | 讀目標 repo `.docgrad/scorecard-latest.md` 重印＋用 `.docgrad/history.jsonl` 畫歷輪分數走勢表；檔案不存在 → 提示先跑 audit/improve |
+| `report` | 讀目標 repo `.docgrad/scorecard-latest.md` 重印＋用 `.docgrad/history.jsonl` 畫歷輪分數走勢表；檔案不存在 → 提示先跑 improve/loop（audit 純報告不落檔） |
 
 ## Blockers（不可跳過）
 
