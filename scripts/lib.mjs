@@ -161,3 +161,43 @@ export function estimateTokens(text) {
   const cjk = (text.match(CJK_RE_G) || []).length;
   return Math.round(cjk * CJK_TOKENS_PER_CHAR + (text.length - cjk) / NON_CJK_CHARS_PER_TOKEN);
 }
+
+// --- markdown 解析 ------------------------------------------------------------
+
+export function githubSlug(heading) {
+  return heading
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+    .replace(/\s+/g, '-');
+}
+
+export function extractHeadings(text) {
+  const counts = new Map();
+  const slugs = new Set();
+  for (const line of text.split(/\r?\n/)) {
+    const m = line.match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
+    if (!m) continue;
+    const base = githubSlug(m[1].replace(/[*_`]/g, ''));
+    const n = counts.get(base) ?? 0;
+    counts.set(base, n + 1);
+    slugs.add(n === 0 ? base : `${base}-${n}`);
+  }
+  return slugs;
+}
+
+const LINK_RE = /!?\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+
+export function extractLinks(text) {
+  const links = [];
+  let inFence = false;
+  text.split(/\r?\n/).forEach((line, i) => {
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence;
+      return;
+    }
+    if (inFence) return;
+    for (const m of line.matchAll(LINK_RE)) links.push({ target: m[1], line: i + 1 });
+  });
+  return links;
+}

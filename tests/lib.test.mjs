@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseYamlSubset, loadConfig, resolveRoot, collectFiles, estimateTokens } from '../scripts/lib.mjs';
+import { parseYamlSubset, loadConfig, resolveRoot, collectFiles, estimateTokens, githubSlug, extractHeadings, extractLinks } from '../scripts/lib.mjs';
 import { fileURLToPath } from 'node:url';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/basic/', import.meta.url));
@@ -91,4 +91,23 @@ test('estimateTokens: ASCII 每 4 字元 1 token', () => {
 test('estimateTokens: CJK 每字 1.1 token', () => {
   assert.equal(estimateTokens('中文字'), 3); // round(3.3)
   assert.equal(estimateTokens('中'.repeat(10)), 11);
+});
+
+test('githubSlug: 小寫、去標點、空白轉連字號、CJK 保留', () => {
+  assert.equal(githubSlug('Docs index'), 'docs-index');
+  assert.equal(githubSlug('中文標題'), '中文標題');
+  assert.equal(githubSlug('API v2.0 (beta)'), 'api-v20-beta');
+});
+
+test('extractHeadings: 重複標題加序號後綴', () => {
+  const slugs = extractHeadings('# A\n## Setup\n## Setup\n');
+  assert.ok(slugs.has('a') && slugs.has('setup') && slugs.has('setup-1'));
+});
+
+test('extractLinks: 抓 inline link、跳過 code fence', () => {
+  const links = extractLinks('[a](x.md)\n```\n[no](skip.md)\n```\n![img](p.png)\n');
+  assert.deepEqual(links, [
+    { target: 'x.md', line: 1 },
+    { target: 'p.png', line: 5 },
+  ]);
 });
