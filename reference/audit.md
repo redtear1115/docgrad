@@ -1,5 +1,7 @@
 # audit — 單次全量評分
 
+> **Last updated:** 2026-07-12
+
 前置（blocker）：目標 repo 根目錄必須有 `.docgrad.yml`；沒有 → 停下，導向 `/docgrad init`。
 本流程**不修改任何檔案**、不寫任何狀態——純報告。評分前必先讀 [rubric.md](rubric.md)。
 

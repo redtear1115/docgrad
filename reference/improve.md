@@ -1,5 +1,7 @@
 # improve / loop — 收斂輪
 
+> **Last updated:** 2026-07-12
+
 `improve`＝跑一輪就停；`loop`＝反覆跑到停止條件。流程完全相同。
 
 ## 前置 blockers

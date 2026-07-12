@@ -1,5 +1,7 @@
 # docgrad
 
+> **Last updated:** 2026-07-12
+
 評估並收斂一個 repo 的文件體系（docs 目錄＋root 指引檔）作為 **AI agent context 來源**的品質。
 五維計星（完整性/正確性/新鮮度/連結度/一致性）＋token 經濟報告；`loop` 逐輪修 docs 直到達標。
 

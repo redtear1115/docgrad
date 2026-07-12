@@ -1,5 +1,7 @@
 # init — 一次性設定
 
+> **Last updated:** 2026-07-12
+
 目的：掃描目標 repo → 問卷確認 → 把 `.docgrad.yml` 寫進目標 repo 根目錄（進版控，團隊共用）。
 已有 `.docgrad.yml` 時重跑 init＝重新掃描，並以現有設定為問卷預設值。
 

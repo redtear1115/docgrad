@@ -1,0 +1,1 @@
+{"round": 1, "date": "2026-07-12", "dimension": "freshness", "scores": {"completeness": 3, "correctness": 3, "freshness": 4, "linkage": 4, "consistency": 3}, "notes": "6 檔補「Last updated:」行（git 真實日期 2026-07-12 backfill，零捏造）；rubric.md 僅加日期行未動錨點"}

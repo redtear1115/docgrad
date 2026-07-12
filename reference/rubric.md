@@ -1,5 +1,7 @@
 # docgrad rubric — 五維星等錨點
 
+> **Last updated:** 2026-07-12
+
 > 本檔是跨輪分數可比性的唯一依據。錨點寫死；任何修改都會讓歷史分數失去可比性，
 > 屬 breaking change，必須在 commit message 明示。
 

@@ -7,6 +7,8 @@ argument-hint: "[init · audit · improve · loop · report]"
 license: MIT. See NOTICE.md for attribution.
 ---
 
+> **Last updated:** 2026-07-12
+
 評估並收斂一個 repo 的文件體系（docs 目錄＋root 指引檔）作為 **AI agent context 來源**的品質：
 五維計星＋token 經濟報告；`loop` 逐輪修到達標。不評 prose 風格、不評 code、不碰 CI。
 
