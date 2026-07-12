@@ -79,7 +79,7 @@ scenario: "在 <某模組> 加一個典型新功能"  # token 經濟模擬用的
 language: zh-TW                    # 報告與 commit 語言
 ```
 
-上例為**說明用**；各欄位預設值以 `scripts/lib.mjs` 的 `DEFAULTS` 為權威（本檔不複述，避免漂移）。
+上例為**說明用**；各欄位預設值以 `scripts/lib.mjs › DEFAULTS` 為權威（本檔不複述，避免漂移）。
 
 repo 沒有 `.docgrad.yml` 時，`audit`/`improve`/`loop` 一律先導向 `init`（同 impeccable「PRODUCT.md 缺失就先 teach」的 blocker 模式）。
 
