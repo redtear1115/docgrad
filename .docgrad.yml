@@ -2,7 +2,7 @@
 docs_dirs: [docs/, reference/]
 entry_files: [README.md, SKILL.md]
 index_file: README.md
-exclude: [docs/superpowers/]
+exclude: []
 freshness:
   convention: heading-line
   field: "Last updated:"

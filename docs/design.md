@@ -1,6 +1,6 @@
 # docgrad — 專案文件綜合評估與收斂 skill 設計
 
-> **狀態**：已實作（2026-07-12 定案並完成 v0.1.0，實作計畫見 [docs/superpowers/plans/2026-07-12-docgrad-implementation.md](superpowers/plans/2026-07-12-docgrad-implementation.md)）
+> **狀態**：已實作（2026-07-12 定案並完成 v0.1.0）
 > **Last updated:** 2026-07-12
 
 ## 緣起
@@ -34,8 +34,7 @@ docgrad/
 ├── tests/                # node --test；fixtures/basic/ 迷你目標 repo
 ├── docs/
 │   ├── design.md         # 本檔
-│   ├── how-to.md         # 常見開發任務（加維度/改 rubric/擴充 lib）
-│   └── superpowers/      # 歷史實作 plan（.docgrad.yml 列 exclude）
+│   └── how-to.md         # 常見開發任務（加維度/改 rubric/擴充 lib）
 ├── .docgrad.yml          # 本 repo 自己的 docgrad 設定（dogfood）
 ├── NOTICE.md             # 出處致謝（ln-21 claim-ledger、Diátaxis、HumanLayer、impeccable）
 ├── LICENSE               # MIT
