@@ -84,7 +84,7 @@ repo 沒有 `.docgrad.yml` 時，`audit`/`improve`/`loop` 一律先導向 `init`
 
 ## 五維 rubric（錨點住 reference/rubric.md）
 
-分數要能跨輪比較，錨點必須寫死。各維 ★1–★5 錨點自實戰評比沉澱，摘要：
+分數要能跨輪比較，錨點必須寫死。各維 ★1–★5 錨點自實戰評比沉澱；凍結正文在 [reference/rubric.md](../reference/rubric.md)，本表僅摘要：
 
 | 維度 | ★3（及格）錨點 | ★5 錨點 | 量測方式 |
 |---|---|---|---|

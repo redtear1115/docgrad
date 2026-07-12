@@ -23,6 +23,7 @@ git clone <repo-url> ~/.claude/skills/docgrad
 | `/docgrad loop` | 反覆 improve 直到全維達標／plateau／需人裁決 |
 | `/docgrad report` | 重印最近 scorecard＋歷輪分數走勢 |
 
+路由與 blockers 的權威定義在 [SKILL.md](SKILL.md)，本表僅摘要。
 第一次先在目標 repo 跑 `/docgrad init`；`improve`/`loop` 的變更都 commit 在
 `docgrad/converge` branch，整批 review 後再合併。
 
