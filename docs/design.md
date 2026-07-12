@@ -5,7 +5,7 @@
 
 ## 緣起
 
-2026-07-10～07-11 對 store_center 與 kdan-workforce 兩個文件系統做了多輪「agentic development 視角」評比（完整性／正確性／新鮮度／連結度／一致性／token 經濟性），並在 kdan-workforce 實際走完「評分 → 改進建議 → #207 重組 → 重跑評分反超」的完整迴圈。本 skill 把那套實戰方法論沉澱成**通用、可安裝、可迭代**的工具：裝完之後對任一 repo 跑 `init` 指定文件夾與基本規則，然後 `loop` 逐輪修改 docs，直到各項指標達到目標星等（預設 4，可個別降到 3）。
+2026-07-10～07-11 對兩個實際文件系統做了多輪「agentic development 視角」評比（完整性／正確性／新鮮度／連結度／一致性／token 經濟性），並在其中一個實際走完「評分 → 改進建議 → 重組 → 重跑評分反超」的完整迴圈。本 skill 把那套實戰方法論沉澱成**通用、可安裝、可迭代**的工具：裝完之後對任一 repo 跑 `init` 指定文件夾與基本規則，然後 `loop` 逐輪修改 docs，直到各項指標達到目標星等（預設 4，可個別降到 3）。
 
 生態系調研（2026-07-12）確認無現成 skill 覆蓋此事：最接近的 `ln-21-documentation-auditor`（levnikolaevich/claude-code-skills，515★）在正確性 claim-ledger 與 git-blame 新鮮度上紮實但不碰 token 經濟與檢索紀律；`agnix`（432 條規則）只 lint CLAUDE.md/AGENTS.md 等 config 檔不評 docs 全體系。空白區＝**全 docs 體系的 token 經濟性、索引/檢索紀律、prose 規則降級成機械 gate**——正是本 skill 的差異化價值。
 
@@ -126,7 +126,7 @@ branch 隔離讓用戶可整批 review 再合併；每輪 commit 保證中斷可
 
 ## 畢業建議（報告固定尾節，不自動執行）
 
-達標後建議把可機械化的規則沉澱成該 repo 自己的 CI gate（死鏈/孤兒/新鮮度/入口檔預算——kdan-workforce `scripts/docs-gate.mjs` 模式），並說明 docgrad 的三支 scripts 可直接搬去改造。docgrad 只評分與修內容，**不碰目標 repo 的 CI 設定**。
+達標後建議把可機械化的規則沉澱成該 repo 自己的 CI gate（死鏈/孤兒/新鮮度/入口檔預算——`docs-gate.mjs` CI 模式），並說明 docgrad 的三支 scripts 可直接搬去改造。docgrad 只評分與修內容，**不碰目標 repo 的 CI 設定**。
 
 ## scripts 契約
 
@@ -138,9 +138,9 @@ branch 隔離讓用戶可整批 review 再合併；每輪 commit 保證中斷可
 
 ## 開放問題（實作時定案）
 
-- anchor slug 演算法對 CJK 標題的近似誤差（workforce 實戰為 WARN＋人工確認，沿用）。
+- anchor slug 演算法對 CJK 標題的近似誤差（實戰為 WARN＋人工確認，沿用）。
 - `correctness_sample` 的抽樣策略：純隨機 vs 加權（優先抽「宣稱具體符號/路徑」的段落）——傾向後者。
 
 ## 出處致謝（NOTICE.md 詳列）
 
-claim-ledger 正確性抽查借鑑 ln-21-documentation-auditor；文件類型學參照 Diátaxis；entry-file token 經濟觀點參照 HumanLayer〈Writing a Good CLAUDE.md〉；星等評比六維與 loop 方法論來自 2026-07-10/11 store_center × kdan-workforce 實戰評比。
+claim-ledger 正確性抽查借鑑 ln-21-documentation-auditor；文件類型學參照 Diátaxis；entry-file token 經濟觀點參照 HumanLayer〈Writing a Good CLAUDE.md〉；星等評比六維與 loop 方法論來自 2026-07-10/11 兩個實際文件系統的實戰評比。
