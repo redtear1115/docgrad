@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseYamlSubset, loadConfig, resolveRoot } from '../scripts/lib.mjs';
+import { parseYamlSubset, loadConfig, resolveRoot, collectFiles, estimateTokens } from '../scripts/lib.mjs';
+import { fileURLToPath } from 'node:url';
+
+const FIXTURE = fileURLToPath(new URL('./fixtures/basic/', import.meta.url));
 
 test('parseYamlSubset: 解析 .docgrad.yml 全樣板', () => {
   const doc = `
@@ -72,4 +75,20 @@ test('loadConfig: 未填欄位補預設值、巢狀深合併', () => {
 test('resolveRoot: --root 優先，否則 cwd', () => {
   assert.equal(resolveRoot(['--root', '/tmp/x']), path.resolve('/tmp/x'));
   assert.equal(resolveRoot([]), process.cwd());
+});
+
+test('collectFiles: 排除 exclude、含 entry_files、路徑排序', () => {
+  const cfg = loadConfig(FIXTURE);
+  const { included, excluded } = collectFiles(FIXTURE, cfg);
+  assert.deepEqual(included, ['CLAUDE.md', 'docs/README.md', 'docs/guide.md', 'docs/orphan.md']);
+  assert.deepEqual(excluded, ['docs/archive/old.md']);
+});
+
+test('estimateTokens: ASCII 每 4 字元 1 token', () => {
+  assert.equal(estimateTokens('a'.repeat(40)), 10);
+});
+
+test('estimateTokens: CJK 每字 1.1 token', () => {
+  assert.equal(estimateTokens('中文字'), 3); // round(3.3)
+  assert.equal(estimateTokens('中'.repeat(10)), 11);
 });

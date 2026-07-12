@@ -112,3 +112,52 @@ export function fail(message) {
   process.stderr.write(`docgrad: ${message}\n`);
   process.exit(1);
 }
+
+// --- 檔案盤點 ----------------------------------------------------------------
+
+const MD_EXTENSIONS = new Set(['.md', '.mdx', '.markdown']);
+const ALWAYS_SKIP_DIRS = new Set(['node_modules', '.git']);
+
+function toPosix(p) {
+  return p.split(path.sep).join('/');
+}
+
+function walkMarkdown(absDir, rootDir, out) {
+  for (const entry of fs.readdirSync(absDir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (ALWAYS_SKIP_DIRS.has(entry.name)) continue;
+      walkMarkdown(path.join(absDir, entry.name), rootDir, out);
+    } else if (MD_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+      out.push(toPosix(path.relative(rootDir, path.join(absDir, entry.name))));
+    }
+  }
+}
+
+export function collectFiles(rootDir, config) {
+  const all = [];
+  for (const dir of config.docs_dirs) {
+    const abs = path.join(rootDir, dir);
+    if (fs.existsSync(abs)) walkMarkdown(abs, rootDir, all);
+  }
+  for (const f of config.entry_files) {
+    if (fs.existsSync(path.join(rootDir, f)) && !all.includes(f)) all.push(f);
+  }
+  const isExcluded = (p) =>
+    config.exclude.some((ex) => p === ex || p.startsWith(ex.endsWith('/') ? ex : `${ex}/`));
+  return {
+    included: all.filter((p) => !isExcluded(p)).sort(),
+    excluded: all.filter(isExcluded).sort(),
+  };
+}
+
+// --- token 估算（啟發式係數：CJK 每字 1.1、其餘每 4 字元 1）------------------
+
+export const CJK_TOKENS_PER_CHAR = 1.1;
+export const NON_CJK_CHARS_PER_TOKEN = 4;
+export const CJK_RE = /[぀-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]/;
+const CJK_RE_G = new RegExp(CJK_RE.source, 'g');
+
+export function estimateTokens(text) {
+  const cjk = (text.match(CJK_RE_G) || []).length;
+  return Math.round(cjk * CJK_TOKENS_PER_CHAR + (text.length - cjk) / NON_CJK_CHARS_PER_TOKEN);
+}

@@ -1,0 +1,16 @@
+docs_dirs: [docs/]
+entry_files: [CLAUDE.md]
+index_file: docs/README.md
+exclude: [docs/archive/]
+freshness:
+  convention: heading-line
+  field: "Last updated:"
+targets:
+  completeness: 4
+  correctness: 4
+  freshness: 4
+  linkage: 4
+  consistency: 4
+correctness_sample: 4
+scenario: "在 guide 模組加一個典型新功能"
+language: zh-TW
