@@ -4,7 +4,7 @@ description: Use when the user wants to audit, score, grade, improve, or converg
 version: 0.1.0
 user-invocable: true
 argument-hint: "[init · audit · improve · loop · report]"
-license: Apache 2.0. See NOTICE.md for attribution.
+license: MIT. See NOTICE.md for attribution.
 ---
 
 評估並收斂一個 repo 的文件體系（docs 目錄＋root 指引檔）作為 **AI agent context 來源**的品質：
