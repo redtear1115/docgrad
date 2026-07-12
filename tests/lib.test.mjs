@@ -52,24 +52,42 @@ test('parseYamlSubset: 非法縮排丟錯', () => {
 
 test('loadConfig: 缺檔丟導向 init 的錯誤', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-'));
-  assert.throws(() => loadConfig(tmp), /請先執行 \/docgrad init/);
+  try {
+    assert.throws(() => loadConfig(tmp), /請先執行 \/docgrad init/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig: convention 需要 field 而未設定時丟錯', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-'));
+  try {
+    fs.writeFileSync(path.join(tmp, '.docgrad.yml'), 'freshness:\n  convention: heading-line\n');
+    assert.throws(() => loadConfig(tmp), /freshness\.field/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test('loadConfig: 未填欄位補預設值、巢狀深合併', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-'));
-  fs.writeFileSync(
-    path.join(tmp, '.docgrad.yml'),
-    'docs_dirs: [documentation/]\nfreshness:\n  convention: frontmatter\n  field: last_updated\n'
-  );
-  const cfg = loadConfig(tmp);
-  assert.deepEqual(cfg.docs_dirs, ['documentation/']);
-  assert.deepEqual(cfg.entry_files, []);
-  assert.equal(cfg.index_file, null);
-  assert.equal(cfg.targets.completeness, 4);
-  assert.equal(cfg.freshness.convention, 'frontmatter');
-  assert.equal(cfg.freshness.stale_after_days, 60); // 預設值沒被 freshness 覆寫吃掉
-  assert.equal(cfg.correctness_sample, 8);
-  assert.equal(cfg.language, 'zh-TW');
+  try {
+    fs.writeFileSync(
+      path.join(tmp, '.docgrad.yml'),
+      'docs_dirs: [documentation/]\nfreshness:\n  convention: frontmatter\n  field: last_updated\n'
+    );
+    const cfg = loadConfig(tmp);
+    assert.deepEqual(cfg.docs_dirs, ['documentation/']);
+    assert.deepEqual(cfg.entry_files, []);
+    assert.equal(cfg.index_file, null);
+    assert.equal(cfg.targets.completeness, 4);
+    assert.equal(cfg.freshness.convention, 'frontmatter');
+    assert.equal(cfg.freshness.stale_after_days, 60); // 預設值沒被 freshness 覆寫吃掉
+    assert.equal(cfg.correctness_sample, 8);
+    assert.equal(cfg.language, 'zh-TW');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test('resolveRoot: --root 優先，否則 cwd', () => {

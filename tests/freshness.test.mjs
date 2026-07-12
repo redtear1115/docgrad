@@ -45,6 +45,30 @@ test('freshness: coverage/stale/mismatch（DOCGRAD_TODAY 固定今天）', () =>
   ]);
 });
 
+test('freshness: convention none → 零訊號、不炸（CLI e2e）', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-none-'));
+  try {
+    fs.cpSync(FIXTURE, tmp, { recursive: true });
+    fs.writeFileSync(
+      path.join(tmp, '.docgrad.yml'),
+      'docs_dirs: [docs/]\nentry_files: [CLAUDE.md]\nexclude: [docs/archive/]\nfreshness:\n  convention: none\n'
+    );
+    const r = spawnSync(process.execPath, [SCRIPT, '--root', tmp], {
+      encoding: 'utf8',
+      env: { ...process.env, DOCGRAD_TODAY: '2026-09-01' },
+    });
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.convention, 'none');
+    assert.equal(out.files_with_signal, 0);
+    assert.equal(out.coverage_ratio, 0);
+    assert.deepEqual(out.stale, []); // 非 git、無 claimed → age 皆 null
+    assert.deepEqual(out.mismatches, []);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('freshness: 非 git repo → actual_git 為 null、不炸', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-nogit-'));
   fs.cpSync(FIXTURE, tmp, { recursive: true });

@@ -1,6 +1,6 @@
 # docgrad — 專案文件綜合評估與收斂 skill 設計
 
-> **狀態**：draft（2026-07-12 brainstorm 定案，待實作）
+> **狀態**：已實作（2026-07-12 定案並完成 v0.1.0，實作計畫見 [docs/superpowers/plans/2026-07-12-docgrad-implementation.md](superpowers/plans/2026-07-12-docgrad-implementation.md)）
 > **Last updated:** 2026-07-12
 
 ## 緣起
@@ -115,7 +115,7 @@ branch 隔離讓用戶可整批 review 再合併；每輪 commit 保證中斷可
 三支皆為零依賴 Node（≥18）腳本，讀 `.docgrad.yml`，輸出 JSON 到 stdout（LLM 消費），錯誤走 stderr＋非零 exit code：
 
 - `inventory.mjs` → `{files: [{path, bytes, tokens_est, type}], totals, entry_cost, pollution: {excluded_tokens, ratio}}`
-- `links.mjs` → `{dead_links: [], bad_anchors: [], orphans: [], reachable_ratio}`（可達性從 `index_file` 起算 transitive）
+- `links.mjs` → `{dead_links: [], bad_anchors: [], orphans: [], reachable_ratio}`（可達性從 `index_file`＋`entry_files` 起算 transitive——entry 檔 always-loaded，定義上可達）
 - `freshness.mjs` → `{coverage_ratio, stale: [{path, claimed, actual_git, age_days}], mismatches}`
 
 ## 開放問題（實作時定案）

@@ -93,12 +93,16 @@ export function loadConfig(rootDir) {
     throw new Error(`找不到 ${CONFIG_FILENAME}（root: ${rootDir}），請先執行 /docgrad init`);
   }
   const parsed = parseYamlSubset(fs.readFileSync(file, 'utf8'));
-  return {
+  const config = {
     ...DEFAULTS,
     ...parsed,
     freshness: { ...DEFAULTS.freshness, ...(parsed.freshness ?? {}) },
     targets: { ...DEFAULTS.targets, ...(parsed.targets ?? {}) },
   };
+  if (['frontmatter', 'heading-line'].includes(config.freshness.convention) && !config.freshness.field) {
+    throw new Error(`freshness.convention 為 ${config.freshness.convention} 時必須設定 freshness.field`);
+  }
+  return config;
 }
 
 // --- CLI 共用 ---------------------------------------------------------------
@@ -154,7 +158,7 @@ export function collectFiles(rootDir, config) {
 
 export const CJK_TOKENS_PER_CHAR = 1.1;
 export const NON_CJK_CHARS_PER_TOKEN = 4;
-export const CJK_RE = /[぀-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]/;
+export const CJK_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]/;
 const CJK_RE_G = new RegExp(CJK_RE.source, 'g');
 
 export function estimateTokens(text) {
@@ -202,7 +206,7 @@ export function extractLinks(text) {
   return links;
 }
 
-// --- 新鮮度日期抽取 ----
+// --- 新鮮度日期抽取 --------------------------------------------------------
 
 const DATE_RE = /(\d{4}-\d{2}-\d{2})/;
 
