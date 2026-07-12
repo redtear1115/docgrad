@@ -1,0 +1,17 @@
+# .docgrad.yml — docgrad 設定（進版控，團隊共用）
+docs_dirs: [docs/, reference/]
+entry_files: [README.md, SKILL.md]
+index_file: README.md
+exclude: [docs/superpowers/]
+freshness:
+  convention: heading-line
+  field: "Last updated:"
+targets:
+  completeness: 4
+  correctness: 4
+  freshness: 4
+  linkage: 4
+  consistency: 4
+correctness_sample: 8
+scenario: "為 docgrad 新增一個評分維度"
+language: zh-TW
