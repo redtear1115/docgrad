@@ -1,16 +1,16 @@
-# docgrad scorecard — docgrad @ 2026-07-12（第 7 輪收斂後・連結度 ★5）
+# docgrad scorecard — docgrad @ 2026-07-12（第 8 輪收斂後・四維 ★5，新鮮度 plateau）
 
 | 維度 | 星等 | 目標 | 主要失分點 |
 |---|---|---|---|
 | 完整性 | ★5 | ★4 | ✅ 超標（第 5 輪）。README onboarding walkthrough＋how-to 退役慣例 |
 | 正確性 | ★5 | ★4 | ✅ 超標（第 6 輪）。ledger 8/8；權威列表 refer-to-code 不複述 |
-| 新鮮度 | ★4 | ★4 | ✅ 達標。coverage 100%、零 mismatch；★5 需「隨改隨更」機械 gate（loop 不建 gate → 結構性 plateau） |
-| 連結度 | ★5 | ★4 | ✅ 超標（第 7 輪）。零死鏈孤兒＋單一索引全可達＋`path › symbol()` 錨點慣例明文並套用 |
-| 一致性 | ★4 | ★4 | ✅ 達標（第 4 輪）。★5 需衝突仲裁慣例明文 |
+| 新鮮度 | ★4 | ★4 | ⏸ **plateau**。coverage 100%、零 mismatch；★5 需「同 MR 隨改隨更」機械 gate，而 loop 依 Blocker #3 不建 gate → 結構性上限，需人決策（見下） |
+| 連結度 | ★5 | ★4 | ✅ 超標（第 7 輪）。零死鏈孤兒＋單一索引全可達＋`path › symbol()` 錨點慣例 |
+| 一致性 | ★5 | ★4 | ✅ 超標（第 8 輪）。一主題一權威（指令表/loop 皆指權威）＋衝突仲裁慣例明文 |
 
 ## Token 經濟（不計星）
 - 固定成本：~1,736 tokens（README 1,023＋SKILL 713）
-- 邊際成本（scenario「為 docgrad 新增一個評分維度」）：~5,300 tokens（how-to → design → rubric → audit［→ improve］）
+- 邊際成本（scenario「為 docgrad 新增一個評分維度」）：~5,400 tokens（how-to → design → rubric → audit［→ improve］）
 - 污染面：0%（docs/superpowers/ 已移除）
 
 ## 歷輪走勢
@@ -24,3 +24,10 @@
 | 5（完整性→★5） | **5** | 4 | 4 | 4 | 4 |
 | 6（正確性→★5） | 5 | **5** | 4 | 4 | 4 |
 | 7（連結度→★5） | 5 | 5 | 4 | **5** | 4 |
+| 8（一致性→★5） | 5 | 5 | 4 | 5 | **5** |
+
+## 停止：新鮮度 ★5 結構性 plateau
+新鮮度 ★5 錨點要求「日期訊號全覆蓋＋『同 MR 隨改隨更』有**機械 gate** 強制＋生命週期管理」。
+前後兩項已滿足（coverage 100%、退役/superseded 有慣例），唯「機械 gate」需在 repo 建 CI／pre-commit
+檢查——而 docgrad Blocker #3 明訂 loop「絕不碰目標 repo CI／不建 gate」，這是 docgrad 的畢業邊界
+（機械 gate 交團隊決定嚴格度）。故新鮮度 ★5 非 loop 能自達，需使用者授權跨越該邊界後才解得開。

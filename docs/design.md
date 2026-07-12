@@ -53,7 +53,7 @@ skill 名稱＝目錄名＝`docgrad`（安裝進 `~/.claude/skills/docgrad` 或 
 | `/docgrad loop` | 反覆 improve 直到停止條件（見下） |
 | `/docgrad report` | 只重印最近一次 scorecard＋歷輪分數走勢 |
 
-無參數時印指令表（同 impeccable 的 routing rule 1）。
+無參數時印指令表（同 impeccable 的 routing rule 1）。路由與 blockers 的權威定義在 [SKILL.md](../SKILL.md)，本表為設計摘要。
 
 ## `init` 與 `.docgrad.yml`
 
@@ -97,9 +97,19 @@ repo 沒有 `.docgrad.yml` 時，`audit`/`improve`/`loop` 一律先導向 `init`
 
 **Token 經濟（只報告，不計星）**：①固定成本＝entry_files token 量②邊際成本＝按 `scenario` 沿路由規則模擬必讀路徑的 token 合計③污染面＝exclude 目錄與 WIP 佔語料比例。CJK-aware 估算（中文 token/byte 密度與英文不同，inventory.mjs 內建係數）。報告附「損益兩平」解讀（固定 vs 邊際的任務組成權衡）。
 
+## 衝突仲裁慣例
+
+同一事實在多份文件出現時，以下規則決定誰為準（dogfood 一致性 ★5「一主題一權威＋仲裁明文」）：
+
+1. **doc vs code**：一律以 code 為權威；docs 與程式碼不符時改 docs 對齊 code（見 [reference/audit.md](../reference/audit.md) claim-ledger）。
+2. **doc vs doc**：newer wins——以各檔 `> **Last updated:**` 較新者為準，舊處改「摘要＋連結」指向權威，不留兩份全文。
+3. **無法仲裁**（兩文件互斥且 code 無關）：不臆測，走 loop「需人裁決」停止條件（見 [reference/improve.md](../reference/improve.md)）。
+
+一主題一權威：每個關鍵事實只在一處展開，其餘只留摘要＋連結——指令表權威在 [SKILL.md](../SKILL.md)、rubric 錨點權威在 [reference/rubric.md](../reference/rubric.md)、code 契約權威在 `scripts/`。
+
 ## `loop` 機制（核心需求：裝完就能一直跑到達標）
 
-每輪（＝`improve` 一次）：
+操作流程的權威在 [reference/improve.md](../reference/improve.md)，本節為設計說明。每輪（＝`improve` 一次）：
 
 1. 跑三支腳本＋LLM 判斷維度 → scorecard。
 2. 挑**最低分維度**（同分取 rubric 表順序靠前者），從該維的失分點生成一批 focused 修改（一輪只修一個維度，避免全量改一半留矛盾——收斂不是重寫）。
