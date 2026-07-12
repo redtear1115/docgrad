@@ -72,3 +72,43 @@ export function parseYamlSubset(text) {
   }
   return root;
 }
+
+// --- 設定載入 --------------------------------------------------------------
+
+const DEFAULTS = {
+  docs_dirs: ['docs/'],
+  entry_files: [],
+  index_file: null,
+  exclude: [],
+  freshness: { convention: 'none', field: null, stale_after_days: 60 },
+  targets: { completeness: 4, correctness: 4, freshness: 4, linkage: 4, consistency: 4 },
+  correctness_sample: 8,
+  scenario: null,
+  language: 'zh-TW',
+};
+
+export function loadConfig(rootDir) {
+  const file = path.join(rootDir, CONFIG_FILENAME);
+  if (!fs.existsSync(file)) {
+    throw new Error(`找不到 ${CONFIG_FILENAME}（root: ${rootDir}），請先執行 /docgrad init`);
+  }
+  const parsed = parseYamlSubset(fs.readFileSync(file, 'utf8'));
+  return {
+    ...DEFAULTS,
+    ...parsed,
+    freshness: { ...DEFAULTS.freshness, ...(parsed.freshness ?? {}) },
+    targets: { ...DEFAULTS.targets, ...(parsed.targets ?? {}) },
+  };
+}
+
+// --- CLI 共用 ---------------------------------------------------------------
+
+export function resolveRoot(argv = process.argv.slice(2)) {
+  const i = argv.indexOf('--root');
+  return path.resolve(i >= 0 && argv[i + 1] ? argv[i + 1] : process.cwd());
+}
+
+export function fail(message) {
+  process.stderr.write(`docgrad: ${message}\n`);
+  process.exit(1);
+}

@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseYamlSubset } from '../scripts/lib.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { parseYamlSubset, loadConfig, resolveRoot } from '../scripts/lib.mjs';
 
 test('parseYamlSubset: 解析 .docgrad.yml 全樣板', () => {
   const doc = `
@@ -42,4 +45,31 @@ test('parseYamlSubset: block list 與引號內的 #、:', () => {
 
 test('parseYamlSubset: 非法縮排丟錯', () => {
   assert.throws(() => parseYamlSubset('  orphan_indent: 1\n'), /縮排/);
+});
+
+test('loadConfig: 缺檔丟導向 init 的錯誤', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-'));
+  assert.throws(() => loadConfig(tmp), /請先執行 \/docgrad init/);
+});
+
+test('loadConfig: 未填欄位補預設值、巢狀深合併', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-'));
+  fs.writeFileSync(
+    path.join(tmp, '.docgrad.yml'),
+    'docs_dirs: [documentation/]\nfreshness:\n  convention: frontmatter\n  field: last_updated\n'
+  );
+  const cfg = loadConfig(tmp);
+  assert.deepEqual(cfg.docs_dirs, ['documentation/']);
+  assert.deepEqual(cfg.entry_files, []);
+  assert.equal(cfg.index_file, null);
+  assert.equal(cfg.targets.completeness, 4);
+  assert.equal(cfg.freshness.convention, 'frontmatter');
+  assert.equal(cfg.freshness.stale_after_days, 60); // 預設值沒被 freshness 覆寫吃掉
+  assert.equal(cfg.correctness_sample, 8);
+  assert.equal(cfg.language, 'zh-TW');
+});
+
+test('resolveRoot: --root 優先，否則 cwd', () => {
+  assert.equal(resolveRoot(['--root', '/tmp/x']), path.resolve('/tmp/x'));
+  assert.equal(resolveRoot([]), process.cwd());
 });
