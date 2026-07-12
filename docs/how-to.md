@@ -21,3 +21,16 @@
 - `scripts/lib.mjs` 是三支 CLI 的共用模組；函式契約以 code 為權威（refer-to-code，docs 不複述簽名）。
 - YAML 解析是**兩層子集**（頂層 scalar／inline list／block list＋一層 nested map），新設定欄位不要超出這個結構。
 - 開發驗證：`node --test tests/*.test.mjs`（Node ≥18；v25 起目錄參數不可用）。
+
+## 標註退役／被取代的文件
+
+docgrad 對別的 repo 評「退役機制有無標註」，自家 docs 也照做（dogfood）：
+
+- **整份文件被取代**：頂端加狀態橫幅 `> **狀態**：已退役 — 勿用於新功能，改用〈對應新文件〉`，
+  保留檔案讓舊連結不斷、讓讀者知道往哪去。
+- **整塊機制移除**：直接刪檔（例：`docs/superpowers/` 歷史 plan 已移除），並在**同一 commit**
+  清掉其他文件對它的殘留引用——移除不留死鏈才算乾淨。
+- **段落層級的舊敘述**：就地改寫為現況，或標「（已於 vX 移除）」，不留無標註的殭屍描述。
+
+判準：留著有導引價值（舊連結多、遷移路徑重要）就標橫幅；純歷史包袱就刪乾淨。這與新鮮度的
+生命週期管理（superseded 即處理）同源，錨點見 [reference/rubric.md](../reference/rubric.md)。
