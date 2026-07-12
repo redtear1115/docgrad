@@ -32,4 +32,4 @@ git clone <repo-url> ~/.claude/skills/docgrad
 node --test tests/*.test.mjs
 ```
 
-設計文件：[docs/design.md](docs/design.md)。
+設計文件：[docs/design.md](docs/design.md)；常見開發任務：[docs/how-to.md](docs/how-to.md)。
