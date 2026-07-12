@@ -79,6 +79,8 @@ scenario: "在 <某模組> 加一個典型新功能"  # token 經濟模擬用的
 language: zh-TW                    # 報告與 commit 語言
 ```
 
+上例為**說明用**；各欄位預設值以 `scripts/lib.mjs` 的 `DEFAULTS` 為權威（本檔不複述，避免漂移）。
+
 repo 沒有 `.docgrad.yml` 時，`audit`/`improve`/`loop` 一律先導向 `init`（同 impeccable「PRODUCT.md 缺失就先 teach」的 blocker 模式）。
 
 ## 五維 rubric（錨點住 reference/rubric.md）
@@ -118,7 +120,7 @@ branch 隔離讓用戶可整批 review 再合併；每輪 commit 保證中斷可
 
 ## scripts 契約
 
-三支皆為零依賴 Node（≥18）腳本，讀 `.docgrad.yml`，輸出 JSON 到 stdout（LLM 消費），錯誤走 stderr＋非零 exit code：
+三支皆為零依賴 Node（≥18）腳本，讀 `.docgrad.yml`，輸出 JSON 到 stdout（LLM 消費），錯誤走 stderr＋非零 exit code。以下 JSON 形狀為**說明用摘要**；欄位全集以實跑腳本輸出為權威（本檔不複述完整 schema，避免與 `scripts/` 漂移）：
 
 - `inventory.mjs` → `{files: [{path, bytes, tokens_est, type}], totals, entry_cost, pollution: {excluded_tokens, ratio}}`
 - `links.mjs` → `{dead_links: [], bad_anchors: [], orphans: [], reachable_ratio}`（可達性從 `index_file`＋`entry_files` 起算 transitive——entry 檔 always-loaded，定義上可達）
