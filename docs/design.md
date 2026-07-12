@@ -20,6 +20,9 @@
 
 ```
 docgrad/
+├── .claude-plugin/
+│   ├── plugin.json       # plugin manifest：版本權威（semver，更新通知按此比對）
+│   └── marketplace.json  # 讓本 repo 可直接被 add 為 marketplace
 ├── SKILL.md              # 路由：init · audit · improve · loop · report
 ├── reference/
 │   ├── init.md           # 掃描＋問卷 → 寫入目標 repo 的 .docgrad.yml
@@ -37,6 +40,7 @@ docgrad/
 │   ├── design.md         # 本檔
 │   └── how-to.md         # 常見開發任務（加維度/改 rubric/擴充 lib）
 ├── .docgrad.yml          # 本 repo 自己的 docgrad 設定（dogfood）
+├── CHANGELOG.md          # 各版變更；版號語意見 docs/how-to.md §發版
 ├── NOTICE.md             # 出處致謝（ln-21 claim-ledger、Diátaxis、HumanLayer、impeccable）
 ├── LICENSE               # MIT
 └── README.md             # 安裝方式（clone 到 ~/.claude/skills/docgrad）

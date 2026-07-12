@@ -22,6 +22,20 @@
 - YAML 解析是**兩層子集**（頂層 scalar／inline list／block list＋一層 nested map），新設定欄位不要超出這個結構。
 - 開發驗證：`node --test tests/*.test.mjs`（Node ≥18；v25 起目錄參數不可用）。
 
+## 發版
+
+版本權威＝[.claude-plugin/plugin.json](../.claude-plugin/plugin.json) 的 `version`（semver；
+SKILL.md frontmatter 不放版號——官方規格無此欄位、無機制消費）。plugin 更新通知按此欄位比對。
+
+版號語意（docgrad 特化）：
+
+- **major**：rubric 星等錨點的語意變更——歷史分數失去可比性，受影響 repo 的收斂輪應從基線重新起算。
+- **minor**：新維度、新量測訊號、新指令、`.docgrad.yml` 新欄位（向後相容）。
+- **patch**：修錯、文件修正、量測腳本 bug fix（不改判定語意）。
+
+發版步驟：bump `plugin.json` version → [CHANGELOG.md](../CHANGELOG.md) 補一節（日期＋變更清單，
+major 要明示 breaking 與重新起算建議）→ commit → `git tag vX.Y.Z` → push（含 tag）。
+
 ## 引用 code 的錨點慣例
 
 docs 指到 code 時用 `` `path › symbol()` ``，不用行號——行號一改就漂移：

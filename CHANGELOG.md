@@ -1,0 +1,21 @@
+# Changelog
+
+版本權威在 [.claude-plugin/plugin.json](.claude-plugin/plugin.json) 的 `version`；本檔記錄各版變更。
+版號語意（semver，docgrad 特化）見 [docs/how-to.md](docs/how-to.md) §發版。
+
+## 0.2.0 — 2026-07-13
+
+- **新增**：第四支量測腳本 `scripts/coverage.mjs`（覆蓋漂移）——git 比對每個 code 區域與提及它的
+  docs 的時滯，機械偵測 `undocumented`／`drifted` 區域，餵給完整性定星。修掉「新功能長在既有
+  模組內部而沒寫文件時，完整性 ★5 虛掛不動」的漏洞。
+- **設定**：`.docgrad.yml` 新增 `src_dirs` 與 `coverage:`（`drift_after_days: 30`、`min_commits: 3`）。
+  既有 repo 需重跑 `/docgrad init` 或手動補 `src_dirs`；未設定時完整性降級為純 LLM 對照（同舊版行為）。
+- **量測方法變更（非錨點變更）**：rubric 完整性「量測」行改以 coverage 輸出為機械基礎；
+  星等錨點一字未動，歷史分數可比性保留。
+- **發佈**：plugin 化（`.claude-plugin/plugin.json`＋`marketplace.json`），支援
+  `/plugin marketplace add redtear1115/docgrad` 安裝與版本更新通知。
+
+## 0.1.0 — 2026-07-12
+
+- 首發：五維 rubric（完整性/正確性/新鮮度/連結度/一致性）＋token 經濟報告；
+  `init · audit · improve · loop · report` 五指令；三支零依賴量測腳本（inventory/links/freshness）。

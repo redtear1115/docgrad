@@ -11,9 +11,23 @@
 
 ### 0. 安裝（一次）
 
-```bash
-git clone <repo-url> ~/.claude/skills/docgrad
+**方式 A —— plugin（建議，有版本更新通知）：**
+
 ```
+/plugin marketplace add redtear1115/docgrad
+/plugin install docgrad@docgrad
+```
+
+之後 `/plugin` 的 Marketplaces 頁會顯示可更新版本（也可對此 marketplace 開啟自動更新）；
+版本號與變更內容見 [CHANGELOG.md](CHANGELOG.md)。
+
+**方式 B —— git clone（手動更新）：**
+
+```bash
+git clone https://github.com/redtear1115/docgrad ~/.claude/skills/docgrad
+```
+
+更新＝到該目錄 `git pull`；是否有新版自己對 [CHANGELOG.md](CHANGELOG.md)。
 
 需求：Claude Code、Node.js ≥18（四支量測腳本零依賴）。裝好後在任一 repo 以 `/docgrad` 呼叫。
 

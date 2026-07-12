@@ -1,0 +1,13 @@
+{
+  "name": "docgrad",
+  "owner": {
+    "name": "Ray Lee"
+  },
+  "plugins": [
+    {
+      "name": "docgrad",
+      "source": "./",
+      "description": "文件體系評分與收斂：五維計星＋token 經濟報告＋loop 逐輪修到達標。"
+    }
+  ]
+}
