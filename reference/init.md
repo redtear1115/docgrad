@@ -1,6 +1,6 @@
 # init — 一次性設定
 
-> **Last updated:** 2026-07-12
+> **Last updated:** 2026-07-13
 
 目的：掃描目標 repo → 問卷確認 → 把 `.docgrad.yml` 寫進目標 repo 根目錄（進版控，團隊共用）。
 已有 `.docgrad.yml` 時重跑 init＝重新掃描，並以現有設定為問卷預設值。
@@ -13,6 +13,7 @@
 | 入口檔（always-loaded） | Glob root 與 .github/ | `CLAUDE.md`、`AGENTS.md`、`GEMINI.md`、`.cursorrules`、`.github/copilot-instructions.md` |
 | 索引檔 | docs 目錄內 | `README.md`、`index.md`、`TOC.md` |
 | 排除目錄 | 名稱樣式＋.gitignore | `archive/`、`deprecated/`、`generated` 標記、gitignored 的 WIP 目錄 |
+| src 目錄 | Glob 頂層目錄 | `src/`、`lib/`、`app/`、`packages/`；其他含程式碼的頂層目錄 |
 | 新鮮度慣例 | 抽 5 份 docs 檔看頭部 | frontmatter 日期欄位／「Last updated:」類行／無 |
 
 ## 2. 問卷（AskUserQuestion，逐項帶掃描結果當預設選項）
@@ -25,6 +26,7 @@
 6. `targets`：預設全 4，問「哪些維度願意降到 3？」（多選）
 7. `scenario`：請使用者用一句話描述該 repo 的代表性開發任務（token 邊際成本模擬用）
 8. `correctness_sample`：預設 8；大型 docs 體系（>50 檔）建議 12
+9. `src_dirs`（多選，帶掃描候選；覆蓋漂移偵測用）：選空 → 完整性降級為純 LLM 對照（coverage.mjs 不量測、只輸出 note）
 
 ## 3. 寫檔
 
@@ -36,9 +38,13 @@ docs_dirs: [docs/]
 entry_files: [CLAUDE.md]
 index_file: docs/README.md
 exclude: [docs/archive/]
+src_dirs: [src/]
 freshness:
   convention: frontmatter
   field: last_updated
+coverage:
+  drift_after_days: 30   # doc 落後 code 幾天才算漂移（預設 30）
+  min_commits: 3         # 期間 code commit 數達幾次才算漂移（預設 3）
 targets:
   completeness: 4
   correctness: 4

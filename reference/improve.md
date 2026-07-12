@@ -1,6 +1,6 @@
 # improve / loop — 收斂輪
 
-> **Last updated:** 2026-07-12
+> **Last updated:** 2026-07-13
 
 `improve`＝跑一輪就停；`loop`＝反覆跑到停止條件。流程完全相同。
 
@@ -63,5 +63,5 @@
 達標後在收官報告固定附上：
 
 > 建議把可機械化的規則沉澱成本 repo 自己的 docs-gate CI（死鏈/孤兒/新鮮度/
-> 入口檔 token 預算），docgrad 的三支 scripts（inventory/links/freshness）可直接
+> 入口檔 token 預算），docgrad 的四支 scripts（inventory/links/freshness/coverage）可直接
 > 搬去改造。docgrad 只評分與修內容，不代寫 CI——由團隊自行決定 gate 的嚴格度。

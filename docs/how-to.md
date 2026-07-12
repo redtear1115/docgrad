@@ -1,6 +1,6 @@
 # docgrad how-to — 常見開發任務
 
-> **Last updated:** 2026-07-12
+> **Last updated:** 2026-07-13
 
 ## 新增一個評分維度
 
@@ -18,7 +18,7 @@
 
 ## 擴充量測腳本（lib.mjs）
 
-- `scripts/lib.mjs` 是三支 CLI 的共用模組；函式契約以 code 為權威（refer-to-code，docs 不複述簽名）。
+- `scripts/lib.mjs` 是四支 CLI 的共用模組；函式契約以 code 為權威（refer-to-code，docs 不複述簽名）。
 - YAML 解析是**兩層子集**（頂層 scalar／inline list／block list＋一層 nested map），新設定欄位不要超出這個結構。
 - 開發驗證：`node --test tests/*.test.mjs`（Node ≥18；v25 起目錄參數不可用）。
 

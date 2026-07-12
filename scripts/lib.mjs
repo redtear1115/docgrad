@@ -80,7 +80,9 @@ const DEFAULTS = {
   entry_files: [],
   index_file: null,
   exclude: [],
+  src_dirs: [],
   freshness: { convention: 'none', field: null, stale_after_days: 60 },
+  coverage: { drift_after_days: 30, min_commits: 3 },
   targets: { completeness: 4, correctness: 4, freshness: 4, linkage: 4, consistency: 4 },
   correctness_sample: 8,
   scenario: null,
@@ -97,6 +99,7 @@ export function loadConfig(rootDir) {
     ...DEFAULTS,
     ...parsed,
     freshness: { ...DEFAULTS.freshness, ...(parsed.freshness ?? {}) },
+    coverage: { ...DEFAULTS.coverage, ...(parsed.coverage ?? {}) },
     targets: { ...DEFAULTS.targets, ...(parsed.targets ?? {}) },
   };
   if (['frontmatter', 'heading-line'].includes(config.freshness.convention) && !config.freshness.field) {

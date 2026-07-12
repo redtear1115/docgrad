@@ -1,13 +1,13 @@
 # docgrad rubric — 五維星等錨點
 
-> **Last updated:** 2026-07-12
+> **Last updated:** 2026-07-13
 
 > 本檔是跨輪分數可比性的唯一依據。錨點寫死；任何修改都會讓歷史分數失去可比性，
 > 屬 breaking change，必須在 commit message 明示。
 
 ## 評分總則
 
-1. 先跑三支腳本（inventory / links / freshness），機械訊號可重現。
+1. 先跑四支腳本（inventory / links / freshness / coverage），機械訊號可重現。
 2. LLM 判斷維度（完整性、正確性、一致性）依本檔錨點對號入座，禁止自創標準。
 3. 星等取整數 ★1–★5；取「完全滿足」的最高一級。
 4. 拿不準時往低取——保守評分讓 loop 有明確的工作方向。
@@ -18,6 +18,7 @@
 | 腳本 | 餵給 |
 |---|---|
 | inventory.mjs | token 經濟報告（不計星）；完整性的盤點基礎 |
+| coverage.mjs | 完整性（覆蓋漂移：undocumented/drifted 區域） |
 | links.mjs | 連結度（全量機械） |
 | freshness.mjs | 新鮮度（機械為主） |
 | （無腳本） | 正確性、一致性（LLM claim-ledger／跨文件三角驗證） |
@@ -32,7 +33,7 @@
 | ★4 | 領域全覆蓋，常見任務有 how-to；僅少數邊緣模組缺。 |
 | ★5 | 全覆蓋＋runbook＋onboarding 路徑＋退役機制明確標註「勿用於新功能」。 |
 
-量測：inventory 檔案清單 × repo 實際模組清單（LLM 掃 src 頂層結構與部署/測試設施）對照找缺口。
+量測：coverage.mjs 的 undocumented/drifted 區域清單為機械基礎（src_dirs 未設定時降級為純 LLM 對照），LLM 再掃 src 頂層結構與部署/測試設施補判腳本看不到的缺口（如子系統粒度、mentioned_by 誤判）。undocumented/drifted 區域視同該領域缺權威文件。
 
 ## 正確性 correctness
 
