@@ -1,6 +1,6 @@
 # docgrad
 
-> **Last updated:** 2026-07-13
+> **Last updated:** 2026-07-26
 
 評估並收斂一個 repo 的文件體系（docs 目錄＋root 指引檔）作為 **AI agent context 來源**的品質。
 五維計星（完整性/正確性/新鮮度/連結度/一致性）＋token 經濟報告；`loop` 逐輪修 docs 直到達標。
@@ -59,9 +59,12 @@ docgrad 掃描候選結構（docs 目錄、always-loaded 入口檔、索引檔�
 
 `loop` 跑到三種停止條件之一（權威定義見 [reference/improve.md](reference/improve.md)）：
 
-- ✅ **達標**：全維 ≥ 你在 `.docgrad.yml` 設的 targets（預設 ★4）。
+- ✅ **達標**：全維 ≥ 你在 `.docgrad.yml` 設的 targets（預設 ★4），或已判設計性天花板。
 - ⏸ **plateau**：連兩輪零進步，報告卡在哪一維、為何 skill 修不動。
 - ⏸ **需人裁決**：遇到 code 無法仲裁的矛盾或產品決策，列出選項暫停等你。
+
+**設計性天花板**＝某維再上一星必須做 docgrad 禁區的事（目前只有新鮮度 ★5 需要 CI gate），該維直接標
+「已收斂到上限」移出工作集，不會被誤報成 plateau 讓你以為多跑幾輪還有救。
 
 過程中隨時可 `/docgrad report` 重印最近 scorecard＋歷輪走勢。
 
@@ -82,6 +85,19 @@ docgrad 只評分與修內容，**不代寫、不碰目標 repo 的 CI**——ga
 | `/docgrad report` | 重印最近 scorecard＋歷輪分數走勢 |
 
 路由與 blockers 的權威定義在 [SKILL.md](SKILL.md)，本表僅摘要。
+
+## 適用邊界
+
+docgrad 評的是**本地 markdown 檔案樹**：四支腳本都以本地路徑運作，設定檔 `.docgrad.yml` 也要能寫進目標 repo 根目錄。
+
+- **git 不是硬需求**：沒有 git 時新鮮度只認文件自稱的日期、覆蓋漂移無法量測，其餘照跑。
+- **wiki／Confluence 等遠端文件源不支援**：檔案不在樹上、設定檔無處可放，整套流程用不上。真要評這類文件源，
+  可只借用 [reference/rubric.md](reference/rubric.md) 的五維錨點做人工評分——無機械訊號、不可重現，也不落 scorecard。
+- **新鮮度 ★5 屬畢業後範圍**：★5 要求 CI gate 強制，而 docgrad 不碰 CI ——`loop` 內該維上限 ★4
+  （預設 target 就是 ★4，不受影響；只有把 target 調到 5 才會遇到）。
+
+不評 prose 風格（Vale 的事）、不評 SKILL.md 本身（agnix 的事）、不評程式碼（code review 的事）——
+完整定位見 [docs/design.md](docs/design.md)。
 
 ## 開發
 
