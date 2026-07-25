@@ -31,8 +31,9 @@ docgrad/
 ├── reference/
 │   ├── init.md           # 掃描＋問卷 → 寫入目標 repo 的 .docgrad.yml
 │   ├── rubric.md         # 五維星等錨點（評分穩定性的關鍵，見下）
-│   ├── audit.md          # 單次評分流程：腳本 → LLM 抽查 → scorecard
-│   └── improve.md        # 收斂輪流程（improve 與 loop 共用）
+│   ├── audit.md          # 單次評分流程：腳本 → LLM 抽查 → scorecard（含 scoped audit）
+│   ├── improve.md        # 收斂輪流程（improve 與 loop 共用）
+│   └── placement.md      # 資訊安置政策：落點與重複的判定規則（一致性維度消費）
 ├── scripts/
 │   ├── lib.mjs           # 共用模組：YAML 子集解析/config/walker/token/markdown 解析
 │   ├── inventory.mjs     # 文件清單＋CJK-aware token 量測＋成本試算輸入
@@ -44,6 +45,7 @@ docgrad/
 │   ├── design.md         # 本檔
 │   └── how-to.md         # 常見開發任務（加維度/改 rubric/擴充 lib）
 ├── .docgrad.yml          # 本 repo 自己的 docgrad 設定（dogfood）
+├── .docgrad/             # dogfood 收斂狀態：history.jsonl（歷輪分數）＋scorecard-latest.md
 ├── CHANGELOG.md          # 各版變更；版號語意見 docs/how-to.md §發版
 ├── NOTICE.md             # 出處致謝（ln-21 claim-ledger、Diátaxis、HumanLayer、impeccable）
 ├── LICENSE               # MIT
