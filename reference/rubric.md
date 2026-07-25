@@ -1,6 +1,6 @@
 # docgrad rubric — 五維星等錨點
 
-> **Last updated:** 2026-07-13
+> **Last updated:** 2026-07-26
 
 > 本檔是跨輪分數可比性的唯一依據。錨點寫死；任何修改都會讓歷史分數失去可比性，
 > 屬 breaking change，必須在 commit message 明示。
@@ -58,6 +58,11 @@
 | ★5 | 全覆蓋＋「同 MR 隨改隨更」有機械 gate 強制＋生命週期管理（superseded 即處理）。 |
 
 量測：freshness.mjs 的 coverage_ratio / stale / mismatches；「關鍵文件」＝entry_files＋index_file＋各領域權威文件。
+
+> **★5 的適用範圍（graduation-only）**：★5 要求的「機械 gate 強制」得動 CI，而 improve/loop 受
+> Blocker #3 約束不碰目標 repo 的 CI —— 故 loop 內新鮮度上限為 ★4，該維會判設計性天花板
+> （見 [improve.md](improve.md)），★5 屬畢業後由團隊自建 docs-gate CI 才達成的範圍。
+> 本註記只說明可達性，**不改動 ★1–★5 任何判定門檻**，歷史分數可比性不受影響。
 
 ## 連結度 linkage
 

@@ -1,7 +1,7 @@
 # docgrad — 專案文件綜合評估與收斂 skill 設計
 
 > **狀態**：已實作（2026-07-12 定案並完成 v0.1.0）
-> **Last updated:** 2026-07-13
+> **Last updated:** 2026-07-26
 
 ## 緣起
 
@@ -14,6 +14,9 @@
 - **評什麼**：一個 repo 的文件體系（docs 目錄＋root 指引檔）作為 **AI agent 開發時的 context 來源**的品質。
 - **不評什麼**：prose 風格（Vale 的事）、SKILL.md 本身品質（agnix/skill-audit 的事）、程式碼品質（code review 的事）。
 - **通用性**：零 repo 假設。結構（文件夾、索引、入口檔、新鮮度慣例）全部由 `init` 偵測＋問卷確認後寫入設定檔，之後每輪讀設定檔。
+- **前提條件**：文件必須是**本地 markdown 檔案樹**，且目標 repo 根目錄可寫入 `.docgrad.yml`（Blocker #1）。git 非硬需求——無 git 時新鮮度降級為 claimed-only（`scripts/freshness.mjs › gitDate()` 取不到就只認文件自稱日期）、覆蓋漂移無法量測，其餘照跑。**不支援** wiki／Confluence 等遠端文件源：檔案不在樹上、四支腳本全依賴本地路徑、設定檔也無處可放。
+- **rubric 可獨立引用**：`reference/rubric.md` 的五維錨點本身不依賴腳本，可單獨拿去對非 repo 文件源做人工評分——但那是「借用錨點」而非 docgrad 流程：無機械訊號、不可重現，也不該落 scorecard/history。
+- **能力天花板要明說**：Blocker 禁區擋住的星等（目前：新鮮度 ★5 需 CI gate 而 loop 不碰 CI）由 `improve.md` 的設計性天花板規則明文判定，不靠當輪 model 臨場繞過——否則報告會把「設計上不可達」誤呈成「這兩輪沒修動」。
 - **使用者決策（2026-07-12 定案）**：獨立 git repo 發布（本 repo）；impeccable 式「init 一次、之後逐步收斂」；五維計星＋token 經濟只報告不計星；loop 每輪 commit、達標才停；評分＝內建機械腳本＋LLM 判斷混合。
 
 ## Repo 結構（impeccable 同款骨架）

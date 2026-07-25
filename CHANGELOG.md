@@ -3,6 +3,17 @@
 版本權威在 [.claude-plugin/plugin.json](.claude-plugin/plugin.json) 的 `version`；本檔記錄各版變更。
 版號語意（semver，docgrad 特化）見 [docs/how-to.md](docs/how-to.md) §發版。
 
+## 0.3.0 — 2026-07-26
+
+- **新增（loop 行為）**：`reference/improve.md` 新增**設計性天花板**——某維的下一星錨點落在 Blocker
+  禁區時直接判該維「docgrad 範圍內已收斂」、移出挑維度與達標判定，並在畢業建議點名它。修掉
+  「新鮮度 ★5 要 CI gate ／ Blocker #3 不碰 CI」的結構性矛盾被誤報成 plateau 的問題（issue #1）。
+- **文件（適用邊界）**：README／SKILL.md／`docs/design.md` 明示前提——本地 markdown 檔案樹＋
+  可寫入 `.docgrad.yml`；git 非硬需求（無 git 時新鮮度降級為 claimed-only）；wiki／遠端文件源不支援，
+  該場景可獨立借用 rubric 五維錨點做人工評分（issue #3 之邊界文件化部分）。
+- **註記（非錨點變更）**：rubric 新鮮度 ★5 標註為畢業後範圍（graduation-only）。
+  ★1–★5 判定門檻一字未動，歷史分數可比性保留。
+
 ## 0.2.0 — 2026-07-13
 
 - **新增**：第四支量測腳本 `scripts/coverage.mjs`（覆蓋漂移）——git 比對每個 code 區域與提及它的
