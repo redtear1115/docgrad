@@ -1,6 +1,6 @@
 # init — 一次性設定
 
-> **Last updated:** 2026-07-13
+> **Last updated:** 2026-07-26
 
 目的：掃描目標 repo → 問卷確認 → 把 `.docgrad.yml` 寫進目標 repo 根目錄（進版控，團隊共用）。
 已有 `.docgrad.yml` 時重跑 init＝重新掃描，並以現有設定為問卷預設值。
@@ -57,6 +57,12 @@ language: zh-TW
 ```
 
 寫完立刻驗證：`node "$SKILL_DIR/scripts/inventory.mjs" --root .` 能跑出 JSON 才算完成。
+
+## 文件源不可寫時（設定檔外置）
+
+文件樹本身不能落檔（唯讀掛載、匯出目錄）→ 把 `.docgrad.yml` 寫到別處，腳本以 `--config <file>`
+指定即可跑 `audit`（`improve`/`loop` 仍需要可寫且有 git 的工作區）。這只解決設定檔的落點，
+不改變「文件必須是本地 markdown 檔案樹」的前提——邊界見 [design.md](../docs/design.md) §定位與邊界。
 
 ## 4. 收尾
 

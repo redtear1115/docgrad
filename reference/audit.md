@@ -1,9 +1,11 @@
 # audit — 單次全量評分
 
-> **Last updated:** 2026-07-13
+> **Last updated:** 2026-07-26
 
 前置（blocker）：目標 repo 根目錄必須有 `.docgrad.yml`；沒有 → 停下，導向 `/docgrad init`。
 本流程**不修改任何檔案**、不寫任何狀態——純報告。評分前必先讀 [rubric.md](rubric.md)。
+
+使用者指定了範圍（目錄／glob／主題）或單一維度 → 先讀本檔最後的 [§scoped audit](#scoped-audit限定範圍單一維度)，再回來跑下面的步驟。
 
 ## 步驟
 
@@ -83,3 +85,39 @@ links 的 `cjk_uncertain: true` 壞錨先逐一人工確認（開檔看標題）
 2. …
 （要開始收斂請跑 /docgrad improve 或 /docgrad loop）
 ```
+
+## scoped audit（限定範圍／單一維度）
+
+**觸發**：使用者輸入帶了範圍（目錄、glob，或「infra 相關文件」這類主題描述）或維度
+（`--dim freshness`、「只評完整性」）。
+
+**範圍轉譯**：主題描述先轉成具體 glob（用 inventory 的檔案清單挑出相關檔案），並在報告標頭
+**列出實際採用的 `--include` 值**——使用者要能看見你把「infra 相關」解讀成了什麼。轉不出來就問，不要臆測。
+
+**鐵則：純報告、不落任何檔。** scoped 結果不寫 `.docgrad/scorecard-latest.md`、不 append
+`.docgrad/history.jsonl`——history 的跨輪可比性只認全量 audit，scoped 分數混進去會讓走勢失真。
+使用者要求「順便記錄一下」也照樣拒絕，改建議跑全量 `audit` 或 `improve`。
+
+**跑法**：四支腳本加 `--include <glob>`（可重複或逗號分隔）。`--dim` 時只跑該維要的腳本
+（對照 [rubric.md](rubric.md) §機械訊號 → 維度對照），其餘略過。
+
+**各維度在 scope 下的效力**（不照做會給出誤導性星等）：
+
+| 維度 | scoped 行為 |
+|---|---|
+| 完整性 | `coverage.mjs` 一律全量比對（`--include` 對它刻意不生效）——docs 端一縮，範圍外的提及會被誤判成 undocumented。LLM 補判則限縮在 scope 內的領域。 |
+| 正確性 | claim-ledger 只從 scope 內文件抽樣；`correctness_sample` 可按檔案數等比縮小，實際抽樣數寫進報告。 |
+| 新鮮度 | 直接可用（per-file 判定，不受範圍影響）。 |
+| 連結度 | 只採計死鏈／壞錨；孤兒與可達率腳本會回 `null`——可達性是全量索引概念，範圍一縮就失真。報告寫「不適用」，**不可**因此打 ★1。 |
+| 一致性 | 跨文件比對限縮在 scope 內；矛盾的另一半落在範圍外時記為「需全量 audit 確認」。 |
+| Token 經濟 | 只報範圍內 tokens。固定成本／污染面是全量概念，scoped 值不可與全量報告對比，標明即可。 |
+
+**報告標頭**（取代全量 scorecard 的標題行）：
+
+```markdown
+# docgrad scoped report — <repo 名> @ <YYYY-MM-DD>
+
+> scope：`docs/infra/**`（來自「infra 相關文件」）｜維度：全部｜**純報告，未寫入 `.docgrad/`**
+```
+
+`--dim` 時 scorecard 只列該維一列，「建議下一步」照樣給該維失分點——沒評的維度不給星等、不留空列。

@@ -89,12 +89,12 @@ const DEFAULTS = {
   language: 'zh-TW',
 };
 
-export function loadConfig(rootDir) {
-  const file = path.join(rootDir, CONFIG_FILENAME);
-  if (!fs.existsSync(file)) {
-    throw new Error(`找不到 ${CONFIG_FILENAME}（root: ${rootDir}），請先執行 /docgrad init`);
+// configFile 可外置（--config）：文件源本身不能落檔時（匯出目錄、唯讀掛載）指定別處的設定檔。
+export function loadConfig(rootDir, configFile = path.join(rootDir, CONFIG_FILENAME)) {
+  if (!fs.existsSync(configFile)) {
+    throw new Error(`找不到 ${configFile}（root: ${rootDir}），請先執行 /docgrad init`);
   }
-  const parsed = parseYamlSubset(fs.readFileSync(file, 'utf8'));
+  const parsed = parseYamlSubset(fs.readFileSync(configFile, 'utf8'));
   const config = {
     ...DEFAULTS,
     ...parsed,
@@ -110,9 +110,40 @@ export function loadConfig(rootDir) {
 
 // --- CLI 共用 ---------------------------------------------------------------
 
+// 只認 --root、缺值退回 cwd 的舊介面；四支 CLI 一律改用 parseArgs()。
 export function resolveRoot(argv = process.argv.slice(2)) {
   const i = argv.indexOf('--root');
   return path.resolve(i >= 0 && argv[i + 1] ? argv[i + 1] : process.cwd());
+}
+
+function takeValue(argv, i, flag) {
+  const v = argv[i + 1];
+  if (v === undefined || v.startsWith('--')) throw new Error(`${flag} 需要一個參數值`);
+  return v;
+}
+
+// 四支腳本共用旗標：
+//   --root <dir>      目標 repo 根（預設 cwd）
+//   --config <file>   設定檔路徑（預設 <root>/.docgrad.yml）
+//   --include <glob>  限定範圍（scoped audit），可重複或逗號分隔；不給＝全量
+export function parseArgs(argv = process.argv.slice(2)) {
+  let rootArg = null;
+  let configArg = null;
+  const include = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--root') rootArg = takeValue(argv, i++, '--root');
+    else if (a === '--config') configArg = takeValue(argv, i++, '--config');
+    else if (a === '--include') {
+      include.push(...takeValue(argv, i++, '--include').split(',').map((s) => s.trim()).filter(Boolean));
+    } else throw new Error(`未知參數 ${a}（支援 --root / --config / --include）`);
+  }
+  const root = path.resolve(rootArg ?? process.cwd());
+  return {
+    root,
+    configFile: configArg ? path.resolve(configArg) : path.join(root, CONFIG_FILENAME),
+    include,
+  };
 }
 
 export function fail(message) {
@@ -140,7 +171,48 @@ function walkMarkdown(absDir, rootDir, out) {
   }
 }
 
-export function collectFiles(rootDir, config) {
+// --- scope 過濾（--include）--------------------------------------------------
+// 支援 `**`（跨層）、`*`（同層）、`?`（單字元）；不含這些字元的 pattern 視為路徑前綴
+// （`docs/infra` ⇒ 該檔本身與其下所有檔案）。scope 為空＝全量，不過濾。
+
+const GLOB_CHARS = /[*?]/;
+
+export function globToRegExp(pattern) {
+  let re = '';
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern[i];
+    if (c === '*') {
+      if (pattern[i + 1] === '*') {
+        i += 1;
+        if (pattern[i + 1] === '/') {
+          i += 1;
+          re += '(?:.*/)?'; // a/**/b 也要匹配 a/b
+        } else {
+          re += '.*';
+        }
+      } else {
+        re += '[^/]*';
+      }
+    } else if (c === '?') {
+      re += '[^/]';
+    } else {
+      re += c.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    }
+  }
+  return new RegExp(`^${re}$`);
+}
+
+export function matchesScope(relPath, include = []) {
+  if (include.length === 0) return true;
+  return include.some((raw) => {
+    const p = raw.replace(/^\.\//, '');
+    if (GLOB_CHARS.test(p)) return globToRegExp(p).test(relPath);
+    const dir = p.endsWith('/') ? p : `${p}/`;
+    return relPath === p || relPath.startsWith(dir);
+  });
+}
+
+export function collectFiles(rootDir, config, { include = [] } = {}) {
   const all = [];
   for (const dir of config.docs_dirs) {
     const abs = path.join(rootDir, dir);
@@ -151,9 +223,10 @@ export function collectFiles(rootDir, config) {
   }
   const isExcluded = (p) =>
     config.exclude.some((ex) => p === ex || p.startsWith(ex.endsWith('/') ? ex : `${ex}/`));
+  const inScope = (p) => matchesScope(p, include);
   return {
-    included: all.filter((p) => !isExcluded(p)).sort(),
-    excluded: all.filter(isExcluded).sort(),
+    included: all.filter((p) => !isExcluded(p) && inScope(p)).sort(),
+    excluded: all.filter((p) => isExcluded(p) && inScope(p)).sort(),
   };
 }
 

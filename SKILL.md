@@ -23,6 +23,7 @@ license: MIT. See NOTICE.md for attribution.
 | `/docgrad`（無參數） | 印出本表說明各指令，不做任何事 |
 | `init` | 讀 [reference/init.md](reference/init.md) 照做 |
 | `audit` | 先讀 [reference/rubric.md](reference/rubric.md)，再照 [reference/audit.md](reference/audit.md) 跑（純報告，不改檔） |
+| `audit <scope>`／`audit --dim <維度>` | scoped audit：限定目錄／glob／主題，或只評單一維度。同樣純報告，且**絕不寫 `.docgrad/`**——見 audit.md §scoped audit |
 | `improve` | 先讀 rubric.md，再照 [reference/improve.md](reference/improve.md) 跑一輪 |
 | `loop` | 同 improve，反覆到停止條件 |
 | `report` | 讀目標 repo `.docgrad/scorecard-latest.md` 重印＋用 `.docgrad/history.jsonl` 畫歷輪分數走勢表；檔案不存在 → 提示先跑 improve/loop（audit 純報告不落檔） |
@@ -45,3 +46,6 @@ node "$SKILL_DIR/scripts/links.mjs" --root .       # 死鏈/壞錨/孤兒/可達
 node "$SKILL_DIR/scripts/freshness.mjs" --root .   # 日期訊號覆蓋/git 對照
 node "$SKILL_DIR/scripts/coverage.mjs" --root .    # 覆蓋漂移/未文件化區域
 ```
+
+共用旗標：`--config <file>`（設定檔不在 root 時指定）、`--include <glob>`（scoped audit 限定範圍，
+可重複或逗號分隔；`coverage.mjs` 刻意不吃此旗標）。各腳本輸出的 `scope` 欄位就是報告要標的範圍。

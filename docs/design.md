@@ -138,10 +138,10 @@ branch 隔離讓用戶可整批 review 再合併；每輪 commit 保證中斷可
 
 ## scripts 契約
 
-四支皆為零依賴 Node（≥18）腳本，讀 `.docgrad.yml`，輸出 JSON 到 stdout（LLM 消費），錯誤走 stderr＋非零 exit code。以下 JSON 形狀為**說明用摘要**；欄位全集以實跑腳本輸出為權威（本檔不複述完整 schema，避免與 `scripts/` 漂移）：
+四支皆為零依賴 Node（≥18）腳本，讀 `.docgrad.yml`，輸出 JSON 到 stdout（LLM 消費），錯誤走 stderr＋非零 exit code。共用旗標由 `scripts/lib.mjs › parseArgs()` 一處解析：`--root`（目標 repo 根）、`--config`（設定檔外置——文件源本身不能落檔時用）、`--include`（scoped audit 的範圍 glob）。以下 JSON 形狀為**說明用摘要**；欄位全集以實跑腳本輸出為權威（本檔不複述完整 schema，避免與 `scripts/` 漂移）：
 
 - `inventory.mjs` → `{files: [{path, bytes, tokens_est, type}], totals, entry_cost, pollution: {excluded_tokens, ratio}}`
-- `links.mjs` → `{dead_links: [], bad_anchors: [], orphans: [], reachable_ratio}`（可達性從 `index_file`＋`entry_files` 起算 transitive——entry 檔 always-loaded，定義上可達）
+- `links.mjs` → `{dead_links: [], bad_anchors: [], orphans: [], reachable_ratio}`（可達性從 `index_file`＋`entry_files` 起算 transitive——entry 檔 always-loaded，定義上可達；`--include` 限定範圍時孤兒與可達率一律回 `null`／`[]`，可達性是全量概念）
 - `freshness.mjs` → `{coverage_ratio, stale: [{path, claimed, actual_git, age_days}], mismatches}`
 - `coverage.mjs` → `{src_dirs, thresholds, loose_files, areas: [{area, code_files, last_code_commit, mentioned_by, last_doc_commit, commits_since_doc, drift_days, status}], undocumented, drifted}`（覆蓋漂移：code 區域 vs 提及它的 docs 的 git 時滯）
 

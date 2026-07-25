@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // links.mjs — 死鏈/壞錨/孤兒（可達性從 index_file＋entry_files 起算 transitive）
-// 用法: node links.mjs [--root <repo>]；JSON → stdout。
+// 用法: node links.mjs [--root <repo>] [--config <file>] [--include <glob>]；JSON → stdout。
+// scope 限定時只出死鏈/壞錨：孤兒與可達率是「全量索引」概念,範圍一縮就失真,一律不計。
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  loadConfig, collectFiles, resolveRoot, fail,
+  loadConfig, collectFiles, parseArgs, fail,
   extractHeadings, extractLinks, githubSlug, CJK_RE,
 } from './lib.mjs';
 
@@ -20,9 +21,10 @@ function safeDecode(s) {
 }
 
 try {
-  const root = resolveRoot();
-  const config = loadConfig(root);
-  const { included } = collectFiles(root, config);
+  const { root, configFile, include } = parseArgs();
+  const scoped = include.length > 0;
+  const config = loadConfig(root, configFile);
+  const { included } = collectFiles(root, config, { include });
   const includedSet = new Set(included);
   const readText = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
   const headingCache = new Map();
@@ -77,12 +79,16 @@ try {
   process.stdout.write(
     `${JSON.stringify(
       {
+        scope: scoped ? include : null,
+        ...(scoped
+          ? { note: 'scope 限定:孤兒/可達率不計(可達性是全量索引概念),只採計死鏈與壞錨' }
+          : {}),
         total_links,
         dead_links,
         bad_anchors,
-        orphans: config.index_file ? included.filter((p) => !reachable.has(p)) : [],
+        orphans: !scoped && config.index_file ? included.filter((p) => !reachable.has(p)) : [],
         reachable_ratio:
-          config.index_file && included.length > 0
+          !scoped && config.index_file && included.length > 0
             ? Number((reachable.size / included.length).toFixed(4))
             : null,
       },

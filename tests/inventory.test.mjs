@@ -22,6 +22,24 @@ test('inventory: 清單/型別/entry_cost/pollution', () => {
   assert.ok(out.pollution.ratio > 0 && out.pollution.ratio < 1);
 });
 
+test('inventory: --include 限定範圍（scope 標明、entry 不在範圍則固定成本為 0）', () => {
+  const out = JSON.parse(
+    execFileSync(process.execPath, [SCRIPT, '--root', FIXTURE, '--include', 'docs/guide.md'], { encoding: 'utf8' })
+  );
+  assert.deepEqual(out.scope, ['docs/guide.md']);
+  assert.deepEqual(out.files.map((f) => f.path), ['docs/guide.md']);
+  assert.equal(out.totals.files, 1);
+  assert.deepEqual(out.entry_cost.files, []); // CLAUDE.md 不在 scope → 固定成本不可引用
+  assert.equal(out.entry_cost.tokens_est, 0);
+  assert.deepEqual(out.pollution.excluded_files, []); // 污染面也跟著 scope 收斂
+});
+
+test('inventory: 全量時 scope 為 null（既有行為不變）', () => {
+  const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', FIXTURE], { encoding: 'utf8' }));
+  assert.equal(out.scope, null);
+  assert.equal(out.totals.files, 4);
+});
+
 test('inventory: 無 .docgrad.yml → exit 1＋stderr 導向 init', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-'));
   const r = spawnSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' });
