@@ -49,6 +49,16 @@ docgrad 掃描候選結構（docs 目錄、always-loaded 入口檔、索引檔�
 
 跑一次全量評分，產出 scorecard：五維各打 ★1–★5、標出主要失分點，附 token 經濟報告。純報告、不動任何檔案——先知道「現在幾分、差在哪」，再決定要不要收斂。
 
+只想看一塊、或只關心一維時可以限定範圍：
+
+```
+/docgrad audit docs/infra/          # 也吃「infra 相關文件」這種主題描述
+/docgrad audit --dim freshness      # 只評新鮮度
+```
+
+scoped 報告一律**不寫入 `.docgrad/`**——歷輪走勢只認全量 audit，混進 scoped 分數就失去可比性。
+範圍縮小時可達率／孤兒與固定成本會標成「不適用」（那是全量概念），規則見 [reference/audit.md](reference/audit.md) §scoped audit。
+
 ### 3. `improve` / `loop` — 逐輪收斂
 
 ```
@@ -80,6 +90,7 @@ docgrad 只評分與修內容，**不代寫、不碰目標 repo 的 CI**——ga
 |---|---|
 | `/docgrad init` | 掃描＋問卷 → 寫 `.docgrad.yml` 進目標 repo（一次性） |
 | `/docgrad audit` | 單次全量評分，產出 scorecard（不改檔） |
+| `/docgrad audit <範圍>`／`--dim <維度>` | 限定目錄／主題或單一維度的 scoped 報告（不改檔、不落檔） |
 | `/docgrad improve` | 跑一輪收斂：挑最低分維度 → 修 → 重評 → commit |
 | `/docgrad loop` | 反覆 improve 直到全維達標／plateau／需人裁決 |
 | `/docgrad report` | 重印最近 scorecard＋歷輪分數走勢 |

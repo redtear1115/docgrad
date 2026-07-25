@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseYamlSubset, loadConfig, resolveRoot, collectFiles, estimateTokens, githubSlug, extractHeadings, extractLinks, extractClaimedDate } from '../scripts/lib.mjs';
+import { parseYamlSubset, loadConfig, resolveRoot, parseArgs, matchesScope, collectFiles, estimateTokens, githubSlug, extractHeadings, extractLinks, extractClaimedDate } from '../scripts/lib.mjs';
 import { fileURLToPath } from 'node:url';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/basic/', import.meta.url));
@@ -95,11 +95,70 @@ test('resolveRoot: --root 優先，否則 cwd', () => {
   assert.equal(resolveRoot([]), process.cwd());
 });
 
+test('parseArgs: --root/--config/--include（可重複＋逗號分隔）', () => {
+  const a = parseArgs(['--root', '/tmp/x', '--include', 'docs/infra/', '--include', 'docs/a/**,docs/b.md']);
+  assert.equal(a.root, path.resolve('/tmp/x'));
+  assert.equal(a.configFile, path.join(path.resolve('/tmp/x'), '.docgrad.yml'));
+  assert.deepEqual(a.include, ['docs/infra/', 'docs/a/**', 'docs/b.md']);
+});
+
+test('parseArgs: --config 外置；未給旗標時用 <root>/.docgrad.yml、include 為空', () => {
+  assert.equal(parseArgs(['--config', '/tmp/cfg.yml']).configFile, path.resolve('/tmp/cfg.yml'));
+  const bare = parseArgs([]);
+  assert.equal(bare.configFile, path.join(process.cwd(), '.docgrad.yml'));
+  assert.deepEqual(bare.include, []);
+});
+
+test('parseArgs: 缺值與未知參數丟錯（不靜默吞掉）', () => {
+  assert.throws(() => parseArgs(['--include']), /--include 需要一個參數值/);
+  assert.throws(() => parseArgs(['--root', '--include', 'x']), /--root 需要一個參數值/);
+  assert.throws(() => parseArgs(['--dim', 'freshness']), /未知參數/);
+});
+
+test('matchesScope: 空＝全量；目錄前綴對齊路徑分段；* 不跨層、** 跨層', () => {
+  assert.equal(matchesScope('docs/a/b.md', []), true);
+  assert.equal(matchesScope('docs/infra/x.md', ['docs/infra']), true);
+  assert.equal(matchesScope('docs/infra/x.md', ['docs/infra/']), true);
+  assert.equal(matchesScope('docs/infrastructure/x.md', ['docs/infra']), false);
+  assert.equal(matchesScope('docs/a.md', ['./docs/a.md']), true);
+  assert.equal(matchesScope('docs/a.md', ['docs/*.md']), true);
+  assert.equal(matchesScope('docs/a/b.md', ['docs/*.md']), false);
+  assert.equal(matchesScope('docs/a/b.md', ['docs/**/*.md']), true);
+  assert.equal(matchesScope('docs/b.md', ['docs/**/*.md']), true); // ** 可吃零層
+  assert.equal(matchesScope('docs/ab.md', ['docs/?b.md']), true);
+  assert.equal(matchesScope('docs/aab.md', ['docs/?b.md']), false);
+});
+
+test('loadConfig: --config 指向 root 外的設定檔（文件源本身不落檔）', () => {
+  const cfgDir = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-cfg-'));
+  const docsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-src-'));
+  try {
+    const cfgFile = path.join(cfgDir, 'exported.yml');
+    fs.writeFileSync(cfgFile, 'docs_dirs: [pages/]\nentry_files: []\n');
+    const cfg = loadConfig(docsRoot, cfgFile); // docsRoot 內沒有 .docgrad.yml
+    assert.deepEqual(cfg.docs_dirs, ['pages/']);
+    assert.throws(() => loadConfig(docsRoot), /請先執行 \/docgrad init/);
+  } finally {
+    fs.rmSync(cfgDir, { recursive: true, force: true });
+    fs.rmSync(docsRoot, { recursive: true, force: true });
+  }
+});
+
 test('collectFiles: 排除 exclude、含 entry_files、路徑排序', () => {
   const cfg = loadConfig(FIXTURE);
   const { included, excluded } = collectFiles(FIXTURE, cfg);
   assert.deepEqual(included, ['CLAUDE.md', 'docs/README.md', 'docs/guide.md', 'docs/orphan.md']);
   assert.deepEqual(excluded, ['docs/archive/old.md']);
+});
+
+test('collectFiles: include 縮到 scope 內；exclude 仍優先於 scope', () => {
+  const cfg = loadConfig(FIXTURE);
+  const { included, excluded } = collectFiles(FIXTURE, cfg, { include: ['docs/guide.md', 'docs/archive/**'] });
+  assert.deepEqual(included, ['docs/guide.md']);
+  assert.deepEqual(excluded, ['docs/archive/old.md']); // 落在 scope 內，但仍被 exclude 擋下
+  assert.deepEqual(collectFiles(FIXTURE, cfg, { include: ['docs/*.md'] }).included, [
+    'docs/README.md', 'docs/guide.md', 'docs/orphan.md',
+  ]);
 });
 
 test('estimateTokens: ASCII 每 4 字元 1 token', () => {

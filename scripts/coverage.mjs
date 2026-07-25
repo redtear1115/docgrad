@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // coverage.mjs — 覆蓋漂移偵測:用 git 機械偵測「code 動了但 docs 沒跟上」。
-// 用法: node coverage.mjs [--root <repo>]；JSON → stdout。
+// 用法: node coverage.mjs [--root <repo>] [--config <file>]；JSON → stdout。
 // 以 src_dirs 下第一層子目錄為「區域」,對照 docs 是否提及＋比對 git 時戳。
+// --include 對本腳本刻意不生效:docs 端一縮,範圍外的提及會被誤判成 undocumented。
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { loadConfig, collectFiles, resolveRoot, fail } from './lib.mjs';
+import { loadConfig, collectFiles, parseArgs, fail } from './lib.mjs';
 
 const SKIP_DIRS = new Set(['node_modules', '.git']);
 
@@ -67,13 +68,25 @@ const dayDiff = (a, b) => Math.round((Date.parse(a) - Date.parse(b)) / 86400000)
 const toDate = (iso) => (iso ? iso.slice(0, 10) : null);
 
 try {
-  const root = resolveRoot();
-  const config = loadConfig(root);
+  const { root, configFile, include } = parseArgs();
+  const config = loadConfig(root, configFile);
+  const scopeNote = include.length
+    ? { scope: include, note: 'scope 不套用於覆蓋漂移:docs 端一縮會把範圍外的提及誤判成 undocumented,故一律全量比對' }
+    : { scope: null };
 
   // src_dirs 未設定 → 降級:不量測,交回 LLM 純對照。
   if (config.src_dirs.length === 0) {
     process.stdout.write(
-      `${JSON.stringify({ src_dirs: [], areas: [], note: 'src_dirs 未設定,無法量測覆蓋漂移' }, null, 2)}\n`
+      `${JSON.stringify(
+        {
+          ...scopeNote,
+          src_dirs: [],
+          areas: [],
+          note: [scopeNote.note, 'src_dirs 未設定,無法量測覆蓋漂移'].filter(Boolean).join('；'),
+        },
+        null,
+        2
+      )}\n`
     );
     process.exit(0);
   }
@@ -151,6 +164,7 @@ try {
   process.stdout.write(
     `${JSON.stringify(
       {
+        ...scopeNote,
         src_dirs: config.src_dirs,
         thresholds: {
           drift_after_days: config.coverage.drift_after_days,
