@@ -1,6 +1,6 @@
 # docgrad how-to — 常見開發任務
 
-> **Last updated:** 2026-07-13
+> **Last updated:** 2026-07-26
 
 ## 新增一個評分維度
 
@@ -8,7 +8,7 @@
 2. 更新 rubric 的「機械訊號 → 維度對照」表；維度順序（tie-break 依據）以 rubric 表序為準。
 3. `.docgrad.yml` 的 `targets` 加新維度鍵；`scripts/lib.mjs › DEFAULTS.targets` 同步（欄位清單以 code 為權威，本檔不複述）。
 4. [reference/audit.md](../reference/audit.md) 補該維度的評分步驟；scorecard 模板加一列。
-5. 若需要新機械訊號：加 `scripts/<name>.mjs`（契約見 [design.md](design.md) §scripts 契約——零依賴、JSON→stdout、錯誤→stderr＋非零 exit、支援 `--root`），並在 `tests/` 加對應 `*.test.mjs`。
+5. 若需要新機械訊號：加 `scripts/<name>.mjs`（契約見 [design.md](design.md) §scripts 契約——零依賴、JSON→stdout、錯誤→stderr＋非零 exit、共用旗標一律走 `scripts/lib.mjs › parseArgs()`），並在 `tests/` 加對應 `*.test.mjs`。
 
 ## 修改 rubric 錨點的正確姿勢
 
@@ -19,6 +19,9 @@
 ## 擴充量測腳本（lib.mjs）
 
 - `scripts/lib.mjs` 是四支 CLI 的共用模組；函式契約以 code 為權威（refer-to-code，docs 不複述簽名）。
+- 共用旗標（`--root`／`--config`／`--include`）由 `parseArgs()` 一處解析：新增旗標改那裡，四支同時吃到；
+  未知旗標一律丟錯，不靜默忽略。scope 過濾語意見 `matchesScope()`，新腳本若不適用 scope（如 `coverage.mjs`）
+  要在輸出的 `note` 明講為什麼。
 - YAML 解析是**兩層子集**（頂層 scalar／inline list／block list＋一層 nested map），新設定欄位不要超出這個結構。
 - 開發驗證：`node --test tests/*.test.mjs`（Node ≥18；v25 起目錄參數不可用）。
 

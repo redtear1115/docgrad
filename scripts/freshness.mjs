@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // freshness.mjs — 日期訊號覆蓋率＋git log 真實日期對照
-// 用法: node freshness.mjs [--root <repo>]；JSON → stdout。
+// 用法: node freshness.mjs [--root <repo>] [--config <file>] [--include <glob>]；JSON → stdout。
 // env DOCGRAD_TODAY=YYYY-MM-DD 可覆寫「今天」（測試可重現）。
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { loadConfig, collectFiles, resolveRoot, fail, extractClaimedDate } from './lib.mjs';
+import { loadConfig, collectFiles, parseArgs, fail, extractClaimedDate } from './lib.mjs';
 
 const MISMATCH_TOLERANCE_DAYS = 7;
 
@@ -25,9 +25,9 @@ function gitDate(root, rel) {
 const dayDiff = (a, b) => Math.round((Date.parse(a) - Date.parse(b)) / 86400000);
 
 try {
-  const root = resolveRoot();
-  const config = loadConfig(root);
-  const { included } = collectFiles(root, config);
+  const { root, configFile, include } = parseArgs();
+  const config = loadConfig(root, configFile);
+  const { included } = collectFiles(root, config, { include });
   const today = process.env.DOCGRAD_TODAY ?? new Date().toISOString().slice(0, 10);
 
   const results = included.map((rel) => {
@@ -41,6 +41,7 @@ try {
   process.stdout.write(
     `${JSON.stringify(
       {
+        scope: include.length ? include : null,
         convention: config.freshness.convention,
         files_total: results.length,
         files_with_signal: withSignal.length,

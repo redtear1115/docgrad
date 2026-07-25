@@ -15,4 +15,17 @@ test('links: 死鏈/壞錨/孤兒/可達率', () => {
   assert.deepEqual(out.orphans, ['docs/orphan.md']);
   assert.equal(out.reachable_ratio, 0.75); // README+CLAUDE 為根 → guide 可達，orphan 不可達
   assert.ok(out.total_links >= 4); // CLAUDE→README、guide 三連結
+  assert.equal(out.scope, null);
+});
+
+test('links: --include 只採計死鏈/壞錨，孤兒與可達率一律不計', () => {
+  const out = JSON.parse(
+    execFileSync(process.execPath, [SCRIPT, '--root', FIXTURE, '--include', 'docs/**'], { encoding: 'utf8' })
+  );
+  assert.deepEqual(out.scope, ['docs/**']);
+  assert.match(out.note, /可達率不計/);
+  assert.deepEqual(out.orphans, []); // 全量時 docs/orphan.md 是孤兒；scope 下不判
+  assert.equal(out.reachable_ratio, null);
+  assert.equal(out.dead_links.length, 1); // 死鏈是 per-file 判定，scope 下照抓
+  assert.equal(out.bad_anchors.length, 1);
 });

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // inventory.mjs — 文件清單＋CJK-aware token 量測＋固定成本/污染面
-// 用法: node inventory.mjs [--root <repo>]；JSON → stdout。
+// 用法: node inventory.mjs [--root <repo>] [--config <file>] [--include <glob>]；JSON → stdout。
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadConfig, collectFiles, estimateTokens, resolveRoot, fail } from './lib.mjs';
+import { loadConfig, collectFiles, estimateTokens, parseArgs, fail } from './lib.mjs';
 
 function fileType(p, config) {
   if (config.entry_files.includes(p)) return 'entry';
@@ -22,9 +22,9 @@ function measure(rootDir, relPath, config) {
 }
 
 try {
-  const root = resolveRoot();
-  const config = loadConfig(root);
-  const { included, excluded } = collectFiles(root, config);
+  const { root, configFile, include } = parseArgs();
+  const config = loadConfig(root, configFile);
+  const { included, excluded } = collectFiles(root, config, { include });
   const files = included.map((p) => measure(root, p, config));
   const excludedFiles = excluded.map((p) => measure(root, p, config));
   const totalTokens = files.reduce((s, f) => s + f.tokens_est, 0);
@@ -32,6 +32,7 @@ try {
   process.stdout.write(
     `${JSON.stringify(
       {
+        scope: include.length ? include : null,
         files,
         totals: {
           files: files.length,
@@ -39,7 +40,8 @@ try {
           tokens_est: totalTokens,
         },
         entry_cost: {
-          files: config.entry_files,
+          // scope 限定時只計範圍內的 entry 檔——固定成本是全量概念，scoped 報告不可直接引用。
+          files: files.filter((f) => f.type === 'entry').map((f) => f.path),
           tokens_est: files.filter((f) => f.type === 'entry').reduce((s, f) => s + f.tokens_est, 0),
         },
         pollution: {

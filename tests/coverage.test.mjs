@@ -71,8 +71,8 @@ function makeCoverageFixture() {
   return tmp;
 }
 
-function run(tmp) {
-  const r = spawnSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' });
+function run(tmp, extraArgs = []) {
+  const r = spawnSync(process.execPath, [SCRIPT, '--root', tmp, ...extraArgs], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   return JSON.parse(r.stdout);
 }
@@ -148,6 +148,21 @@ test('coverage: src_dirs 未設定 → areas 空、note 存在、exit 0', () => 
     assert.deepEqual(out.src_dirs, []);
     assert.deepEqual(out.areas, []);
     assert.ok(typeof out.note === 'string' && out.note.length > 0);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('coverage: --include 刻意不套用（標明 scope＋note 說明全量比對）', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-cov-scope-'));
+  try {
+    writeBaseFiles(tmp);
+    // docs/auth.md 落在 scope 外——若 scope 生效，src/auth 會被誤判成 undocumented。
+    const out = run(tmp, ['--include', 'docs/search.md']);
+    assert.deepEqual(out.scope, ['docs/search.md']);
+    assert.match(out.note, /不套用/);
+    const auth = out.areas.find((a) => a.area === 'src/auth');
+    assert.deepEqual(auth.mentioned_by, ['docs/auth.md']); // 全量比對，範圍外的提及照樣算數
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

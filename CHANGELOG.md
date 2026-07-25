@@ -3,6 +3,19 @@
 版本權威在 [.claude-plugin/plugin.json](.claude-plugin/plugin.json) 的 `version`；本檔記錄各版變更。
 版號語意（semver，docgrad 特化）見 [docs/how-to.md](docs/how-to.md) §發版。
 
+## 0.4.0 — 2026-07-26
+
+- **新增（指令）**：`audit <scope>`／`audit --dim <維度>` —— scoped audit，限定目錄／glob／主題或單一
+  維度。一律純報告且**絕不寫入 `.docgrad/`**（scoped 分數混進 history 會毀掉跨輪可比性）；各維度在
+  範圍限定下的效力與報告標頭格式見 `reference/audit.md` §scoped audit。（issue #2）
+- **新增（CLI）**：四支腳本的共用旗標改由 `scripts/lib.mjs › parseArgs()` 一處解析，新增
+  `--include <glob>`（可重複／逗號分隔，支援 `**`／`*`／`?` 與目錄前綴）與 `--config <file>`
+  （設定檔外置——文件源本身不能落檔時用）。未知旗標一律丟錯，不再靜默忽略。（issue #2、#3 建議 2）
+- **量測語意**：`links.mjs` 在 scope 限定時孤兒回 `[]`、可達率回 `null`（可達性是全量索引概念，
+  範圍一縮就失真，不得因此扣星）；`coverage.mjs` 刻意不吃 `--include`（docs 端一縮會把範圍外的提及
+  誤判成 undocumented），並在 `note` 說明；`inventory.mjs` 的 `entry_cost.files` 改列實際計入的 entry 檔。
+- **相容性**：不加旗標時四支輸出除多一個 `scope: null` 欄位外與 0.3.0 相同；rubric 錨點未動。
+
 ## 0.3.0 — 2026-07-26
 
 - **新增（loop 行為）**：`reference/improve.md` 新增**設計性天花板**——某維的下一星錨點落在 Blocker
