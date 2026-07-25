@@ -107,7 +107,9 @@ docgrad 評的是**本地 markdown 檔案樹**：四支腳本都以本地路徑�
 - **新鮮度 ★5 屬畢業後範圍**：★5 要求 CI gate 強制，而 docgrad 不碰 CI ——`loop` 內該維上限 ★4
   （預設 target 就是 ★4，不受影響；只有把 target 調到 5 才會遇到）。
 
-不評 prose 風格（Vale 的事）、不評 SKILL.md 本身（agnix 的事）、不評程式碼（code review 的事）——
+不評 prose 風格（Vale 的事）、不評 SKILL.md 本身（agnix 的事）、不評程式碼品質（code review 的事）。
+一致性維度**會讀** code 註解，但只判「同一件事有沒有第二份權威、位置對不對」
+（安置規則見 [reference/placement.md](reference/placement.md)），不評註解寫得好不好——
 完整定位見 [docs/design.md](docs/design.md)。
 
 ## 開發
