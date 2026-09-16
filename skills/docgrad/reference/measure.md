@@ -8,10 +8,80 @@ This process **does not modify any file** and writes no state — pure report. R
 ## Contents
 
 - [Step 1. Run the mechanical scripts](#1-run-the-mechanical-scripts)
+- [Verdict lines](#verdict-lines)
 - [Step 8. Token economy report](#8-token-economy-report)
 - [Step 8b. The graduation gate, if the repo has one](#8b-the-graduation-gate-if-the-repo-has-one)
 
 For a scoped run: see [judge.md](judge.md) §Scoped audit.
+
+## Verdict lines
+
+Every script except `retrieval.mjs` (report-only) now emits a top-level `measure` array: each row
+carries `id`, `value` (with `numerator`/`denominator` when it is a ratio), `verdict`
+(`"OK" | "WATCH" | "FAIL" | null`) and `line` — the boundary that decided the verdict, in the
+number's own units — plus the anchor `source` it was read from. **Report the number first and the
+verdict next to it**; the verdict names which line fired, it does not replace the number. The
+evaluation order is fixed for every row: **FAIL is checked first, then OK, else WATCH.** A row
+with no calibrated FAIL line (`fail: null` in `lib.mjs › MEASURE_BANDS`) can be OK or WATCH but
+never FAIL — there is no anchor boundary to fail against.
+
+During 2.0.0's development the star anchors in [rubric.md](rubric.md) and these verdict lines
+coexist: both describe the same boundaries, and neither replaces the other yet. The star anchors
+retire in a later epoch; until then, read a `measure` row as the mechanical half of the same
+judgement the ★ rating makes by hand.
+
+The eleven rows, one per script, each citing the rubric.md anchor its OK/FAIL lines come from:
+
+- **links.mjs**
+  - `dead_link_ratio` — `dead_links.length / total_links`. FAIL `> 2%`; OK requires the ratio to be
+    `0` **and** `bad_anchors.length` to be `0` — broken anchors always cost stars, so a repo with
+    zero dead links and one bad anchor is WATCH, not OK. `bad_anchors` is reported alongside the
+    row for that reason. With `total_links: 0` the ratio is `0` with `note: "no links"` — the ★4
+    anchor is literally "zero dead links", and the no-links risk is the orphan/index rows' job, not
+    this one's.
+  - `orphan_ratio` — `orphans.length / included.length`. FAIL `> 20%`; OK `≤ 5%`. `null` (not `0`)
+    whenever `orphans` itself is `null` (no `index_file`, or a scoped run) or the corpus is empty —
+    a ratio with no denominator is not a measurement.
+  - `reachable_ratio` — the script's own `reachable_ratio`. No FAIL line; OK `≥ 95%`. `null` under
+    the same conditions as `orphan_ratio`.
+  - `index_present` — `1` when `config.index_file` is set and present in the unscoped corpus, else
+    `0`. FAIL when not present (rubric.md ★1 "no index at all"); OK when present. `null` under
+    scope — an `--include` run cannot say what the full corpus's index looks like.
+- **freshness.mjs**
+  - `date_coverage` — `files_with_signal / files_total`. FAIL `< 60%`; OK `≥ 90%`. `null` with
+    `note: "empty corpus"` when `files_total` is `0`.
+  - `key_doc_age` — the oldest `age_days` among this round's **key documents**, a narrower set than
+    rubric.md's: `entry_files ∪ index_file`, restricted to documents that are both in the corpus
+    and carry a non-null `age_days` (a missing document or one with no date signal is named and
+    skipped, not counted as `0`). This subset feeds `key_doc_age` only — the freshness ★ rating
+    still reads rubric.md's full "key documents" definition (which also includes each area's
+    authoritative document) until a later epoch. FAIL `> max(180, freshness.stale_after_days)`; OK
+    `≤ freshness.stale_after_days`. Because the FAIL line is a `max`, a repo that has legitimately
+    configured `stale_after_days: 365` sees a 200-day key document rated OK, not WATCH — the
+    configured window stays meaningful, exactly as rubric.md §Freshness says it can be. `null` when
+    the run is scoped (`note: "key documents are a full-corpus concept"`) or when no key document
+    survives the filter (`note: "no dated key document"`).
+  - `date_drift` — the largest `drift_days` among `mismatches`, or `0` when there are none. No FAIL
+    line; OK `< 30 days`. This line covers only the drift-days half of ★4's "only isolated
+    mismatches, drift <30 days" — the "isolated" clause has no count attached to it in the rubric
+    and is not measured here.
+- **inventory.mjs**
+  - `entry_cost` — `entry_cost.tokens_est`. FAIL `> economy.entry_cost_tiers[1]`; OK
+    `≤ economy.entry_cost_tiers[2]`. `null` under scope (`note: "full-corpus concept"`), matching
+    [judge.md](judge.md) §Scoped audit's economy row.
+  - `pollution` — `pollution.ratio`. No FAIL line; OK `< economy.pollution_max`. `null` under scope,
+    same reason and note as `entry_cost`.
+- **coverage.mjs**
+  - `undocumented_dirs` — `undocumented.length`. No FAIL line (none calibrated in rubric.md); OK
+    `= 0`. `null` with `note: "src_dirs is unset"` on the script's own early-exit path.
+  - `drifted_dirs` — `drifted.length`. Same shape as `undocumented_dirs`: no FAIL line, OK `= 0`,
+    `null` with the same note when `src_dirs` is unset.
+
+`lib.mjs › measure_hash` covers `economy.entry_cost_tiers` / `economy.pollution_max` /
+`freshness.stale_after_days` (as before), plus the band table above (`lib.mjs › MEASURE_BANDS`,
+unresolved) and this section's file, `reference/measure.md` — moving a threshold, or editing this
+prose, moves it. See [rubric.md](rubric.md) §Version history for the recorded old → new value and
+[CONTRIBUTING.md](../../../CONTRIBUTING.md) for the fingerprint discipline this falls under.
 
 ## Steps
 
@@ -28,6 +98,7 @@ node "$SKILL_DIR/scripts/retrieval.mjs" --root .
 ```
 
 Consume all five JSON outputs in full; don't truncate with head/grep/jq. If any script exits non-zero → stop and report stderr.
+Every script except `retrieval.mjs` also emits a top-level `measure` array; report each row number-first, verdict next to it (see [§Verdict lines](#verdict-lines)).
 
 `--exclude-ledger <path>` (#54, optional, pass only when `.docgrad/ledger.jsonl` exists): tells
 `inventory.mjs` to filter candidates already in that ledger out of `claim_candidates` **before**
