@@ -17,7 +17,7 @@
   `entry_files`, **not source code files** (including their comments). **Never touch the target repo's CI config.**
 - **`.docgrad/` belongs in version control, all of it.** It is not scratch space, it is this tool's state: `history.jsonl` is
   what the next round compares its `rubric_hash`/`corpus_hash` against, `ledger.jsonl` is the cumulative coverage that the
-  sampling rule in [audit.md](audit.md) §3. Correctness (claim ledger) draws down, `scorecard-latest.md` is what `report`
+  sampling rule in [judge.md](judge.md) §3. Correctness (claim ledger) draws down, `scorecard-latest.md` is what `report`
   reprints, and `graduation/` holds deliverables the team copies into `.github/` by hand. Gitignore any of them and the
   feature that reads it silently stops working — a cloned repo restarts coverage at zero and never draws a comparability
   break, with no error to notice.
@@ -25,9 +25,9 @@
 
 ## Steps in each round
 
-1. **Score**: run a full evaluation per [audit.md](audit.md) (scripts + LLM), producing this round's scorecard. When
+1. **Score**: run a full evaluation per [measure.md](measure.md) then [judge.md](judge.md) (scripts + LLM), producing this round's scorecard. When
    `.docgrad/ledger.jsonl` already exists, pass it to `inventory.mjs` as `--exclude-ledger .docgrad/ledger.jsonl` (#54, see
-   [audit.md](audit.md) step 1) — otherwise every claim this loop has already verified keeps occupying a slot in the emitted
+   [measure.md](measure.md) step 1) — otherwise every claim this loop has already verified keeps occupying a slot in the emitted
    candidate window, and the round after round it draws from shrinks toward nothing even though `claims_total` hasn't moved.
 2. **Pick a dimension**: take the lowest-scoring dimension; on a tie → take whichever comes first in rubric order
    (completeness → correctness → freshness → linkage → consistency → economy).
@@ -99,7 +99,7 @@
      value", not as a change. That transition is a real break and it is stated in the v1.7.0 CHANGELOG rather than detectable
      here.
 
-     `judge_hash` (**added as `judgement_hash` in v1.8.0, renamed in v2.0.0**) covers the files that carry **the rules for applying the anchors** — `audit.md` (the
+     `judge_hash` (**added as `judgement_hash` in v1.8.0, renamed in v2.0.0**) covers the files that carry **the rules for applying the anchors** — `judge.md` (audit.md until v2.0.0 E2a) (the
      scoring procedure, the sampling rule, the boundary rules) and `placement.md` (what counts as a consistency deduction).
      `rubric_hash` fingerprints the anchors themselves; this one fingerprints how they are applied, and the two move
      independently. Treat a move exactly like a `rubric_hash` move. Same blind spot as the others: rounds recorded **before**
@@ -114,7 +114,7 @@
 
      ```json
      {"claim_hash": "728d463bc0b4", "round": 3, "doc": "docs/x.md", "line": 75, "claim": "Routing is defined in src/router.ts", "verify": "Read src/router.ts", "result": "pass", "borderline": false, "verified_at": "2026-07-12"}
-     {"claim_hash": "91ac07f2e5d1", "round": 3, "doc": "docs/y.md", "line": 29, "claim": "each group channel subscribes to INSERT / UPDATE / DELETE", "verify": "Read RealtimeProvider.tsx", "result": "fail", "borderline": true, "rationale": "the 11-row table below :29 has two rows (GroupBalance:107, OikosGroups:116) subscribing to UPDATE only; judged against every row per audit.md boundary rule 1", "verified_at": "2026-07-12"}
+     {"claim_hash": "91ac07f2e5d1", "round": 3, "doc": "docs/y.md", "line": 29, "claim": "each group channel subscribes to INSERT / UPDATE / DELETE", "verify": "Read RealtimeProvider.tsx", "result": "fail", "borderline": true, "rationale": "the 11-row table below :29 has two rows (GroupBalance:107, OikosGroups:116) subscribing to UPDATE only; judged against every row per judge.md boundary rule 1", "verified_at": "2026-07-12"}
      ```
 
      **`claim_hash` is the key. Copy it from `inventory.claim_candidates`; never compute or invent one.** It is a
@@ -137,7 +137,7 @@
      > drawn as the new claim it is. Once migrated, write `claim_hash` on every new row and stop writing `claim_id`.
 
      > **`borderline` and `rationale` (added v1.7.0) are forward-only.** `borderline` is written on every row;
-     > `rationale` is mandatory on every `fail` and every borderline `pass` (see [audit.md](audit.md) step 4). Rows written
+     > `rationale` is mandatory on every `fail` and every borderline `pass` (see [judge.md](judge.md) step 4). Rows written
      > before this version have neither, and are **not** to be back-filled — a rationale reconstructed now would be this
      > round's reasoning wearing an older round's date, which is worse than an honest gap. Treat a missing `borderline` as
      > unknown rather than as `false`: the borderline count for a pre-v1.7.0 round is not zero, it is unrecorded, and a
@@ -151,7 +151,7 @@
      scorecard recorded that this had happened. When the borderline counts differ materially, say so in the round's notes
      instead of reporting the delta as a documentation outcome; `loop` uses this dimension's pass rate to decide whether to
      keep working on it, so an unstable verdict makes the stopping point unstable too.
-   - Overwrite `.docgrad/scorecard-latest.md` (the full scorecard text from audit.md).
+   - Overwrite `.docgrad/scorecard-latest.md` (the full scorecard text from judge.md step 9).
    - **Before committing the scorecard, check `inventory.untracked.count`.** Non-zero means the pollution surface — and
      therefore the economy rating — was measured against files that exist only on this machine, so the numbers you are about
      to commit are ones nobody else can reproduce (measured: ratio 0.1066 in a working checkout against 0.0517 in a clean
@@ -190,7 +190,7 @@ is no star to raise:
 - **Correctness, not measurable**: the round's verified set is empty because the corpus contains no
   verifiable claims at all (`claims_total: 0`, no ledger entries). Every correctness anchor is
   phrased as a pass rate, and a pass rate over zero claims is undefined, so the dimension is reported
-  as `n/a (not measurable)` rather than rated — see [audit.md](audit.md) §3. Correctness (claim ledger).
+  as `n/a (not measurable)` rather than rated — see [judge.md](judge.md) §3. Correctness (claim ledger).
   It counts as met for the targets check and leaves the working set, exactly like the two above.
   **Unlike them, this one is fixable — just not by the correctness dimension.** The report must say
   so: the corpus needs claims anchored to real code coordinates before correctness can be measured,
@@ -229,7 +229,7 @@ its state without being asked, because "the user will not go and do it" is the p
 premise does not stop applying the moment the file exists. Note which way each failure points. A prose recommendation nobody
 follows leaves the team **knowing** they have no gatekeeper. A produced gate nobody runs leaves them **believing** they have
 one, with a green promise in version control and a red answer in reality. The second is worse, which is why
-[audit.md](audit.md) step 8b now evaluates a present gate's declared thresholds on every audit and report — without
+[measure.md](measure.md) step 8b now evaluates a present gate's declared thresholds on every audit and report — without
 executing it — and says so when it is red or when no workflow references it.
 
 The same repo shows why the mechanical signal has to be fine-grained. `utm-convention.md` decayed in two ways at once: it
