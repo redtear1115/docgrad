@@ -23,7 +23,7 @@ When `.docgrad.yml` already exists, rerunning init = rescan, using the existing 
 1. `docs_dirs` (multi-select, pre-filled with scan candidates)
 2. `entry_files` (multi-select) — the criterion is "**loaded automatically by the agent on every task**," not "important."
    A human-facing GitHub landing page (typically the root `README.md`) should **not** be listed unless it is also an agent entry point:
-   since v1.0.0, fixed cost is star-rated (economy), so listing one extra is a tax paid for nothing, and omitting a must-read file underreports it.
+   since v2.0.0, fixed cost carries a measure verdict (`entry_cost`; in 1.x it was star-rated), so listing one extra is a tax paid for nothing, and omitting a must-read file underreports it.
    When it is also the index, just put it in `index_file` — no need to duplicate it in both places.
 3. `docs_files` (multi-select) — a **single markdown file outside `docs_dirs`**, included in the corpus as a **regular document**
    (`type: 'doc'`, not counted toward fixed cost). Typically the repo root's `PRODUCT.md`/`DESIGN.md`.
@@ -32,7 +32,7 @@ When `.docgrad.yml` already exists, rerunning init = rescan, using the existing 
      `docs_files`. Listing one document in both places is pointless — `entry_files` wins and counts toward fixed cost.
    - **Getting this wrong has an asymmetric cost.** Stuffing a conditional document into `entry_files` inflates fixed cost for
      nothing (measured on oikos: 9,037 → 21,474 tokens, crossing the first `economy.entry_cost_tiers` threshold — 20,000 at the shipped
-     defaults — and dropping economy from ★3 to ★1), and [judge.md](judge.md) §Economy will find `entry_cost.files` doesn't match reality and **log a
+     defaults — and dropping economy from ★3 to ★1 (1.x)), and [measure.md](measure.md) step 7 will find `entry_cost.files` doesn't match reality and **report a
      separate** deduction. The reverse (putting a truly always-loaded file into `docs_files`) underreports fixed cost, which is
      equally false.
    - **Files only**: listing a directory is a **hard error** — every script that reaches corpus collection exits 1 with
@@ -44,7 +44,7 @@ When `.docgrad.yml` already exists, rerunning init = rescan, using the existing 
    - **Not a reachability root**: it is subject to orphan detection like a regular document — some document must link to it, or
      linkage will log an orphan. This is deliberate — if a conditional document can't be reached by a link, the agent can only
      find it by guessing.
-4. `index_file` (single-select; no candidate → set to `null` and note: linkage will be capped for lack of a reachability root;
+4. `index_file` (single-select; no candidate → set to `null` and note: `index_present` will be FAIL for lack of a reachability root;
    improve's first round can build an index for you)
 5. `exclude` / `out_of_scope` — **ask this as one question with two answers, because the wrong half is the single most
    expensive misfiling this questionnaire can produce.** For each candidate directory, the question is *not* "do you want it
@@ -59,7 +59,7 @@ When `.docgrad.yml` already exists, rerunning init = rescan, using the existing 
 
    Getting it wrong in the second direction is what broke `tj/commander.js`: the owner scoped out `docs/zh-CN/` because the
    translations are graded as a separate corpus, the only field that existed was `exclude`, and docgrad charged **40.6%**
-   pollution and capped economy at ★3 while the fixed cost was a perfect 0 (see
+   pollution and capped economy at ★3 (1.x) while the fixed cost was a perfect 0 (see
    [case-studies/01-commander-js.md](../../../case-studies/01-commander-js.md) finding 1). Nothing in the docs was wrong; the field
    was.
 
@@ -96,7 +96,7 @@ When `.docgrad.yml` already exists, rerunning init = rescan, using the existing 
 8. `targets`: default all 4 (six dimensions), ask "which dimensions are you willing to lower to 3?" (multi-select).
    If economy is hard to hit because the repo's entry file is inherently large, prefer lowering the target over changing
    `economy.entry_cost_tiers`. Both are legitimate; they say different things. Lowering the target says "this repo accepts
-   ★3 economy"; raising the tiers says "this repo's ★4 means something looser than docgrad's ★4", and every later reader
+   WATCH on entry_cost"; raising the tiers says "this repo's OK line is looser than docgrad's", and every later reader
    has to know that to read the score. Since v1.7.0 the change is at least **visible**: the thresholds are reported on
    every run (`inventory.economy_thresholds.customised`) and folded into `measure_hash`, so `report` draws a
    comparability break where it happened. Before v1.7.0 these two fields were read by nothing at all — editing them changed
@@ -128,7 +128,7 @@ When `.docgrad.yml` already exists, rerunning init = rescan, using the existing 
       `inventory.claim_population.api_matching` reports `disabled` with a note when this happens — it is never silent.
 12. `scenarios`: ask the user for 2-4 representative code paths (files or directories, e.g.
     `apps/api/src/contract/contract-approval.service.ts`, `apps/api/src/timesheet`) — retrieval.mjs uses them to mechanically
-    compute marginal cost and traceability (see [rubric.md](rubric.md) §Token economy report / Traceability); leaving it empty
+    compute marginal cost and traceability (see [measure.md](measure.md) §Token economy signals / Traceability); leaving it empty
     falls back to LLM simulation from `scenario`, which still produces areas/index_hotness
 13. `rules.pattern`: the rule-line detection string, default `**MUST` (reuse whatever rule-marking convention the repo already
     has; usually no need to change it)
@@ -164,8 +164,8 @@ targets:
   consistency: 4
   economy: 4
 economy:
-  entry_cost_tiers: [20000, 10000, 5000, 3000]   # fixed-cost thresholds for economy ★1/★2/★3/★4→★5
-  pollution_max: 0.1                              # pollution surface cap; economy is capped at ★3 above this
+  entry_cost_tiers: [20000, 10000, 5000, 3000]   # entry_cost: OK ≤ [2], FAIL > [1]; [0] and [3] feed only legacy fields until E2c
+  pollution_max: 0.1                              # pollution is WATCH at or above this
 correctness_sample: 8
 claim_candidates_cap: 60   # how many ranked claim candidates inventory.mjs emits; without --exclude-ledger (#54) this is the ceiling cumulative coverage can reach. Leave at 60 until claim_population.truncated is true and the ledger has nearly filled the window
 scenario: "add a typical new feature to <some module>"   # LLM-simulation fallback when scenarios is absent

@@ -17,8 +17,8 @@ Use the absolute path from the line that actually runs after `/docgrad` is trigg
 
 ## Add a scoring dimension
 
-1. **Anchors first**: add a dimension subsection in [skills/docgrad/reference/rubric.md](../skills/docgrad/reference/rubric.md) (full ★1–★5 anchors + measurement method). Anchor changes = a breaking change, see the next section.
-2. Update the rubric's "mechanical signal -> dimension map" table; dimension order (the tie-break basis) follows the rubric table's order.
+1. **Anchors first**: judged dimension: full ★1–★5 anchors + measurement method in [skills/docgrad/reference/rubric.md](../skills/docgrad/reference/rubric.md); measure signal: a `MEASURE_BANDS` row (`skills/docgrad/scripts/lib.mjs`) + a [measure.md](../skills/docgrad/reference/measure.md) §Verdict lines entry. Anchor changes = a breaking change, see the next section.
+2. Update the rubric's "mechanical signal -> dimension map" map; dimension order (the tie-break basis) follows the rubric map's order.
 3. Add the new dimension key to `targets` in `.docgrad.yml`; sync `skills/docgrad/scripts/lib.mjs › DEFAULTS.targets` (the field list is authoritative in code, not repeated here).
 4. Add the scoring steps for that dimension to [skills/docgrad/reference/judge.md](../skills/docgrad/reference/judge.md); add a row to the scorecard template.
 5. If a new mechanical signal is needed: add `skills/docgrad/scripts/<name>.mjs` (contract in [design.md](design.md) §Scripts contract — zero dependencies, JSON->stdout, errors->stderr with a non-zero exit code, shared flags always go through `skills/docgrad/scripts/lib.mjs › parseArgs()`), and add a corresponding `*.test.mjs` in `tests/`.
@@ -116,7 +116,7 @@ When docs point to code, use `` `path › symbol()` ``, not line numbers — lin
 - ✅ `` `skills/docgrad/scripts/lib.mjs › DEFAULTS.targets` ``, `` `skills/docgrad/scripts/lib.mjs › parseYamlSubset()` ``
 - ❌ `skills/docgrad/scripts/lib.mjs:84` (inaccurate the next time it's edited)
 
-It's enough for the symbol to locate the spot, no need for the full signature. This shares its origin with the linkage ★5 anchor, see the Linkage section in [skills/docgrad/reference/rubric.md](../skills/docgrad/reference/rubric.md).
+It's enough for the symbol to locate the spot, no need for the full signature. This shares its origin with the retired linkage ★5 anchor (see [skills/docgrad/reference/rubric.md](../skills/docgrad/reference/rubric.md) §Version history).
 
 ## Marking retired or superseded documents
 

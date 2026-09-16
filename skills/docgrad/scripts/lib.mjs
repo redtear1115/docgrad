@@ -127,7 +127,7 @@ const DEFAULTS = {
   // Removed from the corpus exactly like exclude, but **not** charged to the pollution surface;
   // its own count and token total are reported on every run instead (see inventory.mjs). Defaults
   // to [] so a config written before this field existed behaves identically to before — an absent
-  // field and an empty list are the same corpus, and neither moves a single rating.
+  // field and an empty list are the same corpus, and neither moves a single verdict.
   out_of_scope: [],
   // exclude_untracked: opt-in, default false (= today's behavior). When true, collectFiles drops
   // every collected file that git does not track, so the corpus matches a clean checkout of the
@@ -291,14 +291,14 @@ export function validateConfigTypes(config, configFile = CONFIG_FILENAME) {
   if (!Array.isArray(tiers) || tiers.length !== 4 || tiers.some((t) => typeof t !== 'number' || !(t > 0))) {
     throw new Error(
       `${configFile}: economy.entry_cost_tiers must be a list of four positive numbers, but got ${describeValue(tiers)}. ` +
-        `Correct form: economy.entry_cost_tiers: [20000, 10000, 5000, 3000] — the ★1/★2/★3/★4 fixed-cost boundaries, highest first.`
+        `Correct form: economy.entry_cost_tiers: [20000, 10000, 5000, 3000] — the entry_cost band boundaries: [2] is the OK line, [1] the FAIL line, highest first.`
     );
   }
   for (let i = 1; i < tiers.length; i += 1) {
     if (tiers[i] >= tiers[i - 1]) {
       throw new Error(
         `${configFile}: economy.entry_cost_tiers must decrease, but ${tiers[i - 1]} is followed by ${tiers[i]}. ` +
-          `They are star boundaries read highest-first; out of order they would place a cheaper entry file in a worse band than an expensive one.`
+          `They are band boundaries read highest-first; out of order they would place a cheaper entry file in a worse band than an expensive one.`
       );
     }
   }
@@ -312,7 +312,7 @@ export function validateConfigTypes(config, configFile = CONFIG_FILENAME) {
   if (!Number.isInteger(staleAfter) || staleAfter < 1) {
     throw new Error(
       `${configFile}: freshness.stale_after_days must be a positive whole number of days, but got ${describeValue(staleAfter)}. ` +
-        `Correct form: freshness.stale_after_days: 60. It sets the rubric's freshness ★3 staleness boundary for this repo.`
+        `Correct form: freshness.stale_after_days: 60. It sets the key_doc_age OK line for this repo.`
     );
   }
   return config;
@@ -661,8 +661,8 @@ function pushSingleFile(rootDir, rel, field, out) {
 // --- git: which collected files does git actually track? ----------------------------
 //
 // collectFiles walks the filesystem, it does not ask git. So an untracked local file sitting
-// inside the corpus changes pollution.ratio — and the pollution surface is a **rated** input
-// (economy.pollution_max forces a downgrade once it is exceeded). Measured on one repo at the
+// inside the corpus changes pollution.ratio — and the pollution surface is an input to a measure
+// verdict (economy.pollution_max forces WATCH once it is exceeded). Measured on one repo at the
 // same commit, same script version: ratio 0.1066 in a working checkout vs 0.0517 in a clean
 // worktree, the whole difference being a single untracked 9,730-token draft in a .gitignore'd
 // directory. pollution_max sits at 0.10, i.e. **between the two numbers**: two people can rate
@@ -761,8 +761,8 @@ export function collectFiles(rootDir, config, { include = [], tracked } = {}) {
   // They aren't picked up by docs_dirs' directory scan, and putting a single file in docs_dirs
   // would blow up (ENOTDIR); listing them as entry_files would get them in, but inventory.mjs's
   // fileType() would tag them as 'entry' and inflate the fixed cost (measured on oikos:
-  // 9,037 -> 21,474 tokens, economy ★3 -> ★1), which also contradicts judge.md's requirement
-  // that entry_cost.files really be loaded on every single task. Hence a separate field.
+  // 9,037 -> 21,474 tokens, economy ★3 -> ★1 (1.x)), which also contradicts measure.md step 7's
+  // requirement that entry_cost.files really be loaded on every single task. Hence a separate field.
   for (const f of config.docs_files) pushSingleFile(rootDir, f, 'docs_files', all);
   // entry_files and index_file may fall outside docs_dirs (e.g. a repo-root SKILL.md/README.md);
   // both are part of the documentation system and must be included in the corpus — missing
@@ -786,11 +786,11 @@ export function collectFiles(rootDir, config, { include = [], tracked } = {}) {
   // --- the exclude / out_of_scope split (#44) -------------------------------------------------
   //
   // The rubric answer this encodes: **the pollution surface measures how much junk this repo
-  // contains, not how much of it I chose not to grade.** Only the first should move a star.
+  // contains, not how much of it I chose not to grade.** Only the first should move a verdict.
   // `exclude` carried both meanings at once and the pollution surface only honoured one of them:
   // on tj/commander.js a `docs/zh-CN/` translated mirror — deliberately graded as a separate
-  // corpus, not junk — was charged 40.6% pollution and capped economy at ★3 while the fixed cost
-  // was a perfect 0. So the two meanings get two fields:
+  // corpus, not junk — was charged 40.6% pollution and capped economy at ★3 (1.x) while the fixed
+  // cost was a perfect 0. So the two meanings get two fields:
   //   exclude       -> out of the corpus, **in** the pollution surface ("this repo contains this")
   //   out_of_scope  -> out of the corpus, **out** of the pollution surface, size always reported
   //
@@ -861,7 +861,7 @@ const EXPLICIT_ANCHOR_RE = /<a\s[^>]*\b(?:id|name)\s*=\s*["']([^"']+)["']/gi;
 // The previous implementation stripped an `_` whenever *either* neighbour was non-alphanumeric,
 // which turned `### cmd._args` into `cmdargs` and `### _private` into `private` while GitHub
 // produces `cmd_args` / `_private`. Every link pointing at such a section was reported as a bad
-// anchor, and a bad anchor always costs a star — measured on tj/commander.js, the convergence
+// anchor, and a bad anchor always costs a star (1.x) — measured on tj/commander.js, the convergence
 // loop went and added `<a id>` to a document that had nothing wrong with it (#42). The 0.6.1 fix
 // only covered the word-internal case (`sot_level`); pairing is what covers all of them.
 const EMPHASIS_PAIR_RE = /(?<![\p{L}\p{N}])(_{1,3})(?=[^\s_])(.+?)(?<=[^\s_])\1(?![\p{L}\p{N}])/gu;
@@ -1385,8 +1385,8 @@ function resolveSkillRoot() {
 // `bad_anchors: 0` condition is expressed here so both halves live in the same hashed data instead
 // of one being a threshold and the other being an `if` statement nothing can see move.
 //
-// `source` names the rubric.md anchor each line comes from — no "retired" wording yet: the star
-// anchors and these lines coexist through 2.0.0, and only a later epoch retires the anchors.
+// `source` names the anchors retired in v2.0.0; `source` names the retired anchor each line
+// replaces.
 export const MEASURE_BANDS = [
   {
     id: 'dead_link_ratio',
@@ -1396,7 +1396,7 @@ export const MEASURE_BANDS = [
     fail: { op: '>', value: 0.02 },
     ok: { op: '==', value: 0 },
     ok_also: [{ input: 'bad_anchors', op: '==', value: 0 }],
-    source: 'rubric.md §Linkage ★4 "zero dead links" + "broken anchors always cost stars" / ★2 "2–10%"',
+    source: 'retired rubric.md Linkage ★4 "zero dead links" + "broken anchors always cost stars" / ★2 "2–10%" (see rubric.md §Version history, v2.0.0)',
   },
   {
     id: 'orphan_ratio',
@@ -1405,7 +1405,7 @@ export const MEASURE_BANDS = [
     scope: 'full',
     fail: { op: '>', value: 0.2 },
     ok: { op: '<=', value: 0.05 },
-    source: 'rubric.md §Linkage ★4 "orphans ≤5%" / ★2 "orphans >20%"',
+    source: 'retired rubric.md Linkage ★4 "orphans ≤5%" / ★2 "orphans >20%" (see rubric.md §Version history, v2.0.0)',
   },
   {
     id: 'reachable_ratio',
@@ -1414,7 +1414,7 @@ export const MEASURE_BANDS = [
     scope: 'full',
     fail: null,
     ok: { op: '>=', value: 0.95 },
-    source: 'rubric.md §Linkage ★4 "reachable_ratio ≥95%" (no ★2 counterpart)',
+    source: 'retired rubric.md Linkage ★4 "reachable_ratio ≥95%" (no ★2 counterpart) (see rubric.md §Version history, v2.0.0)',
   },
   {
     id: 'index_present',
@@ -1425,7 +1425,7 @@ export const MEASURE_BANDS = [
     // presence/absence check expressed with the same {op, value} shape as every other row.
     fail: { op: '==', value: 0 },
     ok: { op: '==', value: 1 },
-    source: 'rubric.md §Linkage ★1 "no index at all"',
+    source: 'retired rubric.md Linkage ★1 "no index at all" (see rubric.md §Version history, v2.0.0)',
   },
   {
     id: 'date_coverage',
@@ -1434,7 +1434,7 @@ export const MEASURE_BANDS = [
     scope: 'any',
     fail: { op: '<', value: 0.6 },
     ok: { op: '>=', value: 0.9 },
-    source: 'rubric.md §Freshness ★4 "≥90%" / ★2 "20–60%"',
+    source: 'retired rubric.md Freshness ★4 "≥90%" / ★2 "20–60%" (see rubric.md §Version history, v2.0.0)',
   },
   {
     id: 'key_doc_age',
@@ -1443,7 +1443,7 @@ export const MEASURE_BANDS = [
     scope: 'full',
     fail: { op: '>', value: { max: [180, { config: 'freshness.stale_after_days' }] } },
     ok: { op: '<=', value: { config: 'freshness.stale_after_days' } },
-    source: 'rubric.md §Freshness ★3 window / ★2 ">180 days"',
+    source: 'retired rubric.md Freshness ★3 window / ★2 ">180 days" (see rubric.md §Version history, v2.0.0)',
   },
   {
     id: 'date_drift',
@@ -1452,7 +1452,7 @@ export const MEASURE_BANDS = [
     scope: 'any',
     fail: null,
     ok: { op: '<', value: 30 },
-    source: 'rubric.md §Freshness ★4 "drift <30 days"',
+    source: 'retired rubric.md Freshness ★4 "drift <30 days" (see rubric.md §Version history, v2.0.0)',
   },
   {
     id: 'entry_cost',
@@ -1461,7 +1461,7 @@ export const MEASURE_BANDS = [
     scope: 'full',
     fail: { op: '>', value: { config: 'economy.entry_cost_tiers', index: 1 } },
     ok: { op: '<=', value: { config: 'economy.entry_cost_tiers', index: 2 } },
-    source: 'rubric.md §Economy ★4 / ★2 (tiers from config)',
+    source: 'retired rubric.md Economy ★4 / ★2 (tiers from config) (see rubric.md §Version history, v2.0.0)',
   },
   {
     id: 'pollution',
@@ -1470,7 +1470,7 @@ export const MEASURE_BANDS = [
     scope: 'full',
     fail: null,
     ok: { op: '<', value: { config: 'economy.pollution_max' } },
-    source: 'rubric.md §Economy "caps at ★3" (no FAIL counterpart)',
+    source: 'retired rubric.md Economy "caps at ★3" (no FAIL counterpart) (see rubric.md §Version history, v2.0.0)',
   },
   {
     id: 'undocumented_dirs',
@@ -1673,9 +1673,9 @@ export function measureDigest(config, bands, files) {
 // actually graded by, because three config values move judgement boundaries without touching a
 // word of rubric.md:
 //
-//   economy.entry_cost_tiers   the ★1/★2/★3/★4 fixed-cost bands
-//   economy.pollution_max      the ★3 cap on the pollution surface
-//   freshness.stale_after_days the ★3 staleness boundary, written in the anchor as "≤60 days"
+//   economy.entry_cost_tiers   the entry_cost band boundaries (verdict lines)
+//   economy.pollution_max      the pollution WATCH line
+//   freshness.stale_after_days the key_doc_age OK line
 //
 // The first two were inert until v1.7.0 and warned about anyway; the third has been live since it
 // was introduced and was never warned about at all — the wiring was the opposite of what the docs
@@ -1870,7 +1870,7 @@ export function extractClaimLines(text, srcDirs = [], { symbols = null } = {}) {
   // often show up **in the sentence next to the anchor line**, not the anchor line itself: on
   // oikos, that balance sign was written in the sentence right after "settlement is handled by
   // `src/balance.ts › settle()`", and checking only the anchor line missed the whole thing
-  // entirely (the pattern behind the ★4->★2 re-verification after wrap-up on 2026-07-13).
+  // entirely (the pattern behind the ★4->★2 re-verification after wrap-up on 2026-07-13, (1.x)).
   const sections = [];
   let inFence = false;
   let current = { title: null, start: 1, end: lines.length };

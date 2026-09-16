@@ -197,7 +197,7 @@ test('inventory: scope is null for a full run (unchanged existing behavior)', ()
 // --- #44: out_of_scope leaves the corpus without being charged to the pollution surface ---------
 
 // The measured tj/commander.js shape: a translated mirror large enough to dominate the ratio (it
-// produced 40.6% pollution and capped economy at ★3), plus a small genuinely-embarrassing draft.
+// produced 40.6% pollution and capped economy at ★3 (1.x)), plus a small genuinely-embarrassing draft.
 function mirrorRepo(configTail) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-oos-inv-'));
   fs.mkdirSync(path.join(tmp, 'docs', 'zh-CN'), { recursive: true });
@@ -222,7 +222,7 @@ test('inventory: the same mirror moves pollution.ratio under exclude and does no
     assert.deepEqual(a.files.map((f) => f.path), ['docs/a.md', 'docs/wip/draft.md']);
     assert.deepEqual(b.files.map((f) => f.path), ['docs/a.md', 'docs/wip/draft.md']);
     assert.equal(a.totals.tokens_est, b.totals.tokens_est);
-    // Only the charge differs, and it is the difference between ★3 and a usable economy score.
+    // Only the charge differs, and it is the difference between an OK and a WATCH pollution verdict.
     assert.ok(a.pollution.ratio > 0.5, `exclude charges the mirror: ${a.pollution.ratio}`);
     assert.equal(b.pollution.ratio, 0, 'out_of_scope charges nothing');
     assert.deepEqual(b.pollution.excluded_files, []);
@@ -291,8 +291,8 @@ test('inventory: out_of_scope narrows under --include, like the pollution surfac
 });
 
 test('inventory: an untracked file inside out_of_scope is not listed as untracked (#44)', () => {
-  // untracked exists to explain how two checkouts of one commit can rate differently. out_of_scope
-  // feeds no rated input, so a file in there cannot cause that divergence and does not belong in
+  // untracked exists to explain how two checkouts of one commit can measure differently. out_of_scope
+  // feeds no measure input, so a file in there cannot cause that divergence and does not belong in
   // the block. An untracked file in the still-charged exclude bucket does, and still is.
   const tmp = mirrorRepo('exclude: [docs/wip/]\nout_of_scope: [docs/zh-CN/]\n');
   try {
@@ -822,7 +822,7 @@ test('inventory: economy_thresholds reports the shipped values and the arithmeti
   assert.deepEqual(e.entry_cost_tiers, [20000, 10000, 5000, 3000]);
   assert.equal(e.pollution_max, 0.1);
   assert.equal(e.customised, false, 'a config that never mentions economy: is not customised');
-  assert.equal(e.entry_cost_tokens_est, out.entry_cost.tokens_est, 'must cite the same number economy is rated on');
+  assert.equal(e.entry_cost_tokens_est, out.entry_cost.tokens_est, 'must cite the same number the entry_cost verdict is measured on');
   assert.equal(e.pollution_ratio, out.pollution.ratio);
   assert.equal(e.cost_allows_star, 4);
   assert.equal(e.pollution_caps_at, null);

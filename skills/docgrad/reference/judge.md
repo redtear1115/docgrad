@@ -1,17 +1,15 @@
 # judge — rate against the rubric
 
-> **Last updated:** 2026-09-16
+> **Last updated:** 2026-09-17
 
-Precondition (blocker): the target repo root must have `.docgrad.yml`; if not → stop, point to `/docgrad init`. This pass also requires this round's [measure.md](measure.md) output (step 2 opens by consuming coverage.mjs; steps 3, 4/5 and 7 consume step 1).
+Precondition (blocker): the target repo root must have `.docgrad.yml`; if not → stop, point to `/docgrad init`. This pass also requires this round's [measure.md](measure.md) output (step 3 consumes step 1; step 9 reprints measure.md's output).
 This process **does not modify any file** and writes no state — pure report. Read [rubric.md](rubric.md) before scoring.
 
 ## Contents
 
 - [Step 2. Completeness](#2-completeness)
 - [Step 3. Correctness (claim ledger)](#3-correctness-claim-ledger)
-- [Step 4/5. Freshness / Linkage](#4-freshness--5-linkage)
 - [Step 6. Consistency (across documents and carriers)](#6-consistency-across-documents-and-carriers)
-- [Step 7. Economy](#7-economy)
 - [Step 9. Emit the scorecard](#9-emit-the-scorecard)
 - [Scoped audit (limited scope / single dimension)](#scoped-audit-limited-scope--single-dimension)
 
@@ -247,14 +245,6 @@ zero new draws, so the sampling stopped expanding exactly when the documentation
 > **audit writes nothing to disk**: this process **reads** the ledger but never writes it. The ledger is only written by `improve`/`loop`
 > (see [improve.md](improve.md) step 5) — consistent with the ironclad rule that "audit is pure report".
 
-### 4. Freshness / 5. Linkage
-
-Assign star ratings directly against the rubric anchors using the freshness.mjs / links.mjs output.
-
-For freshness, also check `date_concentration` (doesn't affect the star rating, but **must be written in the report**): a high `max_same_day_ratio` means the date signal is clustered on a single day, usually the trace of a bulk backfill — these files will age together and go stale together, and no matter how high `coverage_ratio` is, it can't tell you "which document has genuinely gone unmaintained for a long time." oikos measured 0.68 in practice (28/41 files stuck on the backfill day). Write it in the report as "coverage 95%, but 68% of the dates cluster on 2026-07-13, limiting the signal's discriminating power." Note it can't distinguish "backfill" from "this batch of files really did change at the same time" — it only flags, it doesn't rule.
-
-Count every broken anchor from links: since 0.6.1 the slug algorithm matches GitHub character-for-character (spaces to dashes one by one, underscores inside words kept, explicit `<a id>` tags included in the index), so CJK headings no longer have approximation error. `cjk_uncertain` is kept only as a hint field, **not** a reason to skip verification.
-
 ### 6. Consistency (across documents and carriers)
 
 Read [placement.md](placement.md) first — the rules for judging placement and duplication live there.
@@ -268,50 +258,30 @@ Read [placement.md](placement.md) first — the rules for judging placement and 
 5. Assign a star rating against the rubric's consistency anchors. **Only judge placement and duplication, never comment quality** — see the boundary in
    [design.md](../../../docs/design.md) §Positioning and boundaries.
 
-### 7. Economy
-
-Assign a star rating directly against the rubric's economy anchors using `inventory.mjs`'s `entry_cost.tokens_est` (fixed cost) and `pollution.ratio` (pollution surface) — **fully mechanical, no LLM judgment involved**. Three things must always be checked:
-
-1. Whether `entry_cost.files` is really loaded on every task. Listing a human-only landing page (like the `README.md` used on GitHub) in `entry_files` inflates the fixed cost; conversely, a file the agent must read every time but that isn't listed under-reports it.
-   Finding a mismatch between the config and reality → record it as a deduction and suggest fixing `.docgrad.yml`, **don't** change the config yourself and then score.
-   - **Conditionally-required files** (an entry file that says "read `DESIGN.md` before touching the UI") don't count as always-loaded:
-     suggest moving them to `docs_files` instead — they still enter the corpus and the other five dimensions, but don't count toward the fixed cost (see [init.md](init.md) questionnaire item 3).
-2. When pollution surface ≥ 10%, this dimension is capped at ★3 (the rubric's downgrade rule), even if the fixed cost is low.
-   **Always print `inventory.out_of_scope.count` and `tokens_est` beside the pollution line — on every round, whether or not
-   the field is empty.** The pollution surface measures how much junk this repo contains; `out_of_scope` is how much content
-   was taken out of the surface because it is graded elsewhere (see [rubric.md](rubric.md) §Economy). The two numbers only
-   mean anything together, and printing the second one unconditionally is the property that stops the first from being
-   quietly launderable. Three rules for reading it:
-   - **`out_of_scope` that dwarfs the graded corpus is a finding in its own right**, even when every star is met. Compare
-     `out_of_scope.tokens_est` against `totals.tokens_est`: when the excused content outweighs the graded content, the
-     scorecard is rating a minority of the repo's documentation and must say so in the economy row. Record it as a deduction
-     when the excusing looks like scope laundering rather than a real second corpus — an `out_of_scope` entry that names a
-     whole `docs/` tree is not "graded elsewhere" unless you can point at where.
-   - **`out_of_scope.note`** appears when the list was capped at 20 paths, and when a path matches **both** fields. In the
-     second case the file is charged (`exclude` wins) — pass the note through verbatim, because the author who listed it in
-     `out_of_scope` is expecting the opposite and would otherwise only see a ratio that refused to move.
-   - Never suggest moving a directory from `exclude` into `out_of_scope` to raise economy. That is re-labelling, not
-     improvement, and [improve.md](improve.md) forbids it outright.
-3. **Check `inventory.untracked.count` before you write the rating down** — the corpus is collected off the filesystem, not out of git, so this rating can depend on whose checkout it was run in:
-   - **Non-zero** → the run collected N local files git does not track (`untracked.files` lists them — **capped at the first 20 paths**, with a `note` saying so when it truncates, while `count` and `tokens_est` always cover all of them; the same discipline `out_of_scope` already documents). The pollution ratio and the token totals are **checkout-bound: another machine on the same commit gets a different number, and possibly a different star**. The scorecard must say so, quoting the count and token weight, and recommend `exclude_untracked: true` in `.docgrad.yml` to measure the clean-checkout corpus instead (see [init.md](init.md) questionnaire item 6). `inventory.pollution.note` carries the same warning when any *collected* file is untracked — pass it through, don't paraphrase it away.
-   - **`null`** → the check could not run. **`untracked.note` names which of three causes**, and they need different follow-ups: *git is not installed* → install it or run elsewhere; *not a git working tree* → the check can never apply here, so stop recommending it; *git is present but failed to run here* → the check does apply, this environment just broke it, and the note carries git's own words. That third one is the reason the first two are not enough: under an agent sandbox where `/usr/bin/git` is macOS's xcrun shim, git exits non-zero inside a directory that **is** a work tree. Pass the note through rather than paraphrasing it back into "git was unavailable", and never conclude "not a work tree" from a `null` alone. State that in the report; `null` is not zero, and an unrun check must not be reported as a clean one.
-   - **Zero** → the collected corpus is exactly what the commit contains; nothing to note.
-
 ### 9. Emit the scorecard
 
 ```markdown
 # docgrad scorecard — <repo> @ <YYYY-MM-DD>
 
+## Measure
+One line per `measure` item — number first, then verdict and line (id, value with
+numerator/denominator when it is a ratio, verdict, line); see [measure.md](measure.md) §Verdict
+lines for the full table and the degenerate cases. This block **must** also carry:
+- the freshness `date_concentration` line (report-only, see measure.md step 4/5);
+- the economy lines: fixed cost, pollution, `out_of_scope` count/tokens and untracked count (see
+  measure.md step 7);
+- the custom-thresholds statement: when `economy_thresholds.customised` is **true**, print the
+  tiers and `pollution_max` and state plainly that this repo's verdict lines are not comparable
+  with one graded at the defaults — the reader cannot infer that from a verdict alone, and
+  `measure_hash` only tells them the ruler changed, not what it changed to.
+
 | Dimension | Rating | Target | Main deductions |
 |---|---|---|---|
 | Completeness | ★x | ★y | … |
 | Correctness | ★x | ★y | …(pass rate n/N, **N borderline**, cumulative coverage m/total = x%, docgrad-authored share x%; `n/a` when the corpus has 0 verifiable claims; add "API matching disabled — `src_dirs` unset" when `claim_population.api_matching` says so) |
-| Freshness | ★x | ★y | …(date concentration x%, call it out if high) |
-| Linkage | ★x | ★y | … |
 | Consistency | ★x | ★y | …(deductions tagged `[contradiction]`/`[duplication]`/`[placement]`) |
-| Economy | ★x | ★y | …(fixed cost N tokens, pollution surface x%, out_of_scope N files / ~M tokens — always stated; add "N untracked files — ratio is checkout-bound" when `untracked.count` is non-zero, "untracked not checked (no git)" when it is `null`; add "graded at custom thresholds: tiers […], pollution_max x" when `economy_thresholds.customised` is true) |
 
-## Token economy (not rated)
+## Token economy (report-only)
 - Fixed cost: ~N tokens (entry_files: …) — already counted in economy
 - Marginal cost: with scenarios, list each one (scenario "path": ~N tokens, max_depth N hops, fan_in N,
   code_pointer yes/no, churn_commits N — call out the one that taxes the most); without scenarios, fall back to scenario "…" LLM
@@ -319,15 +289,15 @@ Assign a star rating directly against the rubric's economy anchors using `invent
 - Pollution surface: x% (exclude: …) — already counted in economy
 - Thresholds in force: read them from `inventory.economy_thresholds`, never from memory or from the
   rubric table. When `customised` is **false**, say `shipped defaults`. When it is **true**, print the
-  tiers and `pollution_max` and state plainly that this repo's ★ is not comparable with one graded at
-  the defaults — the reader cannot infer that from the star alone, and `thresholds_hash` only tells
-  them the ruler changed, not what it changed to
+  tiers and `pollution_max` and state plainly that this repo's verdict lines are not comparable with
+  one graded at the defaults — the reader cannot infer that from a verdict alone, and `measure_hash`
+  only tells them the ruler changed, not what it changed to
 - Out of scope (not charged to the pollution surface): N files / ~M tokens (…paths) — **always printed, `0 files / 0 tokens`
   when the field is unused**. Say what it is graded as instead, and call it out when M is a material share of the corpus
   token total above; pass `out_of_scope.note` through verbatim when it appears (list capped, or paths that match both
   `exclude` and `out_of_scope` and are therefore charged)
 - Untracked files in the corpus: N files / ~M tokens (…paths) — the ratio above is checkout-bound, another machine on this
-  commit may rate economy differently; `exclude_untracked: true` measures the clean-checkout corpus instead.
+  commit may give economy lines different verdicts; `exclude_untracked: true` measures the clean-checkout corpus instead.
   Write `0 — corpus matches the commit` when there are none, and `not checked (no git)` when `untracked.count` is `null`
 - Interpretation: …
 
@@ -350,7 +320,7 @@ Lowest-scoring dimension = <dimension> (ties broken by rubric order). Deductions
 ## Scoped audit (limited scope / single dimension)
 
 **Trigger**: the user's input carries a scope (directory, glob, or a topic description like "infra-related docs") or a dimension
-(`--dim freshness`, "just score completeness").
+(`--dim consistency`, "just score completeness").
 
 **Scope translation**: translate a topic description into a concrete glob first (use the inventory's file list to pick out relevant files), and
 **list the actual `--include` value used** in the report header — the user needs to see what you interpreted "infra-related" as. If you can't translate it, ask; don't guess.
@@ -369,10 +339,8 @@ Refuse even if the user asks to "log it while you're at it" — suggest running 
 |---|---|
 | Completeness | `coverage.mjs` always cross-checks in full (`--include` deliberately has no effect on it) — shrink the docs side and mentions outside the scope get misjudged as undocumented. The LLM supplementary check is limited to domains inside the scope. |
 | Correctness | the claim ledger samples only from documents inside the scope (`claim_candidates` has already been narrowed to the scope by `--include`); `correctness_sample` — the number of *new* draws — may be scaled down proportionally to file count, and the actual number drawn gets written into the report. Cumulative coverage **must not be reported** — the denominator `claims_total` has been narrowed by scope and doesn't mean the same thing as a full report's coverage. The existing ledger is still read and still re-verified, but **not written back**. |
-| Freshness | usable as-is (per-file judgment, unaffected by scope). |
-| Linkage | only dead links/broken anchors count; the script returns `null` for orphans and reachable ratio — reachability is a full-index concept and gets distorted the moment the scope shrinks. Write "not applicable" in the report; **don't** give a ★1 because of it. |
+| Measure signals | verdicts per [measure.md](measure.md); `orphan_ratio`, `reachable_ratio`, `index_present`, `key_doc_age`, `entry_cost` and `pollution` are `null` under scope. |
 | Consistency | cross-document comparison is limited to inside the scope; when the other half of a contradiction falls outside the scope, record it as "needs a full audit to confirm." |
-| Economy | **must not be star-rated when scoped**. Fixed cost is a full-corpus concept over entry_files, and pollution surface is a proportion of the whole corpus — both get distorted the moment the scope shrinks. Write "not applicable (needs a full audit)" in the report; **don't** give a ★1 because of it — same as linkage's orphans/reachable ratio. |
 | Token economy report | report only tokens inside the scope, and note that the scoped value can't be compared to a full report's; `retrieval.mjs` doesn't accept `--include` (same reason as coverage.mjs, see its `note`) — marginal cost/traceability are reported in full. |
 
 **Report header** (replaces the full scorecard's title line):

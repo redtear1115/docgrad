@@ -1,6 +1,6 @@
-# docgrad rubric — star anchors for the six dimensions
+# docgrad rubric — star anchors for the three judged dimensions
 
-> **Last updated:** 2026-09-16
+> **Last updated:** 2026-09-17
 
 > This file is the only basis on which scores from different rounds can be compared. The anchors
 > are frozen; any change to them makes historical scores incomparable, counts as a breaking
@@ -27,21 +27,21 @@
    anchors in this file. Inventing your own criteria is not allowed.
 3. Star ratings are whole numbers, ★1–★5. Take the highest level the docs *fully* satisfy.
 4. When in doubt, round down — a conservative score gives the loop a clear direction to work in.
-5. Fixed dimension order (ties break toward the earlier one): completeness → correctness →
-   freshness → linkage → consistency → economy. Economy is last on purpose: it pulls against
-   completeness (adding documentation raises the fixed cost), so on a tie the content dimensions
-   move first and the loop does not oscillate between "write more" and "delete it again".
+5. Fixed dimension order for the judged dimensions (ties break toward the earlier one):
+   completeness → correctness → consistency. (Retired: through v1.x, freshness, linkage and economy
+   also took part in this order; see [§Version history](#version-history-and-comparability-notes).)
 
 ## Mechanical signal → dimension map
 
-| Script | Feeds |
-|---|---|
-| inventory.mjs | **Economy (fully mechanical: `entry_cost` + `pollution`)**; the inventory completeness works from; `structure.rules` feeds traceability |
-| coverage.mjs | Completeness (coverage drift: undocumented/drifted areas) |
-| links.mjs | Linkage (fully mechanical) |
-| freshness.mjs | Freshness (mostly mechanical) |
-| retrieval.mjs | Marginal cost (when `scenarios:` is set) plus traceability — **both report-only, neither rates economy** |
-| (no script) | Correctness, consistency (LLM claim ledger / cross-document triangulation) |
+Feeds a judged dimension:
+- coverage.mjs → completeness (coverage drift: undocumented/drifted areas)
+- inventory.mjs claim candidates → correctness (the LLM claim ledger)
+- placement.md → consistency (placement and duplication rules, see [judge.md](judge.md) step 6)
+
+Emits measure verdicts, never a judged rating (see [measure.md](measure.md) §Verdict lines):
+- links.mjs, freshness.mjs, inventory.mjs, coverage.mjs
+
+retrieval.mjs stays report-only (marginal cost, traceability) and emits no verdict either.
 
 ## Completeness
 
@@ -110,8 +110,8 @@ a pass rate moves when the documentation changes *and* when the reading changes,
 the same finding. A `fail`, and any borderline `pass`, also carries a `rationale`: which sentence,
 which code line, why. Without it a later round can re-verify the claim but not the judgement, and
 the judgement is the part that was demonstrably unstable (see [§Version history](#version-history-and-comparability-notes),
-v1.7.0). [judge.md](judge.md) step 4 settles the two recurring boundaries rather than leaving each
-round to re-derive them.
+v1.7.0). [judge.md](judge.md) step 3 (boundary rules) settles the two recurring boundaries rather
+than leaving each round to re-derive them.
 
 > **The one ceiling that does exist is the emitted window, and it is a config setting, not a
 > property of the repo.** Coverage climbs by `correctness_sample` a round until the ledger holds
@@ -155,56 +155,15 @@ round to re-derive them.
 
 ## Freshness
 
-| Star | Anchor |
-|---|---|
-| ★1 | No date-signal convention (coverage_ratio <20%). |
-| ★2 | Signals are scattered (20–60%), or key documents have staleness >180 days. |
-| ★3 | A date-signal convention exists but relies on discipline; key documents have staleness within the staleness window (shipped: ≤60 days, `freshness.stale_after_days`). |
-| ★4 | Coverage ≥90%, only isolated mismatches, drift <30 days. |
-| ★5 | Full coverage + "updated in the same MR as the change" enforced by a mechanical gate + lifecycle management (superseded documents handled as soon as they are superseded). |
-
-Measurement: `coverage_ratio` / `stale` / `mismatches` from freshness.mjs. "Key documents" means
-`entry_files` + `index_file` + each area's authoritative document.
-The ★3 staleness window is `freshness.stale_after_days` (shipped 60), and it is **configurable** —
-which means a repo can set it to 365 and make ★3 mean "within a year" without a word of this file
-changing. That is legitimate for a repo whose documentation genuinely ages that slowly, and it is
-also exactly why the value is in `measure_hash`: the scorecard must state the window in force
-whenever it is not the shipped one, and `report` draws a comparability break when it moves.
-A related constant is **not** configurable: `mismatches` only fires when a document's claimed date
-and its git date differ by more than 7 days (`freshness.mjs › MISMATCH_TOLERANCE_DAYS`), a fixed
-tolerance for the ordinary gap between editing a file and committing it.
-The git date comparison **excludes docgrad's own convergence commits** (the `docs(docgrad):`
-prefix) and takes the most recent non-docgrad commit — otherwise the backfill round counts its own
-commit dates as "the content was updated" and produces false mismatches.
-`date_concentration` is an advisory field (**it does not affect the star rating**): a high share of
-a single day means the signals come from one backfill, the coverage number does not reflect how the
-docs are actually maintained, and the report must say so.
-
-> **Scope of ★5 (graduation-only)**: the "mechanical gate" ★5 requires means touching CI, and
-> improve/loop are bound by Blocker #3 not to touch the target repo's CI — so freshness is capped
-> at ★4 inside the loop and the dimension is called a design ceiling (see [improve.md](improve.md)).
-> ★5 is reachable only after graduation, once the team builds its own docs-gate CI.
-> This is a note about reachability and **changes none of the ★1–★5 thresholds**
-> (see [§Version history](#version-history-and-comparability-notes)).
+Measured, not rated, since v2.0.0: see [measure.md](measure.md) §Freshness notes. The retired star
+table is preserved in [§Version history](#version-history-and-comparability-notes) for reading
+pre-2.0 rows.
 
 ## Linkage
 
-| Star | Anchor |
-|---|---|
-| ★1 | Dead-link ratio >10%, or no index at all. |
-| ★2 | Dead links 2–10%, or orphans >20%. |
-| ★3 | Broken relative links ≤2%; an index exists but is not the single entry point. |
-| ★4 | Zero dead links, orphans ≤5%, reachable_ratio ≥95%. |
-| ★5 | Zero dead links + a single top-level index reaches everything transitively (zero orphans) + anchors use `path › symbol()` so they survive line-number drift. |
-
-Measurement: the full mechanical output of links.mjs (dead-link ratio = dead_links / total_links).
-Broken anchors always cost stars; `cjk_uncertain` is an advisory field and is **not** a reason to
-skip confirmation (see [§Version history](#version-history-and-comparability-notes)).
-
-> **`orphans: null` is not `orphans: []`.** When the repo has no `index_file`, or the run is scoped,
-> reachability cannot be computed and both `orphans` and `reachable_ratio` come back `null`. Do not
-> read that as "no orphans found". A repo with no index at all is rated ★1 by the anchor above — the
-> one case where every document can be unreachable while the mechanical output reports nothing.
+Measured, not rated, since v2.0.0: see [measure.md](measure.md) §Linkage notes. The retired star
+table is preserved in [§Version history](#version-history-and-comparability-notes) for reading
+pre-2.0 rows.
 
 ## Consistency
 
@@ -227,157 +186,23 @@ When comparing this dimension's score across v0.5.0, note the scope was widened
 
 ## Economy
 
-| Star | Anchor |
-|---|---|
-| ★1 | Fixed cost above the first tier (shipped: > 20,000 tokens). |
-| ★2 | Fixed cost in the second band (shipped: > 10,000 and ≤ 20,000). |
-| ★3 | Fixed cost in the third band (shipped: > 5,000 and ≤ 10,000). |
-| ★4 | Fixed cost at or below the third tier (shipped: ≤ 5,000) and pollution surface below the cap (shipped: < 10%). |
-| ★5 | Fixed cost at or below the fourth tier (shipped: ≤ 3,000), pollution surface below the cap, and the entry-file token budget is enforced by a mechanical gate. |
-
-Measurement: **fixed cost** = `inventory.entry_cost.tokens_est` (the tax every task pays for
-loading `entry_files`, with symlink aliases de-duplicated); **pollution surface** =
-`inventory.pollution.ratio`. Both are fully mechanical, neither passes through LLM judgement.
-
-**Read the boundaries off the run, not off this table.** `inventory.economy_thresholds` carries the
-values this round actually used — `entry_cost_tiers`, `pollution_max` — plus the arithmetic over
-them: `cost_allows_star` (the ceiling the fixed cost alone permits), `star_5_cost_met`, and
-`pollution_caps_at`. The parenthesised numbers above are what docgrad **ships**; a repo may set its
-own in `.docgrad.yml`, and then the shipped numbers are not the ones it was graded by.
-
-Two consequences the audit must honour:
-
-- **`customised: true` is a reporting obligation, not a violation.** A repo is allowed to choose its
-  own thresholds. But a rating produced under custom thresholds is not comparable with one produced
-  at the defaults, so the scorecard must say which thresholds were in force. `measure_hash` in the
-  `docgrad` block is the mechanical form of the same statement, and it is what `report` compares
-  across rounds.
-- **★5 still needs the gate.** `star_5_cost_met` reports only the cost half. No script can see
-  whether a mechanical gate exists and runs, which is why ★5 stays a judgement even though the rest
-  of this dimension is arithmetic.
-
-> **What the pollution surface measures — and what it does not**: it measures *how much junk this repo contains*, not *how
-> much of it you chose not to grade*. Those are two different questions and only the first should move a star. Two config
-> fields say which one you mean, and both take files out of the corpus:
->
-> | Field | Corpus | Pollution surface | Reported as |
-> |---|---|---|---|
-> | `exclude` | out | **charged** | `inventory.pollution.excluded_files` / `excluded_tokens` |
-> | `out_of_scope` | out | **not charged** | `inventory.out_of_scope.count` / `tokens_est` |
->
-> Use `exclude` for the WIP draft you would be embarrassed to have read — it is in the repo, and the repo should answer for
-> it. Use `out_of_scope` for content that is real documentation but is not what this run grades: a translated mirror rated as
-> its own corpus, a vendored handbook, a subproject with its own `.docgrad.yml`. Measured on `tj/commander.js`, `docs/zh-CN/`
-> — translated mirrors graded separately — sat in `exclude` and charged **40.6%** pollution, capping economy at ★3 while the
-> fixed cost was a perfect 0. Every exit was closed: deleting the translations is content that is still correct and still
-> needed, which [improve.md](improve.md) forbids deleting to lower a cost; un-excluding them reverses the owner's answer and
-> pulls the mirror into the graded corpus; and diluting the ratio under 10% would have taken roughly 28,700 tokens of English
-> filler. What was wrong was the field's semantics, not the documentation.
->
-> **`out_of_scope` is not a free pass, and the audit must not read it as one.** Its size is printed on every run, empty or
-> not, precisely so the field cannot become a silent switch for zeroing your own pollution surface. You may move anything you
-> like out of the surface; how much you moved is on the same page, in the same units. An `out_of_scope` that dwarfs the
-> graded corpus is a finding in its own right (see [judge.md](judge.md) step 7). When a path is listed in both fields,
-> **`exclude` wins** and the file stays charged — a broad `out_of_scope` entry must never silently cancel an `exclude`
-> someone already wrote, so getting anything out of the surface always costs one deliberate edit to `exclude`.
->
-> `out_of_scope` joins `corpus_hash` **only when it is non-empty**, so a config that predates the field and a config that
-> spells out `out_of_scope: []` select the same corpus and hash the same; moving a path between the two fields still moves
-> the hash, because it leaves the `exclude` list (see [§Version history](#version-history-and-comparability-notes)).
-
-> **Pollution downgrade rule**: at a pollution surface ≥ 10%, this dimension is capped at ★3 no
-> matter how low the fixed cost is. Without this rule, "fixed cost 4,000 + pollution 15%" would
-> satisfy neither ★3 (cost too low) nor ★4 (pollution too high) and there would be no star to give.
->
-> **The pollution surface is measured from the filesystem, not from git, so this cap is only
-> reproducible on a clean checkout — or with `exclude_untracked: true`.** Everything on disk is
-> collected, tracked or not, so an untracked local file changes a *rated* input. Measured on one
-> repo at the same commit with the same script version: ratio **0.1066** in a working checkout
-> versus **0.0517** in a clean worktree, the entire difference being one untracked 9,730-token
-> draft inside a `.gitignore`d directory. The default `pollution_max: 0.1` sits **between those two
-> numbers**, so the same commit is ★3 for one person and ★4 for the next — the exact class of
-> irreproducibility docgrad exists to catch. The ratio itself is deliberately left alone (silently
-> recomputing it would move everyone's economy rating at once); instead `inventory.untracked`
-> reports the count and token weight, `inventory.pollution.note` flags the ratio as checkout-bound,
-> and the audit must carry both into the scorecard (see [judge.md](judge.md) step 7). Setting
-> `exclude_untracked: true` restricts the corpus to what git tracks and makes the rating
-> reproducible; it changes `corpus_hash`, so scores either side of the flip are not comparable
-> (see [§Version history](#version-history-and-comparability-notes)).
-
-> **This dimension pulls against completeness by design, not by accident**: adding documentation
-> raises the fixed cost. Economy exists so the loop has a mechanical brake between "more
-> documentation" and "a more expensive agent" — external evidence (several coding agents compared
-> on SWE-Bench Lite and AgentBench) shows that longer context files raise cost without necessarily
-> raising success rate, so coverage cannot be the only direction that gets rewarded. Three things
-> keep it from turning into a tug of war: economy is last in the dimension order (on a tie the
-> content dimensions move first), documents outside `entry_files` do not count toward the fixed
-> cost (moving content out of the entry file satisfies both dimensions at once), and improve
-> verifies that no other dimension drops.
-
-> **Scope of ★5 (graduation-only)**: the "mechanical gate" ★5 requires means touching CI, and
-> improve/loop are bound by Blocker #3 not to touch the target repo's CI — so economy is capped at
-> ★4 inside the loop and the dimension is called a design ceiling
-> (see [improve.md](improve.md)), the same way freshness ★5 is.
+Measured, not rated, since v2.0.0: see [measure.md](measure.md) §Economy notes. The retired star
+table is preserved in [§Version history](#version-history-and-comparability-notes) for reading
+pre-2.0 rows.
 
 ## Token economy report
 
-Since v1.0.0, **fixed cost and pollution surface are rated** (see [§Economy](#economy)); this
-section expands on that dimension and adds two signals that remain report-only (marginal cost,
-traceability) and take no part in the rating.
-
-- **Fixed cost**: `inventory.entry_cost.tokens_est` (`entry_files`, loaded on every task). **Rated.**
-- **Marginal cost** (report-only): when `.docgrad.yml` sets `scenarios:` (a list of representative
-  code paths), `retrieval.mjs` computes it mechanically — each scenario reports `marginal_tokens`
-  (entry_files + every doc on the index chain + every anchoring doc, each file counted once),
-  `max_depth` (how many hops from `index_file` to the furthest anchoring doc), `fan_in` (how many
-  docs anchor it) and `code_pointer` (whether the code on that path points back at any doc) —
-  and weights them by `churn_commits` (commits in the last 90 days) to name the most heavily taxed
-  scenario: high churn together with high `marginal_tokens` or deep `max_depth` means the agent
-  touches it often and pays the most to retrieve it, so it is the one to fix first. Without
-  `scenarios:`, fall back to the old method: the LLM simulates the required reading path from
-  `.docgrad.yml`'s `scenario` (singular, a prose string).
-- **Pollution surface**: `inventory.pollution.ratio` (excluded directories and WIP as a share of the
-  whole corpus). **Rated.**
-- **Interpretation**: the report must include a break-even statement — an overstuffed entry file
-  means every task pays a fixed tax; routing everything through the index means paying the marginal
-  cost of multi-hop retrieval. Give a trade-off recommendation based on what that repo's tasks
-  actually look like.
-
-### Traceability (report-only)
-
-A newer signal, measuring "is there a path from a code file back to the spec that governs it, and is
-that spec usable" — it **affects none of the ★1–★5 anchors** and is only an extension of the token
-economy report. The mechanical basis is `retrieval.mjs` (`code_pointer_ratio` / `index_hotness`) and
-`inventory.mjs` (`structure.rules`).
-
-- **`code_pointer_ratio`** (aggregated from retrieval.mjs `areas[].code_pointer`): whether the code
-  under each first-level subdirectory of `src_dirs` points back at any doc (a `docs_dirs` path
-  prefix, or the basename of some doc). A low ratio means an agent that just changed the code has no
-  path back to the spec and can only grep the whole doc tree and guess.
-- **`index_hotness`** (retrieval.mjs): commits in the last 90 days on `index_file` / `entry_files`
-  versus the median across all docs. A `ratio` clearly >3 usually means the index or entry file has
-  absorbed content that the child documents should be exposing themselves — the index should be
-  pointing the way, not being edited along with the content. It can also be plain orphan maintenance
-  debt; read `top5` to tell which.
-- **`structure.rules`** (inventory.mjs, per file): for rule lines (matched by `rules.pattern`,
-  default `**MUST`), the `median_chars` / `p90_chars` / `anchored_ratio`. A median above 300
-  characters or an `anchored_ratio` below 0.5 is a signal to split that file into a **contract
-  layer** (the rules themselves: short, with coordinates) and a **detail layer** (background and
-  examples, which may be long) — long rule lines mixed with background narrative force the agent to
-  read the whole passage every time to find the one sentence that is actually a MUST, and a low
-  anchored ratio means the claims have no verifiable landing point in the code.
-  A coordinate is path-shaped **or** API-shaped, the same definition the claim population uses — so
-  on a library repo, whose rules land on functions rather than files, `anchored_ratio` measures what
-  it claims to. Before v1.7.0 it counted path shapes only, which made this signal fire on exactly
-  the repos where every rule did have a landing point (#51). Like the claim population, the API half
-  is inert when `src_dirs` is unset.
+Measured, not rated, since v2.0.0: see [measure.md](measure.md) §Token economy signals. The retired
+section, including its Traceability subsection, is preserved in
+[§Version history](#version-history-and-comparability-notes) for reading pre-2.0 rows.
 
 ## Version history and comparability notes
 
 Only needed when comparing scores across versions; day-to-day scoring does not need to expand this.
 None of the items below **changed the ★1–★5 anchor text of an existing dimension**; the only
 breaking change is v1.0.0 adding a dimension (the set of dimensions changed, the ruler for each
-individual dimension did not).
+individual dimension did not) — except v2.0.0, which retired the linkage, freshness and economy
+anchors (see its entry).
 
 <details>
 <summary>Expand</summary>
@@ -473,6 +298,121 @@ individual dimension did not).
     stays `742bdf54`.
   - **No anchor text changed in this epoch**, so the §Version history preamble at the top of this
     section (no ★1–★5 anchor text of an existing dimension changed) stays true.
+- **v2.0.0 (E2b-2) — linkage, freshness and economy stop being rated** (**an anchor change: this is
+  the exception the preamble above names**): completeness, correctness and consistency keep their
+  ★1–★5 anchors unchanged in this file; linkage, freshness and economy no longer have a star anchor
+  at all — §Freshness, §Linkage, §Economy and §Token economy report are now stubs pointing at
+  [measure.md](measure.md), which already carried the mechanical half of the same judgement since
+  E2b-1. `rubric.md` is judge-only from this entry on.
+
+  **The retired ★1–★5 tables and notes, verbatim, for reading a pre-2.0 `history.jsonl` row**
+  (checked in `tests/rubric-retirement.test.mjs` and against `dedb0cf` by a script in the PR):
+
+  *Freshness (retired):*
+
+  | Star | Anchor |
+  |---|---|
+  | ★1 | No date-signal convention (coverage_ratio <20%). |
+  | ★2 | Signals are scattered (20–60%), or key documents have staleness >180 days. |
+  | ★3 | A date-signal convention exists but relies on discipline; key documents have staleness within the staleness window (shipped: ≤60 days, `freshness.stale_after_days`). |
+  | ★4 | Coverage ≥90%, only isolated mismatches, drift <30 days. |
+  | ★5 | Full coverage + "updated in the same MR as the change" enforced by a mechanical gate + lifecycle management (superseded documents handled as soon as they are superseded). |
+
+  > **Scope of ★5 (graduation-only)**: the "mechanical gate" ★5 requires means touching CI, and
+  > improve/loop are bound by Blocker #3 not to touch the target repo's CI — so freshness is capped
+  > at ★4 inside the loop and the dimension is called a design ceiling (see [improve.md](improve.md)).
+  > ★5 is reachable only after graduation, once the team builds its own docs-gate CI.
+  > This is a note about reachability and **changes none of the ★1–★5 thresholds**
+  > (see [§Version history](#version-history-and-comparability-notes)).
+
+  *Linkage (retired):*
+
+  | Star | Anchor |
+  |---|---|
+  | ★1 | Dead-link ratio >10%, or no index at all. |
+  | ★2 | Dead links 2–10%, or orphans >20%. |
+  | ★3 | Broken relative links ≤2%; an index exists but is not the single entry point. |
+  | ★4 | Zero dead links, orphans ≤5%, reachable_ratio ≥95%. |
+  | ★5 | Zero dead links + a single top-level index reaches everything transitively (zero orphans) + anchors use `path › symbol()` so they survive line-number drift. |
+
+  *Economy (retired):*
+
+  | Star | Anchor |
+  |---|---|
+  | ★1 | Fixed cost above the first tier (shipped: > 20,000 tokens). |
+  | ★2 | Fixed cost in the second band (shipped: > 10,000 and ≤ 20,000). |
+  | ★3 | Fixed cost in the third band (shipped: > 5,000 and ≤ 10,000). |
+  | ★4 | Fixed cost at or below the third tier (shipped: ≤ 5,000) and pollution surface below the cap (shipped: < 10%). |
+  | ★5 | Fixed cost at or below the fourth tier (shipped: ≤ 3,000), pollution surface below the cap, and the entry-file token budget is enforced by a mechanical gate. |
+
+  > **Pollution downgrade rule**: at a pollution surface ≥ 10%, this dimension is capped at ★3 no
+  > matter how low the fixed cost is. Without this rule, "fixed cost 4,000 + pollution 15%" would
+  > satisfy neither ★3 (cost too low) nor ★4 (pollution too high) and there would be no star to give.
+
+  The retired dimension-order clause (this dimension pulled against completeness by design: adding
+  documentation raises the fixed cost) read, in part:
+
+  > keep it from turning into a tug of war: economy is last in the dimension order (on a tie the
+  > content dimensions move first), documents outside `entry_files` do not count toward the fixed
+
+  — and continued "cost (moving content out of the entry file satisfies both dimensions at once),
+  and improve verifies that no other dimension drops." **Retired**: economy no longer takes part in
+  the dimension order (§Scoring principles above now covers only the three judged dimensions); the
+  `pollution` verdict line is the mechanical successor, see [measure.md](measure.md) §Economy notes.
+
+  > **Scope of ★5 (graduation-only)**: the "mechanical gate" ★5 requires means touching CI, and
+  > improve/loop are bound by Blocker #3 not to touch the target repo's CI — so economy is capped at
+  > ★4 inside the loop and the dimension is called a design ceiling
+  > (see [improve.md](improve.md)), the same way freshness ★5 is.
+
+  *Scoring principle 5 (retired economy clause):* through v1.x, principle 5 read "Fixed dimension
+  order (ties break toward the earlier one): completeness → correctness → freshness → linkage →
+  consistency → economy. Economy is last on purpose: it pulls against completeness (adding
+  documentation raises the fixed cost), so on a tie the content dimensions move first and the loop
+  does not oscillate between "write more" and "delete it again"." Since this entry, the order covers
+  only the three judged dimensions (see §Scoring principles above).
+
+  **The per-dimension legacy mapping, for reading pre-2.0 rows only** (not a new rule; the retired
+  anchors above are the ruler, this is only how to translate an old star into today's verdict
+  vocabulary): ★4 or ★5 → `OK`, ★3 → `WATCH`, ★1 or ★2 → `FAIL`. This mapping is approximate — the
+  old anchors and the new verdict lines were calibrated against the same boundaries but are not
+  numerically identical in every case — and is offered only as a reading aid.
+
+  **The freshness ★4 "isolated mismatches" exception**: the retired ★4 anchor read "only isolated
+  mismatches, drift <30 days" — two conditions, one of which (`date_drift`) is measured today; the
+  "isolated" clause never had a count attached to it in the rubric and has no measure successor. A
+  pre-2.0 ★4 freshness score may have been awarded on a judgement call this repo no longer makes at
+  all.
+
+  **The key-document narrowing**: since E2b-1, `key_doc_age` measures a narrower set than this
+  file's old "key documents" definition (`entry_files` + `index_file` + each area's authoritative
+  document) — it measures `entry_files` ∪ `index_file` only. **This is not a new judge rule.**
+  Area-authority staleness is no longer a separate signal at all; where it matters, a stale
+  authoritative document fails claims under **correctness**, which is an existing, unchanged judge
+  rule (see [placement.md](placement.md): "it shows up in correctness and in the freshness measure
+  signals rather than in consistency"). The narrowing is deliberate and disclosed here, not a defect.
+
+  **The fingerprint moves:**
+  - **`judge_hash` moves**: a real rule removal — steps 4/5 and 7 leave judge.md, and the Dimension
+    table in step 9 drops the Freshness/Linkage/Economy rows. Old → new value: see CHANGELOG's
+    `v2.0.0 epoch 2b-2` section.
+  - **`measure_hash` moves**: `measure.md` grows (new §Freshness/§Linkage/§Economy notes and
+    §Token economy signals sections, plus judge.md's former steps 4/5 and 7), and
+    `lib.mjs › MEASURE_BANDS[*].source` strings are reworded to cite the now-retired anchors. Old →
+    new value: see CHANGELOG.
+  - **`rubric_hash` moves**: this whole file changed. Old → new value: see CHANGELOG (this file
+    cannot quote its own hash).
+  - **`corpus_hash` is unmoved**: `71d1ce84`, unaffected by this slice.
+
+  **The rule-1 waiver extends to this move too.** The same waiver already disclosed for `judge_hash`
+  (E2a) and `measure_hash` (E2b-1) applies here: CONTRIBUTING.md rule 1 does not forbid a hash moving
+  in the same release as the rule change it reveals, because 2.0.0 is a major release and every 1.x →
+  2.0 pair of rounds is already treated as a break regardless of which hash shows it.
+
+  **improve/loop is not runnable until E2c; do not release without E2c.** This slice retires the
+  anchors judge/measure read from; the convergence flow (`improve.md`) still reasons about six rated
+  dimensions and is updated in a later epoch of this release. This is a named intermediate state, not
+  something this slice fixes.
 - **v1.8.0 — the rules for applying the anchors are fingerprinted, and the sampling window counts what it can draw**
   (issues #56, #54, #57) (**not an anchor change**): no ★1–★5 threshold moved and every shipped default is unchanged.
   - **New `judgement_hash`**, covering `audit.md` and `placement.md` — the files that decide *how* the anchors are applied
