@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  loadConfig, collectFiles, parseArgs, fail, docgradMeta,
+  loadConfig, collectFiles, parseArgs, fail, docgradMeta, evaluateMeasure,
   extractHeadings, extractLinks, githubSlug, CJK_RE, pathInsideRoot, resolveLinkTarget,
 } from './lib.mjs';
 
@@ -186,6 +186,57 @@ try {
     }
   }
 
+  const orphans = !scoped && config.index_file ? included.filter((p) => !reachable.has(p)) : null;
+  const reachableRatio =
+    !scoped && config.index_file && included.length > 0
+      ? Number((reachable.size / included.length).toFixed(4))
+      : null;
+  const indexPresentValue = scoped ? null : config.index_file && includedSet.has(config.index_file) ? 1 : 0;
+
+  // measure: the band-table verdicts (E2b-1). Scoped rows (orphan_ratio, reachable_ratio,
+  // index_present) are nulled by evaluateMeasure itself, given { scoped }; the note it defaults to
+  // there is overridden with the same scope note already printed above, per measure.md.
+  const measure = [
+    evaluateMeasure(
+      'dead_link_ratio',
+      total_links === 0
+        ? { value: 0, numerator: 0, denominator: 0, note: 'no links', extra: { bad_anchors: 0 } }
+        : {
+            value: Number((dead_links.length / total_links).toFixed(4)),
+            numerator: dead_links.length,
+            denominator: total_links,
+            okBlocked: bad_anchors.length > 0,
+            extra: { bad_anchors: bad_anchors.length },
+          },
+      config,
+      { scoped }
+    ),
+    evaluateMeasure(
+      'orphan_ratio',
+      scoped
+        ? { value: null, note: scopeNoteText }
+        : orphans === null
+          ? { value: null, note: 'orphans not computed (no index)' }
+          : included.length === 0
+            ? { value: null, note: 'empty corpus' }
+            : { value: Number((orphans.length / included.length).toFixed(4)), numerator: orphans.length, denominator: included.length },
+      config,
+      { scoped }
+    ),
+    evaluateMeasure(
+      'reachable_ratio',
+      scoped ? { value: null, note: scopeNoteText } : { value: reachableRatio },
+      config,
+      { scoped }
+    ),
+    evaluateMeasure(
+      'index_present',
+      scoped ? { value: null, note: scopeNoteText } : { value: indexPresentValue },
+      config,
+      { scoped }
+    ),
+  ];
+
   process.stdout.write(
     `${JSON.stringify(
       {
@@ -196,6 +247,10 @@ try {
         // version of the tool wrote it.
         docgrad: docgradMeta(undefined, config),
         ...(combinedNoteText ? { note: combinedNoteText } : {}),
+        // The band-table verdicts (E2b-1): number first, verdict next to it, naming the anchor
+        // line that fired. Placed right after docgrad/note so the four scripts stay comparable
+        // field by field; retrieval.mjs is report-only and carries no measure array.
+        measure,
         total_links,
         dead_links,
         // #57: link targets that resolve outside the repository root. Reported and never fatal —
@@ -209,11 +264,8 @@ try {
         // "computed, and there are genuinely none", and downstream reads that as "linkage is fine".
         // Same condition as reachable_ratio: under scope, or with no index_file, reachability has
         // no starting point, so orphanhood can't be judged at all.
-        orphans: !scoped && config.index_file ? included.filter((p) => !reachable.has(p)) : null,
-        reachable_ratio:
-          !scoped && config.index_file && included.length > 0
-            ? Number((reachable.size / included.length).toFixed(4))
-            : null,
+        orphans,
+        reachable_ratio: reachableRatio,
       },
       null,
       2

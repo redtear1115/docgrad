@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   loadConfig, collectFiles, estimateTokens, parseArgs, fail,
-  extractCodeRefs, extractApiRefs, extractClaimLines, rankClaimCandidates, docgradMeta,
+  extractCodeRefs, extractApiRefs, extractClaimLines, rankClaimCandidates, docgradMeta, evaluateMeasure,
   gitTrackedFiles, gitUnavailableNote, matchesPathPrefix,
   buildSrcSymbolIndex, gitAddCommitSubjects, isDocgradAuthored, AUTHORSHIP_UNAVAILABLE_NOTE,
   MAX_SRC_SYMBOL_FILE_BYTES, SHIPPED_TIERS, SHIPPED_POLLUTION_MAX, loadLedgerClaimHashes, loadLedgerRows, locateLedgerClaims,
@@ -367,12 +367,23 @@ try {
       'thresholds come from .docgrad.yml economy:; cost_allows_star is the ceiling the fixed cost alone permits and ★5 also requires a mechanical gate. When customised is true these are not the shipped anchors, so this repo\'s economy rating is not comparable with one graded at the defaults.',
   };
 
+  const scoped = include.length > 0;
+  // entry_cost and pollution are full-corpus concepts (matching judge.md §Scoped audit's economy
+  // row): under --include, evaluateMeasure nulls both given { scoped }.
+  const measureRows = [
+    evaluateMeasure('entry_cost', { value: cost }, config, { scoped }),
+    evaluateMeasure('pollution', { value: pollutionRatio }, config, { scoped }),
+  ];
+
   process.stdout.write(
     `${JSON.stringify(
       {
         scope: include.length ? include : null,
         // history.jsonl's docgrad_version/rubric_hash/corpus_hash all come from here
         docgrad: docgradMeta(undefined, config),
+        // The band-table verdicts (E2b-1), right after docgrad so all four scripts that emit one
+        // stay comparable field by field.
+        measure: measureRows,
         files,
         totals: {
           files: files.length,
