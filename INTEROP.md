@@ -28,7 +28,7 @@ release notes, PR replies, postmortems, tickets and technical articles — and e
 documents and rewrite narratives. Measured on `tj/commander.js` after five convergence rounds, all 26
 claim candidates came from the three documents docgrad had just written and none from the seven
 pre-existing ones. A converging repo therefore ends up more correct, more reachable, and more
-obviously machine-written, and none of docgrad's six dimensions is looking at that last part —
+obviously machine-written, and none of docgrad's measure signals or judged dimensions is looking at that last part —
 economy counts tokens, not machine accent. By its own boundary rule, docgrad should not grow a
 seventh dimension for it either.
 
