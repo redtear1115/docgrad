@@ -196,6 +196,11 @@ try {
   // measure: the band-table verdicts (E2b-1). Scoped rows (orphan_ratio, reachable_ratio,
   // index_present) are nulled by evaluateMeasure itself, given { scoped }; the note it defaults to
   // there is overridden with the same scope note already printed above, per measure.md.
+  //
+  // Each ratio row passes `raw` (the unrounded division) alongside the rounded `value` it reports:
+  // rounding to four decimal places can land exactly on a boundary the true ratio never reached
+  // (51/1019 rounds to 0.0500, reading as the ≤5% orphan_ratio line even though it is not), and the
+  // verdict must be honest about which side of the line the real number is on.
   const measure = [
     evaluateMeasure(
       'dead_link_ratio',
@@ -203,9 +208,9 @@ try {
         ? { value: 0, numerator: 0, denominator: 0, note: 'no links', extra: { bad_anchors: 0 } }
         : {
             value: Number((dead_links.length / total_links).toFixed(4)),
+            raw: dead_links.length / total_links,
             numerator: dead_links.length,
             denominator: total_links,
-            okBlocked: bad_anchors.length > 0,
             extra: { bad_anchors: bad_anchors.length },
           },
       config,
@@ -219,13 +224,20 @@ try {
           ? { value: null, note: 'orphans not computed (no index)' }
           : included.length === 0
             ? { value: null, note: 'empty corpus' }
-            : { value: Number((orphans.length / included.length).toFixed(4)), numerator: orphans.length, denominator: included.length },
+            : {
+                value: Number((orphans.length / included.length).toFixed(4)),
+                raw: orphans.length / included.length,
+                numerator: orphans.length,
+                denominator: included.length,
+              },
       config,
       { scoped }
     ),
     evaluateMeasure(
       'reachable_ratio',
-      scoped ? { value: null, note: scopeNoteText } : { value: reachableRatio },
+      scoped
+        ? { value: null, note: scopeNoteText }
+        : { value: reachableRatio, raw: reachableRatio === null ? null : reachable.size / included.length },
       config,
       { scoped }
     ),

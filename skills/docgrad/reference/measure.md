@@ -23,14 +23,29 @@ number's own units — plus the anchor `source` it was read from. **Report the n
 verdict next to it**; the verdict names which line fired, it does not replace the number. The
 evaluation order is fixed for every row: **FAIL is checked first, then OK, else WATCH.** A row
 with no calibrated FAIL line (`fail: null` in `lib.mjs › MEASURE_BANDS`) can be OK or WATCH but
-never FAIL — there is no anchor boundary to fail against.
+never FAIL — there is no anchor boundary to fail against. Every row's `ok`/`fail` line is one of
+five comparisons — `<`, `<=`, `>`, `>=`, `==` — read in their ordinary arithmetic sense; `==` is
+exact equality, used for presence checks (`index_present`) and zero checks (`undocumented_dirs`,
+`drifted_dirs`) rather than for a ratio.
+
+A ratio row (`dead_link_ratio`, `orphan_ratio`, `date_coverage`, and `reachable_ratio` where it
+applies) is **evaluated against the unrounded division**, not against the four-decimal `value` it
+reports: 51 orphans over 1019 included documents is 0.050049…, which rounds to the same `0.0500`
+a reader sees whether or not the true ratio actually cleared the ★4 "orphans ≤5%" line, so judging
+the rounded number would let a display artifact decide the verdict. `value` in the output stays the
+rounded number a reader expects; only the comparison uses the fuller precision.
+
+One row's OK line is a compound condition: `dead_link_ratio` is OK only when the ratio is `0`
+**and** the row's reported `bad_anchors` count is also `0` — broken anchors always cost stars, so a
+repo with zero dead links and one bad anchor is WATCH, not OK. That second condition is part of the
+row's own data (`lib.mjs › MEASURE_BANDS`), the same as every threshold above.
 
 During 2.0.0's development the star anchors in [rubric.md](rubric.md) and these verdict lines
 coexist: both describe the same boundaries, and neither replaces the other yet. The star anchors
 retire in a later epoch; until then, read a `measure` row as the mechanical half of the same
 judgement the ★ rating makes by hand.
 
-The eleven rows, one per script, each citing the rubric.md anchor its OK/FAIL lines come from:
+The eleven rows, across four scripts, each citing the rubric.md anchor its OK/FAIL lines come from:
 
 - **links.mjs**
   - `dead_link_ratio` — `dead_links.length / total_links`. FAIL `> 2%`; OK requires the ratio to be
@@ -77,7 +92,7 @@ The eleven rows, one per script, each citing the rubric.md anchor its OK/FAIL li
   - `drifted_dirs` — `drifted.length`. Same shape as `undocumented_dirs`: no FAIL line, OK `= 0`,
     `null` with the same note when `src_dirs` is unset.
 
-`lib.mjs › measure_hash` covers `economy.entry_cost_tiers` / `economy.pollution_max` /
+`lib.mjs › measureHash()` covers `economy.entry_cost_tiers` / `economy.pollution_max` /
 `freshness.stale_after_days` (as before), plus the band table above (`lib.mjs › MEASURE_BANDS`,
 unresolved) and this section's file, `reference/measure.md` — moving a threshold, or editing this
 prose, moves it. See [rubric.md](rubric.md) §Version history for the recorded old → new value and

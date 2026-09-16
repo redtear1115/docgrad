@@ -125,7 +125,7 @@ test('coverage: main flow covered/undocumented/drifted + the min_commits gate', 
 
 // --- E2b-1: measure verdicts -----------------------------------------------------------
 
-test('coverage: measure array — ids in order, right after docgrad, WATCH (undocumented/drifted both >0, no FAIL line — U4)', () => {
+test('coverage: measure array — ids in order, right after docgrad, WATCH (undocumented/drifted both >0, no FAIL line: no calibrated source)', () => {
   const tmp = makeCoverageFixture();
   try {
     const out = run(tmp);

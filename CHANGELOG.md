@@ -77,10 +77,13 @@ improve/loop rule changed in this epoch — the star anchors and these verdict l
 anchors retire in a later epoch. See [reference/measure.md](skills/docgrad/reference/measure.md)
 §Verdict lines for the full band table.
 
-- **`measure_hash` moves, from `ec596daf` to `b595a96a`.** Its inputs grow: alongside the same three
+- **`measure_hash` moves, from `ec596daf` to `ae3014b1`.** Its inputs grow: alongside the same three
   config values as before (`economy.entry_cost_tiers`, `economy.pollution_max`,
   `freshness.stale_after_days`), it now also covers `lib.mjs › MEASURE_BANDS` (the band table,
-  unresolved) and `reference/measure.md`'s content.
+  unresolved) and `reference/measure.md`'s content. Every verdict-deciding rule lives in that band
+  table as plain data — including a row's `scope` (whether it is nulled under a scoped run) and a
+  row's secondary OK condition, where one exists (`dead_link_ratio`'s `ok_also`) — precisely so a
+  change to any of them moves this hash the same way a threshold edit does.
 - **`judge_hash` is unchanged, `742bdf54`.** `judge.md` and `placement.md` are untouched in this
   epoch.
 - **`corpus_hash` is unchanged, `71d1ce84`.** `.docgrad.yml` is untouched.
@@ -94,6 +97,12 @@ anchors retire in a later epoch. See [reference/measure.md](skills/docgrad/refer
 - `measureHash`'s signature changes to `measureHash(config, skillRoot = SKILL_ROOT)`, matching
   `judgeHash`'s parameter order (config first). It still returns `null`, never throws, when `config`
   is `null` or when `reference/measure.md` cannot be read.
+- **Fixed: a ratio row's verdict is decided on the unrounded division, not the rounded `value` it
+  reports.** `dead_link_ratio`, `orphan_ratio`, `date_coverage` and `reachable_ratio` used to compare
+  the four-decimal `value` against the OK/FAIL lines, so a ratio that rounds exactly onto a boundary
+  without actually clearing it (51/1019 orphans rounds to 0.0500, the ★4 "orphans ≤5%" line, while
+  the true ratio is 0.050049…) read as OK. They now evaluate the raw numerator/denominator; the
+  reported `value` is unchanged.
 
 ## 1.9.2 — 2026-09-16
 

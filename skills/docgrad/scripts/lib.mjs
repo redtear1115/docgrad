@@ -1365,11 +1365,25 @@ function resolveSkillRoot() {
 // The band table each of links/freshness/inventory/coverage evaluates its signals against.
 // Plain JSON data on purpose (no functions, RegExp, `undefined` or non-finite numbers): the whole
 // point is that `JSON.stringify(MEASURE_BANDS)` alone captures every threshold, so a mutation test
-// can move measure_hash by editing one number in this array and nothing else.
+// can move measure_hash by editing one number in this array and nothing else. This is also why
+// every verdict-deciding rule lives here rather than in evaluateMeasure's code: a row's `scope`
+// and `ok_also` move the digest exactly the same way a threshold number does, and evaluateMeasure
+// below only ever reads them, never branches on an id.
 //
 // Descriptor shape: `{op: "<"|"<="|">"|">="|"==", value: <finite number> | {config: "<dotted path>"}
 // | {config: "<path>", index: <n>} | {max: [<value-form>, <value-form>]}}`. `fail: null` means the
-// row has no calibrated FAIL line (U4: a signal with no calibrated source never reaches FAIL).
+// row has no calibrated FAIL line — a signal with no calibrated source never reaches FAIL.
+//
+// `scope`: `"full"` marks a row as a full-corpus concept — evaluateMeasure returns verdict `null`
+// for it under a scoped (`--include`) run, rather than banding a number that does not mean what the
+// anchor means. `"any"` rows are evaluated the same whether or not the run is scoped.
+//
+// `ok_also` (optional): a list of secondary conditions, each `{input: "<name>", op, value}`, that
+// must *also* hold for the row to be OK — checked against `input.extra[<name>]` (the same extra
+// fields the row reports alongside its main value). `dead_link_ratio`'s OK line is "zero dead links
+// **and** zero bad anchors"; the ratio being `0` is the primary `ok` descriptor, and the
+// `bad_anchors: 0` condition is expressed here so both halves live in the same hashed data instead
+// of one being a threshold and the other being an `if` statement nothing can see move.
 //
 // `source` names the rubric.md anchor each line comes from — no "retired" wording yet: the star
 // anchors and these lines coexist through 2.0.0, and only a later epoch retires the anchors.
@@ -1378,14 +1392,17 @@ export const MEASURE_BANDS = [
     id: 'dead_link_ratio',
     script: 'links',
     unit: 'percent',
+    scope: 'any',
     fail: { op: '>', value: 0.02 },
     ok: { op: '==', value: 0 },
+    ok_also: [{ input: 'bad_anchors', op: '==', value: 0 }],
     source: 'rubric.md §Linkage ★4 "zero dead links" + "broken anchors always cost stars" / ★2 "2–10%"',
   },
   {
     id: 'orphan_ratio',
     script: 'links',
     unit: 'percent',
+    scope: 'full',
     fail: { op: '>', value: 0.2 },
     ok: { op: '<=', value: 0.05 },
     source: 'rubric.md §Linkage ★4 "orphans ≤5%" / ★2 "orphans >20%"',
@@ -1394,6 +1411,7 @@ export const MEASURE_BANDS = [
     id: 'reachable_ratio',
     script: 'links',
     unit: 'percent',
+    scope: 'full',
     fail: null,
     ok: { op: '>=', value: 0.95 },
     source: 'rubric.md §Linkage ★4 "reachable_ratio ≥95%" (no ★2 counterpart)',
@@ -1402,6 +1420,7 @@ export const MEASURE_BANDS = [
     id: 'index_present',
     script: 'links',
     unit: 'count',
+    scope: 'full',
     // value is 1 when config.index_file is set and present in the unscoped corpus, else 0 — a
     // presence/absence check expressed with the same {op, value} shape as every other row.
     fail: { op: '==', value: 0 },
@@ -1412,6 +1431,7 @@ export const MEASURE_BANDS = [
     id: 'date_coverage',
     script: 'freshness',
     unit: 'percent',
+    scope: 'any',
     fail: { op: '<', value: 0.6 },
     ok: { op: '>=', value: 0.9 },
     source: 'rubric.md §Freshness ★4 "≥90%" / ★2 "20–60%"',
@@ -1420,6 +1440,7 @@ export const MEASURE_BANDS = [
     id: 'key_doc_age',
     script: 'freshness',
     unit: 'days',
+    scope: 'full',
     fail: { op: '>', value: { max: [180, { config: 'freshness.stale_after_days' }] } },
     ok: { op: '<=', value: { config: 'freshness.stale_after_days' } },
     source: 'rubric.md §Freshness ★3 window / ★2 ">180 days"',
@@ -1428,6 +1449,7 @@ export const MEASURE_BANDS = [
     id: 'date_drift',
     script: 'freshness',
     unit: 'days',
+    scope: 'any',
     fail: null,
     ok: { op: '<', value: 30 },
     source: 'rubric.md §Freshness ★4 "drift <30 days"',
@@ -1436,6 +1458,7 @@ export const MEASURE_BANDS = [
     id: 'entry_cost',
     script: 'inventory',
     unit: 'tokens',
+    scope: 'full',
     fail: { op: '>', value: { config: 'economy.entry_cost_tiers', index: 1 } },
     ok: { op: '<=', value: { config: 'economy.entry_cost_tiers', index: 2 } },
     source: 'rubric.md §Economy ★4 / ★2 (tiers from config)',
@@ -1444,6 +1467,7 @@ export const MEASURE_BANDS = [
     id: 'pollution',
     script: 'inventory',
     unit: 'percent',
+    scope: 'full',
     fail: null,
     ok: { op: '<', value: { config: 'economy.pollution_max' } },
     source: 'rubric.md §Economy "caps at ★3" (no FAIL counterpart)',
@@ -1452,6 +1476,7 @@ export const MEASURE_BANDS = [
     id: 'undocumented_dirs',
     script: 'coverage',
     unit: 'count',
+    scope: 'any',
     fail: null,
     ok: { op: '==', value: 0 },
     source: 'none calibrated',
@@ -1460,22 +1485,12 @@ export const MEASURE_BANDS = [
     id: 'drifted_dirs',
     script: 'coverage',
     unit: 'count',
+    scope: 'any',
     fail: null,
     ok: { op: '==', value: 0 },
     source: 'none calibrated',
   },
 ];
-
-// ids whose row is a full-corpus concept: under a scoped (--include) run, evaluateMeasure returns
-// verdict null for these rather than banding a number that does not mean what the anchor means.
-const SCOPE_FULL_CORPUS_ONLY = new Set([
-  'orphan_ratio',
-  'reachable_ratio',
-  'index_present',
-  'key_doc_age',
-  'entry_cost',
-  'pollution',
-]);
 
 function cmpOp(op, a, b) {
   switch (op) {
@@ -1551,16 +1566,29 @@ function buildMeasureLine(verdict, row, config) {
 }
 
 // Pure: `evaluateMeasure(id, input, config, { scoped })` -> `{id, value, numerator?, denominator?,
-// verdict, line, source, note?}`. M4's order: FAIL is checked first, then OK, else WATCH.
+// verdict, line, source, note?}`. Evaluation order is fixed for every row: FAIL is checked first,
+// then OK, else WATCH — that order, `cmpOp`'s operator semantics, and how a script computes its
+// input value all stay in code by design (measure.md states them in words, since measure.md is
+// itself one of measure_hash's inputs); everything that decides *where a line falls* is data, in
+// the row above.
 //
 // `input.value: null` (any reason — empty corpus, scope narrowed the concept away, no dated key
-// document survives the M1 filter, coverage.mjs's src_dirs-unset early exit) always yields verdict
-// null with `input.note` carried through unchanged: a script decides *why* a row is not measurable
-// and evaluateMeasure only decides *what the number means* once one exists.
+// document survives the filter freshness.mjs applies, coverage.mjs's src_dirs-unset early exit)
+// always yields verdict null with `input.note` carried through unchanged: a script decides *why* a
+// row is not measurable and evaluateMeasure only decides *what the number means* once one exists.
+// A `row.scope: "full"` row is forced through this same null path whenever the run is scoped,
+// regardless of what `input.value` was — the row is a full-corpus concept and a number computed
+// over a narrower scope would not mean what the anchor means.
 //
-// `input.okBlocked: true` downgrades an otherwise-OK verdict to WATCH without touching FAIL — the
-// one row (`dead_link_ratio`) whose OK line is a compound condition (zero dead links **and** zero
-// bad anchors) that the {op, value} descriptor shape has no room for on its own.
+// `input.raw` (optional): the unrounded value to compare against the row's `ok`/`fail` lines, when
+// it differs from the rounded `value` a script reports. A ratio reported to four decimal places can
+// round exactly onto a boundary it never actually reached (51/1019 = 0.050049… rounds to 0.0500,
+// which reads as "≤5%" even though the true ratio is not); comparing on `raw` keeps the verdict
+// honest while `value` stays the number a reader sees. Defaults to `value` when absent — most rows
+// have no such rounding gap to begin with.
+//
+// `row.ok_also` (optional): secondary conditions that must also hold for OK, checked against
+// `input.extra[<name>]` — see the band table's comment for why this lives in data.
 //
 // `input.extra` (a plain object) is spread into the result verbatim — `dead_link_ratio` reports
 // `bad_anchors` alongside its ratio this way, per the band table.
@@ -1568,8 +1596,9 @@ export function evaluateMeasure(id, input, config, { scoped = false } = {}) {
   const row = MEASURE_BANDS.find((r) => r.id === id);
   if (!row) throw new Error(`evaluateMeasure: unknown id "${id}"`);
 
-  const scopedOut = scoped && SCOPE_FULL_CORPUS_ONLY.has(id);
+  const scopedOut = scoped && row.scope === 'full';
   const value = scopedOut ? null : input.value ?? null;
+  const raw = scopedOut ? null : input.raw ?? value;
   const note = scopedOut ? input.note ?? 'full-corpus concept' : input.note;
 
   const base = {
@@ -1583,10 +1612,12 @@ export function evaluateMeasure(id, input, config, { scoped = false } = {}) {
     return { ...base, verdict: null, line: null, source: row.source, ...(note ? { note } : {}), ...(input.extra ?? {}) };
   }
 
+  const okAlsoHolds = (row.ok_also ?? []).every((cond) => cmpOp(cond.op, input.extra?.[cond.input], cond.value));
+
   let verdict;
-  if (row.fail && cmpOp(row.fail.op, value, resolveValueForm(row.fail.value, config))) {
+  if (row.fail && cmpOp(row.fail.op, raw, resolveValueForm(row.fail.value, config))) {
     verdict = 'FAIL';
-  } else if (row.ok && cmpOp(row.ok.op, value, resolveValueForm(row.ok.value, config)) && !input.okBlocked) {
+  } else if (row.ok && cmpOp(row.ok.op, raw, resolveValueForm(row.ok.value, config)) && okAlsoHolds) {
     verdict = 'OK';
   } else {
     verdict = 'WATCH';

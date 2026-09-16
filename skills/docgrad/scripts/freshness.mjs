@@ -96,7 +96,7 @@ try {
 
   const scoped = include.length > 0;
 
-  // key_doc_age (M1): key documents = entry_files ∪ index_file — a narrower subset than
+  // key_doc_age: key documents = entry_files ∪ index_file — a narrower subset than
   // rubric.md's "key documents" (which also includes each area's authoritative document; that
   // definition still governs the freshness ★ rating until a later epoch). Only docs present in
   // this run's corpus and carrying a non-null age_days count.
@@ -130,7 +130,12 @@ try {
       'date_coverage',
       results.length === 0
         ? { value: null, note: 'empty corpus' }
-        : { value: Number((withSignal.length / results.length).toFixed(4)), numerator: withSignal.length, denominator: results.length },
+        : {
+            value: Number((withSignal.length / results.length).toFixed(4)),
+            raw: withSignal.length / results.length,
+            numerator: withSignal.length,
+            denominator: results.length,
+          },
       config,
       { scoped }
     ),
