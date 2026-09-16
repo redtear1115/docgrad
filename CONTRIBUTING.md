@@ -49,6 +49,7 @@ Which tier a change lands in decides what else it has to carry:
 |---|---|---|
 | **Scripts** (`skills/docgrad/scripts/`) | Mechanical measurement | Determinism: same tree + same config ⇒ same JSON, on any machine. New output fields get a test. |
 | **Judgement** (`reference/rubric.md`, `judge.md`, `placement.md`) | The rules a model applies when rating | A fingerprint moves (below), so it needs a comparability entry and a CHANGELOG line |
+| **Measure** (`reference/measure.md`) | The verdict lines the scripts apply | `measure_hash` moves; needs a comparability entry and a CHANGELOG line. `lib.mjs › MEASURE_BANDS` (the band table itself) is covered by the same hash. |
 | **Documentation** | Everything else | docgrad's own six dimensions apply; run an audit on this repo if a change is large |
 
 The scripts' contract is stated once in [SKILL.md](skills/docgrad/SKILL.md) §Scripts: read the target
@@ -60,7 +61,9 @@ Four hashes travel in every round's `history.jsonl` line. **Two were renamed in 
 `judgement_hash` → `judge_hash` and `thresholds_hash` → `measure_hash` — digesting the same inputs,
 so the values did not move at the rename. **`judge_hash`'s inputs, and therefore its value, changed
 later in the same release**: E2a repointed it from `audit.md` to `judge.md` (a false break — the file
-moved, no rule changed). See [rubric.md](skills/docgrad/reference/rubric.md) §Version history for the
+moved, no rule changed). **`measure_hash`'s inputs changed later in 2.0.0 too**: it now also covers
+the verdict band table (`lib.mjs › MEASURE_BANDS`) and `reference/measure.md`, on top of the three
+config values it always covered. See [rubric.md](skills/docgrad/reference/rubric.md) §Version history for the
 disclosure this required. The names now say which of the two layers each one answers for: v2 separates
 `measure` (the scripts' output, reproducible, fit to gate CI) from `judge` (the model's stars, which
 are not), and a fingerprint spanning both would put judge's prose in the way of measure's trend, and `report` uses them to draw
@@ -71,7 +74,7 @@ Know which one your change moves:
 |---|---|---|
 | `rubric_hash` | `reference/rubric.md`, whole file | `lib.mjs › docgradMeta()` |
 | `judge_hash` | `reference/judge.md` + `reference/placement.md` | `lib.mjs › JUDGE_FILES` |
-| `measure_hash` | `economy.entry_cost_tiers`, `economy.pollution_max`, `freshness.stale_after_days` | `lib.mjs › measureHash()` |
+| `measure_hash` | `economy.entry_cost_tiers`, `economy.pollution_max`, `freshness.stale_after_days`, `reference/measure.md` + `lib.mjs › MEASURE_BANDS` | `lib.mjs › measureHash()` |
 | `corpus_hash` | The config fields that select the corpus | `lib.mjs › corpusFingerprint()` |
 
 Two rules follow from this:

@@ -433,15 +433,15 @@ individual dimension did not).
   `['reference/audit.md', 'reference/placement.md']` to `['reference/judge.md', 'reference/placement.md']`.
   - **`judge_hash` moves away from `c40cc974` (measured through E1) to `742bdf54`.** This is
     a **false break**: the file `judge_hash` covers moved from audit.md to judge.md, but no rating
-    rule changed. `measure_hash` and `corpus_hash` are unaffected — `measure_hash` stays config-only
-    (D2) until E2b decides whether it should also cover measure.md, and `corpus_hash` stays
-    `71d1ce84` because `.docgrad.yml` is untouched.
+    rule changed. `measure_hash` and `corpus_hash` are unaffected here — `measure_hash` stays
+    config-only through this entry (a later entry below covers whether it should also cover
+    measure.md), and `corpus_hash` stays `71d1ce84` because `.docgrad.yml` is untouched.
   - **`rubric_hash` moves away from `28b8b7fc`, because of this entry and the audit.md →
     judge.md/measure.md reference updates it required** throughout the Correctness, Freshness/Linkage,
     Consistency and Economy sections above. The new value cannot be quoted here — this file is what it
     hashes, so a literal would move the hash again — see the CHANGELOG's `v2.0.0 epoch 2a` section for
     the recorded value.
-  - **The rule-1 waiver (D3) is deliberate and disclosed here.** CONTRIBUTING.md rule 1 says "do not
+  - **The rule-1 waiver is deliberate and disclosed here.** CONTRIBUTING.md rule 1 says "do not
     change what a hash covers in the same release as a change it would have revealed" — but
     `judge_hash` moves twice within 2.0.0: once in E2a because its coverage changed (audit.md →
     judge.md, no rule changed: a false break), and once in E2b because rules change. The two moves
@@ -449,6 +449,30 @@ individual dimension did not).
     whatever the hashes say. This is acceptable only because 2.0.0 is a major release, and the
     release procedure already requires a major release to state restart-from-baseline. The rule-1
     waiver is deliberate.
+- **v2.0.0 (E2b-1) — the scripts emit verdict lines derived from the current anchors, and
+  `measure_hash` grows to cover them** (**not an anchor change**): no ★1–★5 threshold moved and no
+  default changed. `links.mjs`, `freshness.mjs`, `inventory.mjs` and `coverage.mjs` each gain a
+  top-level `measure` array — one row per mechanical signal, each carrying its raw value, an
+  `OK`/`WATCH`/`FAIL` verdict, and the boundary (`line`) that decided it. Every line is read off an
+  anchor already in this file: `dead_link_ratio` / `orphan_ratio` / `reachable_ratio` /
+  `index_present` from §Linkage; `date_coverage` / `key_doc_age` / `date_drift` from §Freshness;
+  `entry_cost` / `pollution` from §Economy; `undocumented_dirs` / `drifted_dirs` have no calibrated
+  anchor and can only be OK or WATCH. See [measure.md](measure.md) §Verdict lines for the full table
+  and the degenerate cases.
+  - **`measure_hash` now covers the band table and measure.md, and it moved.** Its inputs were the
+    three config values (`economy.entry_cost_tiers`, `economy.pollution_max`,
+    `freshness.stale_after_days`); they now also include `lib.mjs › MEASURE_BANDS` (the band table
+    itself, unresolved) and `reference/measure.md`'s content. Two rounds whose `measure_hash` differs
+    were not necessarily measured by the same ruler even when their config is identical, if one of
+    them predates this epoch's verdict lines. The old → new value is recorded in CHANGELOG.
+  - **The rule-1 waiver extends to `measure_hash`.** The same waiver disclosed above for
+    `judge_hash` — CONTRIBUTING.md rule 1 does not forbid this move, because 2.0.0 is a major release
+    and every 1.x → 2.0 pair of rounds is already treated as a break regardless of which hash reveals
+    it.
+  - **`judge_hash` did not move in this epoch.** `judge.md` and `placement.md` are untouched; it
+    stays `742bdf54`.
+  - **No anchor text changed in this epoch**, so the §Version history preamble at the top of this
+    section (no ★1–★5 anchor text of an existing dimension changed) stays true.
 - **v1.8.0 — the rules for applying the anchors are fingerprinted, and the sampling window counts what it can draw**
   (issues #56, #54, #57) (**not an anchor change**): no ★1–★5 threshold moved and every shipped default is unchanged.
   - **New `judgement_hash`**, covering `audit.md` and `placement.md` — the files that decide *how* the anchors are applied
