@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { parseYamlSubset, loadConfig, resolveRoot, parseArgs, matchesScope, collectFiles, estimateTokens, githubSlug, extractHeadings, extractLinks, extractClaimedDate, parseFreshnessConventions, parseFreshnessFields, extractCodeRefs, validateConfigTypes, docgradMeta, corpusHash, gitTrackedFiles, extractClaimLines, rankClaimCandidates, claimHash, CLAIM_HASH_CHARS, buildSrcSymbolIndex, gitAddCommitSubjects, isDocgradAuthored, thresholdsHash, judgementHash, loadLedgerClaimHashes, loadLedgerRows } from '../skills/docgrad/scripts/lib.mjs';
+import { parseYamlSubset, loadConfig, resolveRoot, parseArgs, matchesScope, collectFiles, estimateTokens, githubSlug, extractHeadings, extractLinks, extractClaimedDate, parseFreshnessConventions, parseFreshnessFields, extractCodeRefs, validateConfigTypes, docgradMeta, corpusHash, gitTrackedFiles, extractClaimLines, rankClaimCandidates, claimHash, CLAIM_HASH_CHARS, buildSrcSymbolIndex, gitAddCommitSubjects, isDocgradAuthored, measureHash, judgeHash, loadLedgerClaimHashes, loadLedgerRows } from '../skills/docgrad/scripts/lib.mjs';
 import { fileURLToPath } from 'node:url';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/basic/', import.meta.url));
@@ -765,7 +765,7 @@ test('extractCodeRefs: skips backticks inside a code fence, skips non-path-shape
 // #56: rubric_hash fingerprints the anchors, not the rules for applying them. v1.7.0 added two
 // boundary rules to audit.md — one of which can only lower a pass rate — and no fingerprint moved,
 // so the break could only be disclosed in prose. These tests pin which files decide a rating.
-test('judgementHash: covers the rule files, not the anchors, and each one moves it on its own', () => {
+test('judgeHash: covers the rule files, not the anchors, and each one moves it on its own', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-judge-'));
   try {
     fs.mkdirSync(path.join(tmp, 'reference'), { recursive: true });
@@ -775,30 +775,30 @@ test('judgementHash: covers the rule files, not the anchors, and each one moves 
     write('reference/rubric.md', '★4 anchor A');
     write('reference/improve.md', 'round flow');
 
-    const base = judgementHash(tmp);
+    const base = judgeHash(tmp);
     assert.match(base, /^[0-9a-f]{8}$/);
-    assert.equal(judgementHash(tmp), base, 'same inputs must hash the same');
+    assert.equal(judgeHash(tmp), base, 'same inputs must hash the same');
 
     // audit.md carries the procedure and the boundary rules.
     write('reference/audit.md', 'step 1: run the scripts (edited)');
-    const afterAudit = judgementHash(tmp);
+    const afterAudit = judgeHash(tmp);
     assert.notEqual(afterAudit, base);
 
     // placement.md decides what counts as a consistency deduction (SKILL.md blocker 2).
     write('reference/placement.md', 'rule 4: grounds may live anywhere');
-    assert.notEqual(judgementHash(tmp), afterAudit);
+    assert.notEqual(judgeHash(tmp), afterAudit);
 
     // rubric.md is rubric_hash's job; hashing it twice would move two fingerprints for one edit.
-    const beforeRubric = judgementHash(tmp);
+    const beforeRubric = judgeHash(tmp);
     write('reference/rubric.md', '★4 anchor B');
-    assert.equal(judgementHash(tmp), beforeRubric, 'rubric.md must not move judgement_hash');
+    assert.equal(judgeHash(tmp), beforeRubric, 'rubric.md must not move judge_hash');
 
     // improve.md delegates the rating to audit.md and is never read by a plain `audit`.
     write('reference/improve.md', 'round flow, rewritten');
-    assert.equal(judgementHash(tmp), beforeRubric, 'improve.md must not move judgement_hash');
+    assert.equal(judgeHash(tmp), beforeRubric, 'improve.md must not move judge_hash');
 
     // Missing files read as unknown, not as a value — the rubric_hash contract.
-    assert.equal(judgementHash(fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-empty-'))), null);
+    assert.equal(judgeHash(fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-empty-'))), null);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -848,23 +848,23 @@ test('validateConfigTypes: the nested maps that can move a judgement are checked
   assert.ok(validateConfigTypes(base));
 });
 
-// thresholds_hash exists because these three values move judgement boundaries without changing a
+// measure_hash (the former thresholds_hash) exists because these three values move judgement boundaries without changing a
 // word of rubric.md, so rubric_hash alone cannot tell two differently-ruled rounds apart.
-test('thresholdsHash: stable at the defaults, moves for each of the three fields, null without a config', () => {
+test('measureHash: stable at the defaults, moves for each of the three fields, null without a config', () => {
   const base = loadConfig(FIXTURE);
-  const at = thresholdsHash(base);
+  const at = measureHash(base);
   assert.match(at, /^[0-9a-f]{8}$/);
-  assert.equal(thresholdsHash(loadConfig(FIXTURE)), at, 'the same config must hash the same');
-  assert.equal(thresholdsHash(null), null, 'unknown must stay distinguishable from the defaults');
+  assert.equal(measureHash(loadConfig(FIXTURE)), at, 'the same config must hash the same');
+  assert.equal(measureHash(null), null, 'unknown must stay distinguishable from the defaults');
 
   const moved = [
     { ...base, economy: { ...base.economy, entry_cost_tiers: [20000, 10000, 5000, 2500] } },
     { ...base, economy: { ...base.economy, pollution_max: 0.2 } },
     { ...base, freshness: { ...base.freshness, stale_after_days: 365 } },
   ];
-  for (const cfg of moved) assert.notEqual(thresholdsHash(cfg), at);
+  for (const cfg of moved) assert.notEqual(measureHash(cfg), at);
   // ...and each moves it to its own value, so the hash identifies which ruler, not merely "not the default".
-  assert.equal(new Set(moved.map(thresholdsHash)).size, 3);
+  assert.equal(new Set(moved.map(measureHash)).size, 3);
 });
 
 test('packaging: the Codex manifest version matches the Claude Code manifest, which is the authority', () => {
@@ -937,8 +937,8 @@ test('docgradMeta: returns null instead of throwing when files cannot be read', 
     assert.deepEqual(docgradMeta(tmp), {
       version: null,
       rubric_hash: null,
-      judgement_hash: null,
-      thresholds_hash: null,
+      measure_hash: null,
+      judge_hash: null,
       corpus_hash: null,
     });
   } finally {
@@ -1228,4 +1228,38 @@ test('loadLedgerRows: error text names the flag it was called for, and loadLedge
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+});
+
+// --- v2 E1: the two-layer fingerprint vocabulary -------------------------------------
+//
+// This epoch renames only. `measure_hash` is the former `thresholds_hash` and `judge_hash` the
+// former `judgement_hash`, digesting the same inputs in the same order — so the values must not
+// move. The literals below were measured on this repo at the commit before the rename
+// (`node skills/docgrad/scripts/inventory.mjs --root .`), and they are pinned rather than recomputed
+// because a rename that quietly changed a digest would otherwise look exactly like a rename that
+// did not.
+test('docgradMeta: the v2 rename preserves both digests and keeps the four hashes independent', () => {
+  const skillRoot = fileURLToPath(new URL('../skills/docgrad/', import.meta.url));
+  const config = loadConfig(fileURLToPath(new URL('../', import.meta.url)));
+  const meta = docgradMeta(skillRoot, config);
+
+  assert.deepEqual(Object.keys(meta), ['version', 'rubric_hash', 'measure_hash', 'judge_hash', 'corpus_hash']);
+  assert.equal(meta.measure_hash, 'ec596daf', 'measure_hash === the thresholds_hash it replaces');
+  assert.equal(meta.judge_hash, 'c40cc974', 'judge_hash === the judgement_hash it replaces');
+
+  // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
+  // change; a placement.md edit is a judge-side one; neither may disturb the other, or #82's
+  // "the trend draws measure only" cannot be implemented on top of them.
+  const moved = { ...config, economy: { ...config.economy, pollution_max: 0.2 } };
+  assert.notEqual(measureHash(moved), meta.measure_hash, 'a threshold edit moves measure_hash');
+  assert.equal(judgeHash(skillRoot), meta.judge_hash, '...and leaves judge_hash alone');
+  assert.equal(corpusHash(moved), meta.corpus_hash, '...and leaves corpus_hash alone');
+});
+
+test('measureHash: null without a config — "unknown" stays distinguishable from "the defaults"', () => {
+  // Inherited verbatim from thresholds_hash. A configless run must not be reportable as a run at the
+  // shipped defaults: the two are different claims about which ruler was used, and collapsing them
+  // is how a fingerprint stops being evidence.
+  assert.equal(measureHash(null), null);
+  assert.equal(docgradMeta(fileURLToPath(new URL('../skills/docgrad/', import.meta.url))).measure_hash, null);
 });

@@ -98,7 +98,7 @@ When `.docgrad.yml` already exists, rerunning init = rescan, using the existing 
    `economy.entry_cost_tiers`. Both are legitimate; they say different things. Lowering the target says "this repo accepts
    ★3 economy"; raising the tiers says "this repo's ★4 means something looser than docgrad's ★4", and every later reader
    has to know that to read the score. Since v1.7.0 the change is at least **visible**: the thresholds are reported on
-   every run (`inventory.economy_thresholds.customised`) and folded into `thresholds_hash`, so `report` draws a
+   every run (`inventory.economy_thresholds.customised`) and folded into `measure_hash`, so `report` draws a
    comparability break where it happened. Before v1.7.0 these two fields were read by nothing at all — editing them changed
    no outcome, while this questionnaire warned that it changed the rubric. Both halves of that were wrong
 9. `scenario`: ask the user to describe the repo's representative development task in one sentence (used as the LLM-simulation

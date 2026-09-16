@@ -168,7 +168,7 @@ Measurement: `coverage_ratio` / `stale` / `mismatches` from freshness.mjs. "Key 
 The ★3 staleness window is `freshness.stale_after_days` (shipped 60), and it is **configurable** —
 which means a repo can set it to 365 and make ★3 mean "within a year" without a word of this file
 changing. That is legitimate for a repo whose documentation genuinely ages that slowly, and it is
-also exactly why the value is in `thresholds_hash`: the scorecard must state the window in force
+also exactly why the value is in `measure_hash`: the scorecard must state the window in force
 whenever it is not the shipped one, and `report` draws a comparability break when it moves.
 A related constant is **not** configurable: `mismatches` only fires when a document's claimed date
 and its git date differ by more than 7 days (`freshness.mjs › MISMATCH_TOLERANCE_DAYS`), a fixed
@@ -249,7 +249,7 @@ Two consequences the audit must honour:
 
 - **`customised: true` is a reporting obligation, not a violation.** A repo is allowed to choose its
   own thresholds. But a rating produced under custom thresholds is not comparable with one produced
-  at the defaults, so the scorecard must say which thresholds were in force. `thresholds_hash` in the
+  at the defaults, so the scorecard must say which thresholds were in force. `measure_hash` in the
   `docgrad` block is the mechanical form of the same statement, and it is what `report` compares
   across rounds.
 - **★5 still needs the gate.** `star_5_cost_met` reports only the cost half. No script can see
@@ -408,6 +408,22 @@ individual dimension did not).
 - **v1.9.0 — a `corpus_hash` move here may be a parser fix rather than a corpus edit** (**not an anchor change**): inline
   lists are now split on commas **outside quotes**, so a config containing `["docs/a,b/"]` selects a different corpus than
   it used to. Compare the tool version against the config actually in use; the config's own history usually tells them apart.
+- **v2.0.0 — the fingerprints speak in the two layers, and two of them are renamed** (**not an anchor
+  change**): no ★1–★5 threshold moved and no default changed. v2 separates `measure` (the scripts'
+  deterministic output, reproducible, fit to gate CI) from `judge` (the model's stars, which are not),
+  and the fingerprints follow, because one hash spanning both would put judge's prose in the way of
+  measure's trend. `thresholds_hash` → **`measure_hash`**, `judgement_hash` → **`judge_hash`**, both
+  digesting the same inputs in the same order — **the values did not move** (`ec596daf` and `c40cc974`
+  on this repo, either side of the rename). What a reader has to do about it:
+  - **A `history.jsonl` row written before v2.0.0 carries the old field names.** Nothing rewrites
+    them. A trend that spans the rename is reading two names for one hash; `report` has to map them,
+    and until it does, a v1 row and a v2 row of the same ruler look like different rulers.
+  - **`rubric_hash` moves at this version, and this entry is why.** It digests this whole file, so
+    adding these lines moves it — the disclosure and the break are the same edit. `judge_hash`,
+    `measure_hash` and `corpus_hash` are unmoved.
+  - **`judge_hash` still covers `audit.md`, which still carries measure-side instructions.** The file
+    splits into `measure.md` / `judge.md` in a later epoch of this release and the hash repoints then.
+    Until it does, a judge-side fingerprint covering measure-side prose is a named intermediate state.
 - **v1.8.0 — the rules for applying the anchors are fingerprinted, and the sampling window counts what it can draw**
   (issues #56, #54, #57) (**not an anchor change**): no ★1–★5 threshold moved and every shipped default is unchanged.
   - **New `judgement_hash`**, covering `audit.md` and `placement.md` — the files that decide *how* the anchors are applied
