@@ -290,7 +290,7 @@ test('corpusHash: fields outside the corpus definition do not move it', () => {
   );
   // claim_candidates_cap changes what a round can *sample*, but not which files were measured:
   // files_total, claims_total, the freshness denominator, the orphan population and the pollution
-  // denominator are all identical either side of it. Folding it in would stamp a six-dimension
+  // denominator are all identical either side of it. Folding it in would stamp a whole-round
   // comparability break on every repo that applied the fix the tool itself recommends. The honest
   // disclosure is per-round (claim_population.truncated), not a corpus break.
   assert.equal(
@@ -643,7 +643,7 @@ test('extractHeadings: a word-internal underscore is literal; only an emphasis u
 
 // #42: the 0.6.1 fix only covered the word-internal case. An `_` whose *left* neighbour is
 // punctuation or the start of the line was still stripped, so the slug disagreed with GitHub and
-// links into those sections were reported as bad anchors — which always costs a star.
+// links into those sections were reported as bad anchors — which always costs a star (1.x).
 test('extractHeadings: an unpaired underscore is literal, whatever sits next to it (#42)', () => {
   const cases = [
     ['### cmd._args', 'cmd_args'], // githubSlug drops the dot, keeps the underscore
@@ -1241,7 +1241,7 @@ test('loadLedgerRows: error text names the flag it was called for, and loadLedge
   }
 });
 
-// --- v2 E1/E2a/E2b-1: the two-layer fingerprint vocabulary -----------------------------
+// --- v2 E1/E2a/E2b-1/E2b-2: the two-layer fingerprint vocabulary ------------------------
 //
 // E1 renamed only: `measure_hash` is the former `thresholds_hash` and `judge_hash` the former
 // `judgement_hash`, digesting the same inputs in the same order — so both values held through E1.
@@ -1249,19 +1249,25 @@ test('loadLedgerRows: error text names the flag it was called for, and loadLedge
 // the new judge.md + placement.md pair. That move is deliberate (a false break: the file moved,
 // no rule changed) — it is a pinned new value, not a preserved one. `measure_hash` was unaffected
 // through E2a — it stayed config-only, and the audit.md split carried no config change.
-// **E2b-1 grows `measure_hash`'s inputs**: it now also covers `lib.mjs › MEASURE_BANDS` (the
-// verdict band table, unresolved) and `reference/measure.md`'s content, so it moves here — this is
-// the first entry in this test where that value is not the config-only `thresholds_hash` literal.
+// E2b-1 grew `measure_hash`'s inputs: it now also covers `lib.mjs › MEASURE_BANDS` (the
+// verdict band table, unresolved) and `reference/measure.md`'s content, so it moved there — that
+// was the first entry in this test where that value was not the config-only `thresholds_hash`
+// literal.
+// **E2b-2 retires the linkage/freshness/economy star anchors: rubric.md is judge-only.** judge.md's
+// former steps 4/5 and 7 move into measure.md (a real rule removal, so `judge_hash` moves); measure.md
+// grows new §Freshness/§Linkage/§Economy notes and §Token economy signals sections and
+// `MEASURE_BANDS[*].source` strings are reworded to cite the retired anchors (so `measure_hash`
+// moves too); rubric.md itself changes (so `rubric_hash` moves). `corpus_hash` is unaffected.
 // The literals below were pinned rather than recomputed because a hash that quietly changed would
 // otherwise look exactly like one that did not.
-test('docgradMeta: measure_hash covers the band table + measure.md as of E2b-1, judge_hash is pinned after the E2a split, and the four hashes stay independent', () => {
+test('docgradMeta: measure_hash and judge_hash move again in E2b-2 (rubric.md is judge-only), and the four hashes stay independent', () => {
   const skillRoot = fileURLToPath(new URL('../skills/docgrad/', import.meta.url));
   const config = loadConfig(fileURLToPath(new URL('../', import.meta.url)));
   const meta = docgradMeta(skillRoot, config);
 
   assert.deepEqual(Object.keys(meta), ['version', 'rubric_hash', 'measure_hash', 'judge_hash', 'corpus_hash']);
-  assert.equal(meta.measure_hash, 'ae3014b1', 'measure_hash after E2b-1 (was ec596daf, the thresholds_hash literal, through E2a)');
-  assert.equal(meta.judge_hash, '742bdf54', 'judge_hash after the E2a split (was c40cc974 through E1)');
+  assert.equal(meta.measure_hash, '72abe0c4', 'measure_hash after E2b-2 (was ae3014b1 through E2b-1)');
+  assert.equal(meta.judge_hash, 'e8881920', 'judge_hash after E2b-2 (was 742bdf54 through E2b-1)');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
   // change; a placement.md edit is a judge-side one; neither may disturb the other, or #82's
@@ -1552,7 +1558,7 @@ test('evaluateMeasure: band edges — date_drift (OK <30 days, no FAIL line: no 
   assert.equal(at(0), 'OK');
   assert.equal(at(29), 'OK');
   assert.equal(at(30), 'WATCH');
-  assert.equal(at(10000), 'WATCH', 'never FAIL: only the drift-days half of ★4 is measured, no calibrated source for the rest');
+  assert.equal(at(10000), 'WATCH', 'never FAIL: only the drift-days half of the retired ★4 clause is measured, no calibrated source for the rest');
 });
 
 test('evaluateMeasure: band edges — entry_cost (FAIL >tiers[1], OK ≤tiers[2])', () => {
