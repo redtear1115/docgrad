@@ -3,7 +3,7 @@
 Version authority is `version` in [.claude-plugin/plugin.json](.claude-plugin/plugin.json); this file records changes per version.
 For version-number semantics (semver, docgrad-specific) see [docs/how-to.md](docs/how-to.md) §Cut a release.
 
-## Unreleased
+## 1.9.2 — 2026-09-16
 
 Four measurement fixes and one documentation entry. No ★1–★5 anchor text changed and no default
 moved — **but `rubric_hash` moves**, from `21fcfd36` to `1bd26aa6` (measured on

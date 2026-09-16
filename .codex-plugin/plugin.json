@@ -1,6 +1,6 @@
 {
   "name": "docgrad",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "Grade and converge a repo's documentation system as an AI-agent context source — six-dimension star rating (completeness, correctness, freshness, linkage, consistency, economy) including entry-file token cost, with an improvement loop that fixes docs until target ratings are met.",
   "skills": "./skills/",
   "license": "MIT",
