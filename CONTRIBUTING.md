@@ -58,7 +58,7 @@ repo's `.docgrad.yml`, write JSON to stdout, report errors on stderr with a non-
 
 ## The fingerprint discipline
 
-Four hashes travel in every round's `history.jsonl` line. **Two were renamed in v2.0.0** —
+The `docgrad` block (`version` plus four hashes) travels verbatim in every v2 `history.jsonl` row. **Two were renamed in v2.0.0** —
 `judgement_hash` → `judge_hash` and `thresholds_hash` → `measure_hash` — digesting the same inputs,
 so the values did not move at the rename. **`judge_hash`'s inputs, and therefore its value, changed
 later in the same release**: E2a repointed it from `audit.md` to `judge.md` (a false break — the file

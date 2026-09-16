@@ -75,7 +75,8 @@ docgrad/
 │   ├── design.md         # this file
 │   └── how-to.md         # common development tasks (add a dimension / change the rubric / extend lib)
 ├── .docgrad.yml          # this repo's own docgrad config (dogfooding)
-├── .docgrad/             # dogfooding convergence state: history.jsonl (per-round scores + version fingerprint),
+├── .docgrad/             # dogfooding convergence state: history.jsonl (per-round measure verdicts, judge stars marked
+│                         # incomparable, and the `docgrad` block; schema 2),
 │                         # ledger.jsonl (accumulated claim verification records), scorecard-latest.md,
 │                         # out-of-scope.jsonl (findings outside docgrad's remit), graduation/ (closing deliverables)
 ├── CHANGELOG.md          # per-version changes; version semantics in docs/how-to.md §Cut a release

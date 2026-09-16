@@ -75,41 +75,49 @@
 4. **Verify**: rerun the scripts and re-score the affected dimensions. Success = the target dimension goes up and no other dimension drops.
    Any dimension dropping → revert the change that caused the drop, and note it.
 5. **Record and commit**:
-   - Append one line to `.docgrad/history.jsonl` (create it if it doesn't exist). `docgrad_version`, `rubric_hash`,
-     `judge_hash`, `measure_hash` and `corpus_hash` **must be copied straight from `inventory.mjs`'s
-     output `docgrad` block** (all five live there), don't fill them in yourself:
+   - Append one line to `.docgrad/history.jsonl` (create it if it doesn't exist), in **schema 2**:
 
      ```json
-     {"round": 3, "date": "2026-07-12", "dimension": "linkage", "docgrad_version": "1.1.0", "rubric_hash": "b6e4f7f3", "judge_hash": "c40cc974", "measure_hash": "ec596daf", "corpus_hash": "684034d6", "scores": {"completeness": 4, "correctness": 3, "freshness": 4, "linkage": 4, "consistency": 4, "economy": 4}, "coverage": {"claims_verified": 23, "claims_total": 68}, "notes": "fixed 12 dead links; folded 2 orphans into the index"}
+     {"schema": 2, "round": 3, "date": "YYYY-MM-DD", "dimension": "<what this round worked on: a measure id or a judged dimension>", "docgrad": {"version": "<copy from inventory.mjs docgrad block>", "rubric_hash": "<copy from inventory.mjs docgrad block>", "measure_hash": "<copy from inventory.mjs docgrad block>", "judge_hash": "<copy from inventory.mjs docgrad block>", "corpus_hash": "<copy from inventory.mjs docgrad block>"}, "measure": {"dead_link_ratio": {"value": 0, "numerator": 0, "denominator": 176, "verdict": "OK"}, "…": "one entry per `measure` item the four scripts printed this round"}, "judge": {"incomparable": true, "stars": {"<dimension rated this round>": 4}, "sample": {"claims_drawn": 8, "claims_total": 68}}, "coverage": {"claims_verified": 23, "claims_total": 68}, "notes": "…"}
      ```
 
-     The five version fields are for `report` to draw comparability breakpoints: when `rubric_hash` changes it means the ruler changed,
-     and the scores before and after can't be compared directly; when `corpus_hash` changes it means the set of files being measured
-     changed (`docs_dirs`/`docs_files`/`entry_files`/`exclude`/`out_of_scope`/`index_file`/`exclude_untracked`), which moves `files_total`,
-     `claims_total`, the freshness denominator and the pollution denominator at once — every dimension in that round is affected,
-     not just one. **Write `corpus_hash` every round even when it hasn't moved**: `report` can only spot the change by comparing
-     consecutive lines, so a round that omits it leaves the break undetectable. `corpus_hash` is `null` when the round ran without a
-     config. Old records missing these fields are treated as unknown and don't block anything.
+     **`docgrad` is copied whole from `inventory.mjs`'s output `docgrad` block.** Do not rename, drop, or fill in keys
+     yourself — if a key is missing from the output, that is a bug to report, not to paper over.
+
+     **`measure`** has one entry per item of each of the four scripts' `measure` array: `value` and `verdict`, with
+     `numerator` and `denominator` where the item carries them. A `null` verdict is recorded as `null`.
+
+     **`judge.stars`** holds whatever judge.md step 9 rated this round, keyed by dimension. The key set is deliberately
+     not enumerated here, because it shrinks when E2b-2 lands. A dimension judged **not measurable** (see the
+     design-ceiling section below — currently only correctness, when the corpus holds no verifiable claims) is recorded
+     as `null`, never as a number. `report` must render it as `n/a` and must not include it in any average; a guessed
+     star would be indistinguishable from a measured one a few rounds later. `incomparable: true` is always present:
+     judge stars are never averaged across rounds.
+
+     **Write the whole `docgrad` object every round, even when nothing moved**: `report` can only spot a change by
+     comparing a row with the previous valid schema-2 row, so a round that omits a field leaves the break undetectable. `corpus_hash` is `null`
+     when the round ran without a config, and `version` can likewise be `null`.
 
      `measure_hash` (**added as `thresholds_hash` in v1.7.0, renamed in v2.0.0**; its inputs grew again later in 2.0.0) covers the three config values that move a judgement boundary without changing a word of
      `rubric.md` — `economy.entry_cost_tiers`, `economy.pollution_max` and `freshness.stale_after_days` — **plus the verdict band table
      (`lib.mjs › MEASURE_BANDS`) and `reference/measure.md`**. Two rounds whose
-     `measure_hash` differs were **not measured by the same ruler**, however identical their `rubric_hash` — so treat a move
-     exactly like a `rubric_hash` move and draw the break. One thing it cannot tell you: rounds recorded **before** v1.7.0 have no
-     such field, so the round where a repo's custom `economy:` block went from inert to authoritative reads as "unknown → first
-     value", not as a change. That transition is a real break and it is stated in the v1.7.0 CHANGELOG rather than detectable
-     here.
+     `measure_hash` differs were **not measured by the same ruler**, however identical their `rubric_hash` — what that
+     move breaks in `report` is stated in SKILL.md's `report` row, not repeated here. One thing it cannot tell you:
+     rounds recorded **before** v1.7.0 have no such field, so in a legacy row the round where a repo's custom
+     `economy:` block went from inert to authoritative reads as "unknown → first value", not as a change. That
+     transition is a real break and it is stated in the v1.7.0 CHANGELOG rather than detectable here.
 
      `judge_hash` (**added as `judgement_hash` in v1.8.0, renamed in v2.0.0**) covers the files that carry **the rules for applying the anchors** — `judge.md` (audit.md until v2.0.0 E2a) (the
      scoring procedure, the sampling rule, the boundary rules) and `placement.md` (what counts as a consistency deduction).
      `rubric_hash` fingerprints the anchors themselves; this one fingerprints how they are applied, and the two move
-     independently. Treat a move exactly like a `rubric_hash` move. Same blind spot as the others: rounds recorded **before**
-     v1.8.0 have no such field, so its first appearance reads as "unknown → first value" rather than as a change — and in
-     particular it does **not** retroactively mark v1.7.0's correctness break (#48), which is the break that motivated it.
+     independently. What that move breaks in `report` is likewise stated in SKILL.md's `report` row. Same blind spot
+     as the others: rounds recorded **before** v1.8.0 have no such field, so in a legacy row its first appearance
+     reads as "unknown → first value" rather than as a change — and in particular it does **not** retroactively mark
+     v1.7.0's correctness break (#48), which is the break that motivated it.
 
-     A dimension judged **not measurable** (see the design-ceiling section below — currently only correctness, when the corpus
-     holds no verifiable claims) is recorded as `null`, never as a number. `report` must render it as `n/a` and must not
-     include it in any average; a guessed star would be indistinguishable from a measured one a few rounds later.
+     **In a legacy row (no `schema`), a missing field is read as unknown and draws no break.** For a schema-2 row, a
+     missing `docgrad` field is instead a spec violation that `report` prints (see SKILL.md's `report` row) — it is
+     never read as unknown.
    - Append the claims verified this round to `.docgrad/ledger.jsonl` (create it if it doesn't exist). **Cumulative, append-only, never rewritten** —
      when re-verifying an old entry, append a new line (with the new `round`) rather than editing the old line, so you can still see when a given claim broke and when it got fixed:
 
@@ -138,7 +146,7 @@
      > drawn as the new claim it is. Once migrated, write `claim_hash` on every new row and stop writing `claim_id`.
 
      > **`borderline` and `rationale` (added v1.7.0) are forward-only.** `borderline` is written on every row;
-     > `rationale` is mandatory on every `fail` and every borderline `pass` (see [judge.md](judge.md) step 4). Rows written
+     > `rationale` is mandatory on every `fail` and every borderline `pass` (see [judge.md](judge.md) step 3 (boundary rules)). Rows written
      > before this version have neither, and are **not** to be back-filled — a rationale reconstructed now would be this
      > round's reasoning wearing an older round's date, which is worse than an honest gap. Treat a missing `borderline` as
      > unknown rather than as `false`: the borderline count for a pre-v1.7.0 round is not zero, it is unrecorded, and a
