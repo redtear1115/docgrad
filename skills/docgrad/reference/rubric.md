@@ -70,7 +70,7 @@ authoritative document.
 | ★5 | Every sampled claim passes + zombie code and retired mechanisms are marked + authoritative lists refer to code instead of restating it. |
 
 Measurement: the claim ledger — draw `correctness_sample` concrete claims, re-verify part of the
-existing ledger, and verify every one of them against the code (see [audit.md](audit.md) step 3).
+existing ledger, and verify every one of them against the code (see [judge.md](judge.md) step 3).
 **The script decides the sample**: the population is `inventory.totals.claims_total` (non-heading
 lines outside fences that carry a code coordinate), the draw order is
 `inventory.claim_candidates` (stably sorted by ref count → path → line), at most 2 per document.
@@ -88,7 +88,7 @@ row otherwise occupies one of the `claim_candidates_cap` slots forever, so the w
 that ledger out of the ranked list **before** the cap is applied, so `cap` counts drawable
 candidates instead — but the window it emits is then a prefix of the *filtered* order, not of the
 total order, and that filtered order shifts as the ledger grows, so "only appends" no longer holds
-in that mode (see [audit.md](audit.md) step 1).
+in that mode (see [measure.md](measure.md) step 1).
 A "code coordinate" is either **path-shaped** inline code (`lib/foo.js`, `src/a.ts › parse()`) or **API-shaped** inline code
 (`foo()`, `.option()`, `program.opts()`) whose every segment exists as an identifier under `src_dirs`; the per-candidate split is
 `refs_path` / `refs_api`. With `src_dirs` unset the API shape is inert and contributes nothing —
@@ -110,7 +110,7 @@ a pass rate moves when the documentation changes *and* when the reading changes,
 the same finding. A `fail`, and any borderline `pass`, also carries a `rationale`: which sentence,
 which code line, why. Without it a later round can re-verify the claim but not the judgement, and
 the judgement is the part that was demonstrably unstable (see [§Version history](#version-history-and-comparability-notes),
-v1.7.0). [audit.md](audit.md) step 4 settles the two recurring boundaries rather than leaving each
+v1.7.0). [judge.md](judge.md) step 4 settles the two recurring boundaries rather than leaving each
 round to re-derive them.
 
 > **The one ceiling that does exist is the emitted window, and it is a config setting, not a
@@ -118,12 +118,12 @@ round to re-derive them.
 > every candidate in `claim_candidates`, then stops — at `claim_candidates_cap`, not at
 > `claims_total`. From the outside this is indistinguishable from a fully covered corpus: both show
 > a flat coverage line and a round that drew nothing. `claim_population.truncated` is what tells
-> them apart, and [audit.md](audit.md) step 3 sets out the three causes of a short draw and the
+> them apart, and [judge.md](judge.md) step 3 sets out the three causes of a short draw and the
 > different response each one needs. A capped coverage figure must be reported as capped.
 > This is the picture **without `--exclude-ledger`**. Run with it, the window instead holds a
 > prefix of the *drawable* (not-yet-ledgered) candidates, so the ceiling sits closer to
 > `claims_total` — but it is still a ceiling, and a config setting, just a moving one instead of a
-> fixed `claim_candidates_cap`th candidate (see [audit.md](audit.md) step 1).
+> fixed `claim_candidates_cap`th candidate (see [measure.md](measure.md) step 1).
 
 > **Report pass rate and coverage separately**: the star rating for this dimension follows the
 > **pass rate** (passes ÷ claims verified this round). **Cumulative coverage** (distinct claims in
@@ -148,7 +148,7 @@ round to re-derive them.
 > fixture, each reasoning defensibly, produced ★3, ★3, ★1 and ★2. A not-measurable correctness is
 > treated exactly like a design ceiling: excluded from the targets check, excluded from the loop's
 > dimension picking, and named in the report — the corpus having no claim that carries a code
-> coordinate is itself the finding worth acting on (see [audit.md](audit.md) step 3). The rated
+> coordinate is itself the finding worth acting on (see [judge.md](judge.md) step 3). The rated
 > value recorded in `history.jsonl` is `null`, not a number, so `report` never averages a guess.
 > This adds a case the anchors did not cover; it **changes none of the ★1–★5 thresholds**
 > (see [§Version history](#version-history-and-comparability-notes)).
@@ -221,7 +221,7 @@ compares them across documents, and triangulates against the code. The scope of 
 **includes placement and duplication between docs and code comments/specs** — the rules are in
 [placement.md](placement.md), and only placement and duplication are judged, never comment quality.
 Deductions fall into three classes: `[contradiction]` / `[duplication]` / `[placement]`
-(see [audit.md](audit.md) step 6).
+(see [judge.md](judge.md) step 6).
 When comparing this dimension's score across v0.5.0, note the scope was widened
 (see [§Version history](#version-history-and-comparability-notes)).
 
@@ -277,7 +277,7 @@ Two consequences the audit must honour:
 > **`out_of_scope` is not a free pass, and the audit must not read it as one.** Its size is printed on every run, empty or
 > not, precisely so the field cannot become a silent switch for zeroing your own pollution surface. You may move anything you
 > like out of the surface; how much you moved is on the same page, in the same units. An `out_of_scope` that dwarfs the
-> graded corpus is a finding in its own right (see [audit.md](audit.md) step 7). When a path is listed in both fields,
+> graded corpus is a finding in its own right (see [judge.md](judge.md) step 7). When a path is listed in both fields,
 > **`exclude` wins** and the file stays charged — a broad `out_of_scope` entry must never silently cancel an `exclude`
 > someone already wrote, so getting anything out of the surface always costs one deliberate edit to `exclude`.
 >
@@ -299,7 +299,7 @@ Two consequences the audit must honour:
 > irreproducibility docgrad exists to catch. The ratio itself is deliberately left alone (silently
 > recomputing it would move everyone's economy rating at once); instead `inventory.untracked`
 > reports the count and token weight, `inventory.pollution.note` flags the ratio as checkout-bound,
-> and the audit must carry both into the scorecard (see [audit.md](audit.md) step 7). Setting
+> and the audit must carry both into the scorecard (see [judge.md](judge.md) step 7). Setting
 > `exclude_untracked: true` restricts the corpus to what git tracks and makes the rating
 > reproducible; it changes `corpus_hash`, so scores either side of the flip are not comparable
 > (see [§Version history](#version-history-and-comparability-notes)).
@@ -424,6 +424,31 @@ individual dimension did not).
   - **`judge_hash` still covers `audit.md`, which still carries measure-side instructions.** The file
     splits into `measure.md` / `judge.md` in a later epoch of this release and the hash repoints then.
     Until it does, a judge-side fingerprint covering measure-side prose is a named intermediate state.
+- **v2.0.0 (E2a) — `reference/audit.md` splits into `measure.md` + `judge.md`, and `judge_hash` moves**
+  (**not an anchor change**): no ★1–★5 threshold moved and no default changed. The 480-line `audit.md`
+  is split along one line — steps that run scripts go to `measure.md` (steps 1, 8, 8b), steps that
+  rate go to `judge.md` (steps 2–7, 9, and §Scoped audit) — with no semantic change: no anchor,
+  threshold, target, command, or output format changed. `reference/audit.md` stays as a thin router
+  and the `audit` command itself is unchanged. `lib.mjs`'s `JUDGE_FILES` repoints from
+  `['reference/audit.md', 'reference/placement.md']` to `['reference/judge.md', 'reference/placement.md']`.
+  - **`judge_hash` moves away from `c40cc974` (measured through E1) to `742bdf54`.** This is
+    a **false break**: the file `judge_hash` covers moved from audit.md to judge.md, but no rating
+    rule changed. `measure_hash` and `corpus_hash` are unaffected — `measure_hash` stays config-only
+    (D2) until E2b decides whether it should also cover measure.md, and `corpus_hash` stays
+    `71d1ce84` because `.docgrad.yml` is untouched.
+  - **`rubric_hash` moves away from `28b8b7fc`, because of this entry and the audit.md →
+    judge.md/measure.md reference updates it required** throughout the Correctness, Freshness/Linkage,
+    Consistency and Economy sections above. The new value cannot be quoted here — this file is what it
+    hashes, so a literal would move the hash again — see the CHANGELOG's `v2.0.0 epoch 2a` section for
+    the recorded value.
+  - **The rule-1 waiver (D3) is deliberate and disclosed here.** CONTRIBUTING.md rule 1 says "do not
+    change what a hash covers in the same release as a change it would have revealed" — but
+    `judge_hash` moves twice within 2.0.0: once in E2a because its coverage changed (audit.md →
+    judge.md, no rule changed: a false break), and once in E2b because rules change. The two moves
+    cannot be told apart from the hash alone. Treat every 1.x → 2.0 pair of rounds as a break,
+    whatever the hashes say. This is acceptable only because 2.0.0 is a major release, and the
+    release procedure already requires a major release to state restart-from-baseline. The rule-1
+    waiver is deliberate.
 - **v1.8.0 — the rules for applying the anchors are fingerprinted, and the sampling window counts what it can draw**
   (issues #56, #54, #57) (**not an anchor change**): no ★1–★5 threshold moved and every shipped default is unchanged.
   - **New `judgement_hash`**, covering `audit.md` and `placement.md` — the files that decide *how* the anchors are applied

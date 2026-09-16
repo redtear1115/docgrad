@@ -32,7 +32,7 @@ When `.docgrad.yml` already exists, rerunning init = rescan, using the existing 
      `docs_files`. Listing one document in both places is pointless — `entry_files` wins and counts toward fixed cost.
    - **Getting this wrong has an asymmetric cost.** Stuffing a conditional document into `entry_files` inflates fixed cost for
      nothing (measured on oikos: 9,037 → 21,474 tokens, crossing the first `economy.entry_cost_tiers` threshold — 20,000 at the shipped
-     defaults — and dropping economy from ★3 to ★1), and [audit.md](audit.md) §Economy will find `entry_cost.files` doesn't match reality and **log a
+     defaults — and dropping economy from ★3 to ★1), and [judge.md](judge.md) §Economy will find `entry_cost.files` doesn't match reality and **log a
      separate** deduction. The reverse (putting a truly always-loaded file into `docs_files`) underreports fixed cost, which is
      equally false.
    - **Files only**: listing a directory is a **hard error** — every script that reaches corpus collection exits 1 with
@@ -104,7 +104,7 @@ When `.docgrad.yml` already exists, rerunning init = rescan, using the existing 
 9. `scenario`: ask the user to describe the repo's representative development task in one sentence (used as the LLM-simulation
    fallback when `scenarios` is absent)
 10. `correctness_sample`: **the number of claims drawn *new* each round** (re-verification of the existing ledger is a separate
-    budget on top, see [audit.md](audit.md) step 3) — so it is also the rate at which cumulative coverage grows. Default 8; for a
+    budget on top, see [judge.md](judge.md) step 3) — so it is also the rate at which cumulative coverage grows. Default 8; for a
     large docs system (>50 files), 12 is recommended.
     Paired with it, `claim_candidates_cap`: **how many ranked candidates `inventory.mjs` emits per run**, default 60. Without
     `--exclude-ledger` (#54), coverage can only grow as far as this window, so it is the ceiling `correctness_sample` climbs
@@ -124,7 +124,7 @@ When `.docgrad.yml` already exists, rerunning init = rescan, using the existing 
       the whole guard against matching ordinary prose, so with no `src_dirs` there is nothing to check against and the shape
       contributes nothing. On a **library repo**, whose documentation describes an API rather than a file tree, that is the
       difference between a claim population and none at all: measured on `tj/commander.js`, `claims_total` was **0** and
-      correctness had no mechanical basis whatsoever (see [audit.md](audit.md) step 3's not-measurable case).
+      correctness had no mechanical basis whatsoever (see [judge.md](judge.md) step 3's not-measurable case).
       `inventory.claim_population.api_matching` reports `disabled` with a note when this happens — it is never silent.
 12. `scenarios`: ask the user for 2-4 representative code paths (files or directories, e.g.
     `apps/api/src/contract/contract-approval.service.ts`, `apps/api/src/timesheet`) — retrieval.mjs uses them to mechanically

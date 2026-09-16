@@ -770,32 +770,42 @@ test('judgeHash: covers the rule files, not the anchors, and each one moves it o
   try {
     fs.mkdirSync(path.join(tmp, 'reference'), { recursive: true });
     const write = (rel, body) => fs.writeFileSync(path.join(tmp, rel), body);
-    write('reference/audit.md', 'step 1: run the scripts');
+    write('reference/judge.md', 'step 2: rate against the rubric');
     write('reference/placement.md', 'rule 4: grounds live with the conclusion');
     write('reference/rubric.md', '★4 anchor A');
     write('reference/improve.md', 'round flow');
+    write('reference/measure.md', 'step 1: run the scripts');
+    write('reference/audit.md', 'router: measure.md then judge.md');
 
     const base = judgeHash(tmp);
     assert.match(base, /^[0-9a-f]{8}$/);
     assert.equal(judgeHash(tmp), base, 'same inputs must hash the same');
 
-    // audit.md carries the procedure and the boundary rules.
-    write('reference/audit.md', 'step 1: run the scripts (edited)');
-    const afterAudit = judgeHash(tmp);
-    assert.notEqual(afterAudit, base);
+    // judge.md carries the procedure and the boundary rules.
+    write('reference/judge.md', 'step 2: rate against the rubric (edited)');
+    const afterJudge = judgeHash(tmp);
+    assert.notEqual(afterJudge, base);
 
     // placement.md decides what counts as a consistency deduction (SKILL.md blocker 2).
     write('reference/placement.md', 'rule 4: grounds may live anywhere');
-    assert.notEqual(judgeHash(tmp), afterAudit);
+    assert.notEqual(judgeHash(tmp), afterJudge);
 
     // rubric.md is rubric_hash's job; hashing it twice would move two fingerprints for one edit.
     const beforeRubric = judgeHash(tmp);
     write('reference/rubric.md', '★4 anchor B');
     assert.equal(judgeHash(tmp), beforeRubric, 'rubric.md must not move judge_hash');
 
-    // improve.md delegates the rating to audit.md and is never read by a plain `audit`.
+    // improve.md delegates the rating to judge.md and is never read by a plain `audit`.
     write('reference/improve.md', 'round flow, rewritten');
     assert.equal(judgeHash(tmp), beforeRubric, 'improve.md must not move judge_hash');
+
+    // measure.md is the script run and gate check — D2 keeps it out of judge_hash in E2a.
+    write('reference/measure.md', 'step 1: run the scripts (edited)');
+    assert.equal(judgeHash(tmp), beforeRubric, 'measure.md must not move judge_hash');
+
+    // audit.md is a thin router with no rules of its own; editing it must not move judge_hash.
+    write('reference/audit.md', 'router: measure.md then judge.md (edited)');
+    assert.equal(judgeHash(tmp), beforeRubric, 'audit.md (the router) must not move judge_hash');
 
     // Missing files read as unknown, not as a value — the rubric_hash contract.
     assert.equal(judgeHash(fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-empty-'))), null);
@@ -1230,22 +1240,24 @@ test('loadLedgerRows: error text names the flag it was called for, and loadLedge
   }
 });
 
-// --- v2 E1: the two-layer fingerprint vocabulary -------------------------------------
+// --- v2 E1/E2a: the two-layer fingerprint vocabulary ----------------------------------
 //
-// This epoch renames only. `measure_hash` is the former `thresholds_hash` and `judge_hash` the
-// former `judgement_hash`, digesting the same inputs in the same order — so the values must not
-// move. The literals below were measured on this repo at the commit before the rename
-// (`node skills/docgrad/scripts/inventory.mjs --root .`), and they are pinned rather than recomputed
-// because a rename that quietly changed a digest would otherwise look exactly like a rename that
-// did not.
-test('docgradMeta: the v2 rename preserves both digests and keeps the four hashes independent', () => {
+// E1 renamed only: `measure_hash` is the former `thresholds_hash` and `judge_hash` the former
+// `judgement_hash`, digesting the same inputs in the same order — so both values held through E1.
+// E2a then split `reference/audit.md` into `measure.md` + `judge.md` and repointed `judge_hash` to
+// the new judge.md + placement.md pair. That move is deliberate (a false break, D3: the file moved,
+// no rule changed) — it is a pinned new value, not a preserved one. `measure_hash` is unaffected: it
+// stays config-only (D2), and the audit.md split carried no config change. The literals below were
+// pinned rather than recomputed because a hash that quietly changed would otherwise look exactly
+// like one that did not.
+test('docgradMeta: measure_hash survives v2 unchanged, judge_hash is pinned after the E2a split, and the four hashes stay independent', () => {
   const skillRoot = fileURLToPath(new URL('../skills/docgrad/', import.meta.url));
   const config = loadConfig(fileURLToPath(new URL('../', import.meta.url)));
   const meta = docgradMeta(skillRoot, config);
 
   assert.deepEqual(Object.keys(meta), ['version', 'rubric_hash', 'measure_hash', 'judge_hash', 'corpus_hash']);
   assert.equal(meta.measure_hash, 'ec596daf', 'measure_hash === the thresholds_hash it replaces');
-  assert.equal(meta.judge_hash, 'c40cc974', 'judge_hash === the judgement_hash it replaces');
+  assert.equal(meta.judge_hash, '742bdf54', 'judge_hash after the E2a split (was c40cc974 through E1)');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
   // change; a placement.md edit is a judge-side one; neither may disturb the other, or #82's

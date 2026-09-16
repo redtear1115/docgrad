@@ -20,7 +20,7 @@ Use the absolute path from the line that actually runs after `/docgrad` is trigg
 1. **Anchors first**: add a dimension subsection in [skills/docgrad/reference/rubric.md](../skills/docgrad/reference/rubric.md) (full ★1–★5 anchors + measurement method). Anchor changes = a breaking change, see the next section.
 2. Update the rubric's "mechanical signal -> dimension map" table; dimension order (the tie-break basis) follows the rubric table's order.
 3. Add the new dimension key to `targets` in `.docgrad.yml`; sync `skills/docgrad/scripts/lib.mjs › DEFAULTS.targets` (the field list is authoritative in code, not repeated here).
-4. Add the scoring steps for that dimension to [skills/docgrad/reference/audit.md](../skills/docgrad/reference/audit.md); add a row to the scorecard template.
+4. Add the scoring steps for that dimension to [skills/docgrad/reference/judge.md](../skills/docgrad/reference/judge.md); add a row to the scorecard template.
 5. If a new mechanical signal is needed: add `skills/docgrad/scripts/<name>.mjs` (contract in [design.md](design.md) §Scripts contract — zero dependencies, JSON->stdout, errors->stderr with a non-zero exit code, shared flags always go through `skills/docgrad/scripts/lib.mjs › parseArgs()`), and add a corresponding `*.test.mjs` in `tests/`.
 
 ## Change a rubric anchor the right way
