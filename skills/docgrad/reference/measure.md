@@ -280,7 +280,7 @@ checked:
    first from being quietly launderable. Three rules for reading it:
    - **`out_of_scope` that dwarfs the graded corpus is a finding in its own right**, even when every
      verdict is OK. Compare `out_of_scope.tokens_est` against `totals.tokens_est`: when the excused
-     content outweighs the graded content, the scorecard is rating a minority of the repo's
+     content outweighs the graded content, the scorecard is measuring a minority of the repo's
      documentation and must say so in the Measure block's economy lines. Record it as a deduction
      when the excusing looks like scope laundering rather than a real second corpus — an
      `out_of_scope` entry that names a whole `docs/` tree is not "graded elsewhere" unless you can

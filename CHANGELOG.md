@@ -171,11 +171,11 @@ which is an existing, unchanged judge rule (see [placement.md](skills/docgrad/re
 
 - **`judge_hash` moves, from `742bdf54` to `e8881920`.** This is a real rule removal: steps 4/5 and 7
   leave `judge.md`, and the Dimension table in step 9 drops three rows.
-- **`measure_hash` moves, from `ae3014b1` to `72abe0c4`.** `measure.md` grows the four new sections
+- **`measure_hash` moves, from `ae3014b1` to `38724510`.** `measure.md` grows the four new sections
   and gains judge.md's former steps 4/5 and 7; `lib.mjs › MEASURE_BANDS[*].source` strings are
   reworded to cite the now-retired anchors (e.g. `retired rubric.md Linkage ★4 "zero dead links" /
   ★2 "2–10%" (see rubric.md §Version history, v2.0.0)`).
-- **`rubric_hash` moves, from `de7f3203` to `aaff2f69`**, because of the new §Version history entry
+- **`rubric_hash` moves, from `de7f3203` to `bd6e9480`**, because of the new §Version history entry
   and the rewording of §Freshness/§Linkage/§Economy/§Token economy report into stubs.
 - **`corpus_hash` is unchanged, `71d1ce84`.** `.docgrad.yml` is untouched.
 - **The 2.0.0 rule-1 waiver (recorded above, epoch 2a) also covers this move**, with the same

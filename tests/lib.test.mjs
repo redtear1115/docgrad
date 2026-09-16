@@ -1266,7 +1266,7 @@ test('docgradMeta: measure_hash and judge_hash move again in E2b-2 (rubric.md is
   const meta = docgradMeta(skillRoot, config);
 
   assert.deepEqual(Object.keys(meta), ['version', 'rubric_hash', 'measure_hash', 'judge_hash', 'corpus_hash']);
-  assert.equal(meta.measure_hash, '72abe0c4', 'measure_hash after E2b-2 (was ae3014b1 through E2b-1)');
+  assert.equal(meta.measure_hash, '38724510', 'measure_hash after E2b-2 (was ae3014b1 through E2b-1)');
   assert.equal(meta.judge_hash, 'e8881920', 'judge_hash after E2b-2 (was 742bdf54 through E2b-1)');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
