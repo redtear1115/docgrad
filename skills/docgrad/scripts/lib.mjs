@@ -1360,6 +1360,269 @@ function resolveSkillRoot() {
   }
 }
 
+// --- measure verdicts (E2b-1) --------------------------------------------------------
+//
+// The band table each of links/freshness/inventory/coverage evaluates its signals against.
+// Plain JSON data on purpose (no functions, RegExp, `undefined` or non-finite numbers): the whole
+// point is that `JSON.stringify(MEASURE_BANDS)` alone captures every threshold, so a mutation test
+// can move measure_hash by editing one number in this array and nothing else.
+//
+// Descriptor shape: `{op: "<"|"<="|">"|">="|"==", value: <finite number> | {config: "<dotted path>"}
+// | {config: "<path>", index: <n>} | {max: [<value-form>, <value-form>]}}`. `fail: null` means the
+// row has no calibrated FAIL line (U4: a signal with no calibrated source never reaches FAIL).
+//
+// `source` names the rubric.md anchor each line comes from — no "retired" wording yet: the star
+// anchors and these lines coexist through 2.0.0, and only a later epoch retires the anchors.
+export const MEASURE_BANDS = [
+  {
+    id: 'dead_link_ratio',
+    script: 'links',
+    unit: 'percent',
+    fail: { op: '>', value: 0.02 },
+    ok: { op: '==', value: 0 },
+    source: 'rubric.md §Linkage ★4 "zero dead links" + "broken anchors always cost stars" / ★2 "2–10%"',
+  },
+  {
+    id: 'orphan_ratio',
+    script: 'links',
+    unit: 'percent',
+    fail: { op: '>', value: 0.2 },
+    ok: { op: '<=', value: 0.05 },
+    source: 'rubric.md §Linkage ★4 "orphans ≤5%" / ★2 "orphans >20%"',
+  },
+  {
+    id: 'reachable_ratio',
+    script: 'links',
+    unit: 'percent',
+    fail: null,
+    ok: { op: '>=', value: 0.95 },
+    source: 'rubric.md §Linkage ★4 "reachable_ratio ≥95%" (no ★2 counterpart)',
+  },
+  {
+    id: 'index_present',
+    script: 'links',
+    unit: 'count',
+    // value is 1 when config.index_file is set and present in the unscoped corpus, else 0 — a
+    // presence/absence check expressed with the same {op, value} shape as every other row.
+    fail: { op: '==', value: 0 },
+    ok: { op: '==', value: 1 },
+    source: 'rubric.md §Linkage ★1 "no index at all"',
+  },
+  {
+    id: 'date_coverage',
+    script: 'freshness',
+    unit: 'percent',
+    fail: { op: '<', value: 0.6 },
+    ok: { op: '>=', value: 0.9 },
+    source: 'rubric.md §Freshness ★4 "≥90%" / ★2 "20–60%"',
+  },
+  {
+    id: 'key_doc_age',
+    script: 'freshness',
+    unit: 'days',
+    fail: { op: '>', value: { max: [180, { config: 'freshness.stale_after_days' }] } },
+    ok: { op: '<=', value: { config: 'freshness.stale_after_days' } },
+    source: 'rubric.md §Freshness ★3 window / ★2 ">180 days"',
+  },
+  {
+    id: 'date_drift',
+    script: 'freshness',
+    unit: 'days',
+    fail: null,
+    ok: { op: '<', value: 30 },
+    source: 'rubric.md §Freshness ★4 "drift <30 days"',
+  },
+  {
+    id: 'entry_cost',
+    script: 'inventory',
+    unit: 'tokens',
+    fail: { op: '>', value: { config: 'economy.entry_cost_tiers', index: 1 } },
+    ok: { op: '<=', value: { config: 'economy.entry_cost_tiers', index: 2 } },
+    source: 'rubric.md §Economy ★4 / ★2 (tiers from config)',
+  },
+  {
+    id: 'pollution',
+    script: 'inventory',
+    unit: 'percent',
+    fail: null,
+    ok: { op: '<', value: { config: 'economy.pollution_max' } },
+    source: 'rubric.md §Economy "caps at ★3" (no FAIL counterpart)',
+  },
+  {
+    id: 'undocumented_dirs',
+    script: 'coverage',
+    unit: 'count',
+    fail: null,
+    ok: { op: '==', value: 0 },
+    source: 'none calibrated',
+  },
+  {
+    id: 'drifted_dirs',
+    script: 'coverage',
+    unit: 'count',
+    fail: null,
+    ok: { op: '==', value: 0 },
+    source: 'none calibrated',
+  },
+];
+
+// ids whose row is a full-corpus concept: under a scoped (--include) run, evaluateMeasure returns
+// verdict null for these rather than banding a number that does not mean what the anchor means.
+const SCOPE_FULL_CORPUS_ONLY = new Set([
+  'orphan_ratio',
+  'reachable_ratio',
+  'index_present',
+  'key_doc_age',
+  'entry_cost',
+  'pollution',
+]);
+
+function cmpOp(op, a, b) {
+  switch (op) {
+    case '<':
+      return a < b;
+    case '<=':
+      return a <= b;
+    case '>':
+      return a > b;
+    case '>=':
+      return a >= b;
+    case '==':
+      return a === b;
+    default:
+      throw new Error(`evaluateMeasure: unknown op "${op}"`);
+  }
+}
+
+// Resolves a descriptor's `value` form against the round's config. Pure: no default substitution
+// beyond what the config itself supplies (loadConfig already fills in shipped defaults).
+function resolveValueForm(form, config) {
+  if (typeof form === 'number') return form;
+  if (form && typeof form === 'object') {
+    if ('max' in form) return Math.max(...form.max.map((f) => resolveValueForm(f, config)));
+    if ('config' in form) {
+      let cur = config;
+      for (const part of form.config.split('.')) cur = cur?.[part];
+      if (form.index !== undefined) cur = cur?.[form.index];
+      return cur;
+    }
+  }
+  throw new Error('evaluateMeasure: malformed value form');
+}
+
+// A short label for a config-sourced value form, used in `line` so the reader knows which config
+// field moved the boundary (`entry_cost_tiers[2]`, `pollution_max`, `stale_after_days`). Only
+// applied to plain {config: …} forms — a {max: […]} form's `line` shows the resolved number
+// instead (the degenerate case at stale_after_days > 180 is the reason: the effective number is
+// what matters there, not the formula that produced it).
+function configFormLabel(form) {
+  const short = form.config.split('.').pop();
+  return form.index !== undefined ? `${short}[${form.index}]` : short;
+}
+
+const OP_SYMBOL = { '<': '<', '<=': '≤', '>': '>', '>=': '≥', '==': '=' };
+
+function formatMeasureValue(unit, n) {
+  if (unit === 'percent') {
+    const pct = Number((n * 100).toFixed(2));
+    return `${pct}%`;
+  }
+  if (unit === 'tokens') return `${n.toLocaleString('en-US')} tok`;
+  if (unit === 'days') return `${n} days`;
+  return `${n}`;
+}
+
+function describeDescriptor(prefix, id, unit, config, descriptor) {
+  const n = resolveValueForm(descriptor.value, config);
+  const label =
+    descriptor.value && typeof descriptor.value === 'object' && 'config' in descriptor.value
+      ? ` (${configFormLabel(descriptor.value)})`
+      : '';
+  return `${prefix} ${OP_SYMBOL[descriptor.op]} ${formatMeasureValue(unit, n)}${label}`;
+}
+
+function buildMeasureLine(verdict, row, config) {
+  if (verdict === 'FAIL') return describeDescriptor('FAIL', row.id, row.unit, config, row.fail);
+  if (verdict === 'OK') return describeDescriptor('OK', row.id, row.unit, config, row.ok);
+  const parts = [];
+  if (row.ok) parts.push(describeDescriptor('not', row.id, row.unit, config, row.ok));
+  if (row.fail) parts.push(describeDescriptor('not', row.id, row.unit, config, row.fail));
+  return `WATCH (${parts.join(', ')})`;
+}
+
+// Pure: `evaluateMeasure(id, input, config, { scoped })` -> `{id, value, numerator?, denominator?,
+// verdict, line, source, note?}`. M4's order: FAIL is checked first, then OK, else WATCH.
+//
+// `input.value: null` (any reason — empty corpus, scope narrowed the concept away, no dated key
+// document survives the M1 filter, coverage.mjs's src_dirs-unset early exit) always yields verdict
+// null with `input.note` carried through unchanged: a script decides *why* a row is not measurable
+// and evaluateMeasure only decides *what the number means* once one exists.
+//
+// `input.okBlocked: true` downgrades an otherwise-OK verdict to WATCH without touching FAIL — the
+// one row (`dead_link_ratio`) whose OK line is a compound condition (zero dead links **and** zero
+// bad anchors) that the {op, value} descriptor shape has no room for on its own.
+//
+// `input.extra` (a plain object) is spread into the result verbatim — `dead_link_ratio` reports
+// `bad_anchors` alongside its ratio this way, per the band table.
+export function evaluateMeasure(id, input, config, { scoped = false } = {}) {
+  const row = MEASURE_BANDS.find((r) => r.id === id);
+  if (!row) throw new Error(`evaluateMeasure: unknown id "${id}"`);
+
+  const scopedOut = scoped && SCOPE_FULL_CORPUS_ONLY.has(id);
+  const value = scopedOut ? null : input.value ?? null;
+  const note = scopedOut ? input.note ?? 'full-corpus concept' : input.note;
+
+  const base = {
+    id,
+    value,
+    ...(input.numerator !== undefined ? { numerator: input.numerator } : {}),
+    ...(input.denominator !== undefined ? { denominator: input.denominator } : {}),
+  };
+
+  if (value === null) {
+    return { ...base, verdict: null, line: null, source: row.source, ...(note ? { note } : {}), ...(input.extra ?? {}) };
+  }
+
+  let verdict;
+  if (row.fail && cmpOp(row.fail.op, value, resolveValueForm(row.fail.value, config))) {
+    verdict = 'FAIL';
+  } else if (row.ok && cmpOp(row.ok.op, value, resolveValueForm(row.ok.value, config)) && !input.okBlocked) {
+    verdict = 'OK';
+  } else {
+    verdict = 'WATCH';
+  }
+
+  return {
+    ...base,
+    verdict,
+    line: buildMeasureLine(verdict, row, config),
+    source: row.source,
+    ...(note ? { note } : {}),
+    ...(input.extra ?? {}),
+  };
+}
+
+export const MEASURE_FILES = ['reference/measure.md'];
+
+// Pure: the config-values + band-table + measure.md content, hashed. Injectable `files` (a
+// `path -> content` map, already-read) is what makes the null-without-throw contract testable
+// without mutating the module's own file reads — `measureHash` below supplies the real reads.
+export function measureDigest(config, bands, files) {
+  if (!config) return null;
+  if (Object.values(files).some((v) => v === null)) return null;
+  return createHash('sha256')
+    .update(
+      JSON.stringify([
+        [config.economy?.entry_cost_tiers ?? null, config.economy?.pollution_max ?? null, config.freshness?.stale_after_days ?? null],
+        bands,
+        MEASURE_FILES.map((rel) => [rel, files[rel]]),
+      ]),
+      'utf8'
+    )
+    .digest('hex')
+    .slice(0, 8);
+}
+
 // --- measure_hash (v2: was thresholds_hash) -----------------------------------------
 //
 // v2 splits the two layers everywhere: `measure` is the deterministic script output, reproducible
@@ -1367,9 +1630,13 @@ function resolveSkillRoot() {
 // a hash spanning both would put judge's prose in the way of measure's trend — exactly what the
 // split exists to prevent.
 //
-// This epoch renames only. The digest is byte-identical to the `thresholds_hash` it replaces: the
-// same three config values, in the same order. `measure.md`'s content joins it when that file
-// exists (the next epoch); until then this covers the config half of measure's ruler alone.
+// E1 renamed only, byte-identical to the `thresholds_hash` it replaced. **E2b-1 (this epoch) grows
+// the inputs**: alongside the same three config values, `measure_hash` now also covers
+// `MEASURE_BANDS` (the declarative band table above, unresolved — so editing a threshold moves this
+// hash even though the number never touches a word of rubric.md) and `reference/measure.md`'s
+// content (the verdict-line prose a reader is told to trust). This is the config half of measure's
+// ruler *plus* the rules that turn a config value into a verdict — together, the whole of what a
+// round's `measure` array actually says.
 //
 // rubric_hash fingerprints the ruler docgrad ships. It does not cover the ruler a *repo* is
 // actually graded by, because three config values move judgement boundaries without touching a
@@ -1385,20 +1652,20 @@ function resolveSkillRoot() {
 // measure_hash differs were not measured by the same ruler, however identical their rubric_hash.
 //
 // null without a config, for the same reason corpus_hash is: "unknown" must stay distinguishable
-// from "the defaults".
-export function measureHash(config) {
+// from "the defaults". Also null (never throws) when reference/measure.md cannot be read, exactly
+// as judgeHash does for its own files below — an install missing the file it is supposed to
+// fingerprint is "unknown", not "zero-length".
+export function measureHash(config, skillRoot = SKILL_ROOT) {
   if (!config) return null;
-  return createHash('sha256')
-    .update(
-      JSON.stringify([
-        config.economy?.entry_cost_tiers ?? null,
-        config.economy?.pollution_max ?? null,
-        config.freshness?.stale_after_days ?? null,
-      ]),
-      'utf8'
-    )
-    .digest('hex')
-    .slice(0, 8);
+  const files = {};
+  for (const rel of MEASURE_FILES) {
+    try {
+      files[rel] = fs.readFileSync(path.join(skillRoot, rel), 'utf8');
+    } catch {
+      files[rel] = null;
+    }
+  }
+  return measureDigest(config, MEASURE_BANDS, files);
 }
 
 const SKILL_ROOT = resolveSkillRoot();
@@ -1428,7 +1695,7 @@ function findManifest(startDir) {
 // --- judge_hash (v2: was judgement_hash) ---------------------------------------------
 //
 // Renamed in E1 without recomputing, so the value held. E2a then repointed the hash
-// (audit.md → judge.md), which moved it (a false break, D3): the split moved judge_hash's
+// (audit.md → judge.md), which moved it (a false break): the split moved judge_hash's
 // coverage from audit.md to judge.md, no rule changed. The two moves — E1's rename and E2a's
 // repoint — cannot be told apart from the hash alone; see rubric.md §Version history for the
 // full disclosure.
@@ -1451,8 +1718,9 @@ function findManifest(startDir) {
 //   reference/rubric.md     already covered by rubric_hash. Hashing it twice would make one edit
 //                           move two fingerprints and tell a reader nothing extra.
 //   reference/measure.md    the script run and the graduation gate check — mechanical and
-//                           reproducible. D2 keeps it out of every fingerprint in E2a; whether a
-//                           measure-side fingerprint should cover it is decided in E2b.
+//                           reproducible. Since E2b-1 it is covered by measure_hash instead
+//                           (see measureHash above), so hashing it here too would move two
+//                           fingerprints for one edit, the same reason rubric.md is out.
 //   reference/audit.md      a thin router with no rules of its own; it points readers to
 //                           measure.md and judge.md and carries nothing that changes a rating.
 //   reference/improve.md    it is the round *flow* — recording, committing, graduation — and it
@@ -1499,7 +1767,7 @@ export function docgradMeta(skillRoot = SKILL_ROOT, config = null) {
   return {
     version,
     rubric_hash: rubricHash,
-    measure_hash: measureHash(config),
+    measure_hash: measureHash(config, skillRoot),
     judge_hash: judgeHash(skillRoot),
     corpus_hash: corpusHash(config),
   };
