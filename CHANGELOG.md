@@ -117,8 +117,11 @@ now tells the two shapes apart instead of reading a schema-2 row's fields as "un
 - **Legacy handling.** A row with no `schema` is a 1.x row: it is shown in its own "1.x rounds"
   block, never joined to a schema-2 row, and the four legacy break rules (rubric fingerprint, corpus
   fingerprint, measure fingerprint under its old or new name, judge fingerprint under its old or new
-  name) and the five-dimension note keep applying inside that block exactly as before. A field
-  missing from a legacy row is still read as unknown and still draws no break.
+  name) and the five-dimension note apply inside that block. The rubric and corpus rules and the
+  five-dimension note are the old `report` wording; the measure and judge fingerprint rules were
+  previously stated only in improve.md, and reading them under either name is the old→new name
+  mapping that the v2.0.0 epoch 1 entry in rubric.md §Version history said `report` would need. A
+  field missing from a legacy row is still read as unknown and still draws no break.
 - **New break rules for schema-2 rows.** A schema-2 row missing its `docgrad` object, its `measure`
   object, or any of `docgrad`'s five required keys is no longer silently "unknown" — `report` prints
   it as a spec violation, one line per row, and excludes that row as a comparison baseline. Among
@@ -129,6 +132,8 @@ now tells the two shapes apart instead of reading a schema-2 row's fields as "un
 - **improve.md:141**'s citation of "judge.md step 4" is fixed to "judge.md step 3 (boundary rules)" —
   judge.md's top-level step 4 does not carry the boundary rules and would have dangled once a later
   epoch removes it.
+- Resolves the two gaps epoch 1 left open above: improve.md's `docgrad_version` instruction (#90)
+  and its example row mixing live and fictional fingerprints (#89, now `<…>` placeholders).
 - Closes #87, #88, #89, #90.
 
 **No fingerprint moves.** `improve.md`, `SKILL.md`, `CONTRIBUTING.md`, `docs/design.md` and

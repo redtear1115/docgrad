@@ -78,7 +78,7 @@
    - Append one line to `.docgrad/history.jsonl` (create it if it doesn't exist), in **schema 2**:
 
      ```json
-     {"schema": 2, "round": 3, "date": "YYYY-MM-DD", "dimension": "<what this round worked on: a measure id or a judged dimension>", "docgrad": {"version": "<copy from inventory.mjs docgrad block>", "rubric_hash": "<copy from inventory.mjs docgrad block>", "measure_hash": "<copy from inventory.mjs docgrad block>", "judge_hash": "<copy from inventory.mjs docgrad block>", "corpus_hash": "<copy from inventory.mjs docgrad block>"}, "measure": {"dead_link_ratio": {"value": 0, "verdict": "OK"}, "…": "one entry per `measure` item the four scripts printed this round"}, "judge": {"incomparable": true, "stars": {"<dimension rated this round>": 4}, "sample": {"claims_drawn": 8, "claims_total": 68}}, "coverage": {"claims_verified": 23, "claims_total": 68}, "notes": "…"}
+     {"schema": 2, "round": 3, "date": "YYYY-MM-DD", "dimension": "<what this round worked on: a measure id or a judged dimension>", "docgrad": {"version": "<copy from inventory.mjs docgrad block>", "rubric_hash": "<copy from inventory.mjs docgrad block>", "measure_hash": "<copy from inventory.mjs docgrad block>", "judge_hash": "<copy from inventory.mjs docgrad block>", "corpus_hash": "<copy from inventory.mjs docgrad block>"}, "measure": {"dead_link_ratio": {"value": 0, "numerator": 0, "denominator": 176, "verdict": "OK"}, "…": "one entry per `measure` item the four scripts printed this round"}, "judge": {"incomparable": true, "stars": {"<dimension rated this round>": 4}, "sample": {"claims_drawn": 8, "claims_total": 68}}, "coverage": {"claims_verified": 23, "claims_total": 68}, "notes": "…"}
      ```
 
      **`docgrad` is copied whole from `inventory.mjs`'s output `docgrad` block.** Do not rename, drop, or fill in keys
@@ -95,7 +95,7 @@
      judge stars are never averaged across rounds.
 
      **Write the whole `docgrad` object every round, even when nothing moved**: `report` can only spot a change by
-     comparing consecutive rows, so a round that omits a field leaves the break undetectable. `corpus_hash` is `null`
+     comparing a row with the previous valid schema-2 row, so a round that omits a field leaves the break undetectable. `corpus_hash` is `null`
      when the round ran without a config, and `version` can likewise be `null`.
 
      `measure_hash` (**added as `thresholds_hash` in v1.7.0, renamed in v2.0.0**; its inputs grew again later in 2.0.0) covers the three config values that move a judgement boundary without changing a word of
