@@ -140,6 +140,53 @@ now tells the two shapes apart instead of reading a schema-2 row's fields as "un
 `inventory.mjs`'s comments are not inputs to any hash: `rubric_hash`/`measure_hash`/`judge_hash`/
 `corpus_hash` are `de7f3203`/`ae3014b1`/`742bdf54`/`71d1ce84`, identical before and after this epoch.
 
+### v2.0.0 epoch 2b-2 — linkage, freshness and economy stop being rated; `rubric.md` is judge-only
+
+**This section supersedes epoch 2b-1's "the star anchors and these verdict lines coexist."** That
+intermediate state is over: `rubric.md` §Freshness, §Linkage, §Economy and §Token economy report are
+now stubs with no `★`, pointing at [reference/measure.md](skills/docgrad/reference/measure.md)'s new
+§Freshness notes / §Linkage notes / §Economy notes / §Token economy signals sections. `judge.md`'s
+former steps 4/5 (Freshness / Linkage) and 7 (Economy) move into `measure.md`, keeping their step
+numbers; `judge.md` now rates only completeness, correctness and consistency, and step 9's Dimension
+table drops the Freshness/Linkage/Economy rows (a new `## Measure` block, holding one line per
+`measure` item, is inserted above it instead). The retired ★1–★5 tables, the two "Scope of ★5" notes,
+the pollution downgrade rule and the dimension-order clause are preserved verbatim in `rubric.md`'s
+new §Version history entry, "v2.0.0 (E2b-2)", for reading pre-2.0 `history.jsonl` rows. No ★1–★5
+threshold moved for the three dimensions that remain judged (completeness, correctness, consistency).
+
+**The per-dimension legacy mapping, for reading pre-2.0 rows only**: ★4 or ★5 → `OK`, ★3 → `WATCH`,
+★1 or ★2 → `FAIL`. Approximate, not a new rule — offered only as a reading aid; the retired anchors
+in rubric.md §Version history are the ruler.
+
+**The freshness ★4 "isolated mismatches" exception has no measure successor.** The retired ★4 anchor
+read "only isolated mismatches, drift <30 days" — two conditions, one of which (`date_drift`) is
+measured today. The "isolated" clause never had a count attached to it in the rubric, so a pre-2.0
+★4 freshness score may have rested on a judgement call this repo no longer makes at all.
+
+**The key-document narrowing is disclosed, not a new rule.** Since E2b-1, `key_doc_age` measures
+`entry_files` ∪ `index_file` only — narrower than rubric.md's pre-2.0 "key documents" (which also
+included each area's authoritative document). Area-authority staleness is no longer a separate
+signal at all; where it matters, a stale authoritative document fails claims under **correctness**,
+which is an existing, unchanged judge rule (see [placement.md](skills/docgrad/reference/placement.md)).
+
+- **`judge_hash` moves, from `742bdf54` to `e8881920`.** This is a real rule removal: steps 4/5 and 7
+  leave `judge.md`, and the Dimension table in step 9 drops three rows.
+- **`measure_hash` moves, from `ae3014b1` to `72abe0c4`.** `measure.md` grows the four new sections
+  and gains judge.md's former steps 4/5 and 7; `lib.mjs › MEASURE_BANDS[*].source` strings are
+  reworded to cite the now-retired anchors (e.g. `retired rubric.md Linkage ★4 "zero dead links" /
+  ★2 "2–10%" (see rubric.md §Version history, v2.0.0)`).
+- **`rubric_hash` moves, from `de7f3203` to `aaff2f69`**, because of the new §Version history entry
+  and the rewording of §Freshness/§Linkage/§Economy/§Token economy report into stubs.
+- **`corpus_hash` is unchanged, `71d1ce84`.** `.docgrad.yml` is untouched.
+- **The 2.0.0 rule-1 waiver (recorded above, epoch 2a) also covers this move**, with the same
+  disclosure: every 1.x → 2.0 pair of rounds is treated as a break regardless of which hash reveals
+  it, because 2.0.0 is a major release.
+
+**improve/loop is not runnable until E2c; do not release without E2c.** This epoch retires the
+anchors judge/measure read from; `improve.md`'s convergence flow still reasons about six rated
+dimensions and is updated in a later epoch of this release. This is a named intermediate state, not
+something this epoch fixes.
+
 ## 1.9.2 — 2026-09-16
 
 Four measurement fixes and one documentation entry. No ★1–★5 anchor text changed and no default
