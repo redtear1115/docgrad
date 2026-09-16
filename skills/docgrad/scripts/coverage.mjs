@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { loadConfig, collectFiles, parseArgs, fail, docgradMeta, resolveInRoot } from './lib.mjs';
+import { loadConfig, collectFiles, parseArgs, fail, docgradMeta, evaluateMeasure, resolveInRoot } from './lib.mjs';
 
 const SKIP_DIRS = new Set(['node_modules', '.git']);
 
@@ -98,10 +98,15 @@ try {
 
   // src_dirs unset -> degrade: don't measure, hand it back to the LLM for a plain comparison.
   if (config.src_dirs.length === 0) {
+    const unsetMeasure = [
+      evaluateMeasure('undocumented_dirs', { value: null, note: 'src_dirs is unset' }, config, { scoped: false }),
+      evaluateMeasure('drifted_dirs', { value: null, note: 'src_dirs is unset' }, config, { scoped: false }),
+    ];
     process.stdout.write(
       `${JSON.stringify(
         {
           ...head,
+          measure: unsetMeasure,
           src_dirs: [],
           areas: [],
           note: [scopeNoteText, excludeLedgerNoteText, locateLedgerNoteText, 'src_dirs is unset, coverage drift cannot be measured']
@@ -189,11 +194,20 @@ try {
   const undocumented = areas.filter((a) => a.status === 'undocumented').map((a) => a.area).sort();
   const drifted = areas.filter((a) => a.status === 'drifted').map((a) => a.area).sort();
 
+  // Not scope-sensitive — --include is a no-op for this whole script (see the note above) — so
+  // { scoped: false } always, and neither row is ever nulled by that path.
+  const measure = [
+    evaluateMeasure('undocumented_dirs', { value: undocumented.length }, config, { scoped: false }),
+    evaluateMeasure('drifted_dirs', { value: drifted.length }, config, { scoped: false }),
+  ];
+
   process.stdout.write(
     `${JSON.stringify(
       {
         ...head,
         ...(combinedNoteText ? { note: combinedNoteText } : {}),
+        // Right after docgrad/note, same as the other three scripts that emit a measure array.
+        measure,
         src_dirs: config.src_dirs,
         thresholds: {
           drift_after_days: config.coverage.drift_after_days,

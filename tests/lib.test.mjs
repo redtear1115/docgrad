@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { parseYamlSubset, loadConfig, resolveRoot, parseArgs, matchesScope, collectFiles, estimateTokens, githubSlug, extractHeadings, extractLinks, extractClaimedDate, parseFreshnessConventions, parseFreshnessFields, extractCodeRefs, validateConfigTypes, docgradMeta, corpusHash, gitTrackedFiles, extractClaimLines, rankClaimCandidates, claimHash, CLAIM_HASH_CHARS, buildSrcSymbolIndex, gitAddCommitSubjects, isDocgradAuthored, measureHash, judgeHash, loadLedgerClaimHashes, loadLedgerRows } from '../skills/docgrad/scripts/lib.mjs';
+import { parseYamlSubset, loadConfig, resolveRoot, parseArgs, matchesScope, collectFiles, estimateTokens, githubSlug, extractHeadings, extractLinks, extractClaimedDate, parseFreshnessConventions, parseFreshnessFields, extractCodeRefs, validateConfigTypes, docgradMeta, corpusHash, gitTrackedFiles, extractClaimLines, rankClaimCandidates, claimHash, CLAIM_HASH_CHARS, buildSrcSymbolIndex, gitAddCommitSubjects, isDocgradAuthored, measureHash, judgeHash, loadLedgerClaimHashes, loadLedgerRows, MEASURE_BANDS, evaluateMeasure, measureDigest, MEASURE_FILES } from '../skills/docgrad/scripts/lib.mjs';
 import { fileURLToPath } from 'node:url';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/basic/', import.meta.url));
@@ -799,7 +799,8 @@ test('judgeHash: covers the rule files, not the anchors, and each one moves it o
     write('reference/improve.md', 'round flow, rewritten');
     assert.equal(judgeHash(tmp), beforeRubric, 'improve.md must not move judge_hash');
 
-    // measure.md is the script run and gate check — D2 keeps it out of judge_hash in E2a.
+    // measure.md is the script run and gate check — it is covered by measure_hash (since E2b-1),
+    // not judge_hash, so editing it here must not move judgeHash's value.
     write('reference/measure.md', 'step 1: run the scripts (edited)');
     assert.equal(judgeHash(tmp), beforeRubric, 'measure.md must not move judge_hash');
 
@@ -874,7 +875,7 @@ test('measureHash: stable at the defaults, moves for each of the three fields, n
   ];
   for (const cfg of moved) assert.notEqual(measureHash(cfg), at);
   // ...and each moves it to its own value, so the hash identifies which ruler, not merely "not the default".
-  assert.equal(new Set(moved.map(measureHash)).size, 3);
+  assert.equal(new Set(moved.map((c) => measureHash(c))).size, 3);
 });
 
 test('packaging: the Codex manifest version matches the Claude Code manifest, which is the authority', () => {
@@ -1240,23 +1241,26 @@ test('loadLedgerRows: error text names the flag it was called for, and loadLedge
   }
 });
 
-// --- v2 E1/E2a: the two-layer fingerprint vocabulary ----------------------------------
+// --- v2 E1/E2a/E2b-1: the two-layer fingerprint vocabulary -----------------------------
 //
 // E1 renamed only: `measure_hash` is the former `thresholds_hash` and `judge_hash` the former
 // `judgement_hash`, digesting the same inputs in the same order — so both values held through E1.
 // E2a then split `reference/audit.md` into `measure.md` + `judge.md` and repointed `judge_hash` to
-// the new judge.md + placement.md pair. That move is deliberate (a false break, D3: the file moved,
-// no rule changed) — it is a pinned new value, not a preserved one. `measure_hash` is unaffected: it
-// stays config-only (D2), and the audit.md split carried no config change. The literals below were
-// pinned rather than recomputed because a hash that quietly changed would otherwise look exactly
-// like one that did not.
-test('docgradMeta: measure_hash survives v2 unchanged, judge_hash is pinned after the E2a split, and the four hashes stay independent', () => {
+// the new judge.md + placement.md pair. That move is deliberate (a false break: the file moved,
+// no rule changed) — it is a pinned new value, not a preserved one. `measure_hash` was unaffected
+// through E2a — it stayed config-only, and the audit.md split carried no config change.
+// **E2b-1 grows `measure_hash`'s inputs**: it now also covers `lib.mjs › MEASURE_BANDS` (the
+// verdict band table, unresolved) and `reference/measure.md`'s content, so it moves here — this is
+// the first entry in this test where that value is not the config-only `thresholds_hash` literal.
+// The literals below were pinned rather than recomputed because a hash that quietly changed would
+// otherwise look exactly like one that did not.
+test('docgradMeta: measure_hash covers the band table + measure.md as of E2b-1, judge_hash is pinned after the E2a split, and the four hashes stay independent', () => {
   const skillRoot = fileURLToPath(new URL('../skills/docgrad/', import.meta.url));
   const config = loadConfig(fileURLToPath(new URL('../', import.meta.url)));
   const meta = docgradMeta(skillRoot, config);
 
   assert.deepEqual(Object.keys(meta), ['version', 'rubric_hash', 'measure_hash', 'judge_hash', 'corpus_hash']);
-  assert.equal(meta.measure_hash, 'ec596daf', 'measure_hash === the thresholds_hash it replaces');
+  assert.equal(meta.measure_hash, 'ae3014b1', 'measure_hash after E2b-1 (was ec596daf, the thresholds_hash literal, through E2a)');
   assert.equal(meta.judge_hash, '742bdf54', 'judge_hash after the E2a split (was c40cc974 through E1)');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
@@ -1274,4 +1278,343 @@ test('measureHash: null without a config — "unknown" stays distinguishable fro
   // is how a fingerprint stops being evidence.
   assert.equal(measureHash(null), null);
   assert.equal(docgradMeta(fileURLToPath(new URL('../skills/docgrad/', import.meta.url))).measure_hash, null);
+});
+
+// --- v2 E2b-1: MEASURE_BANDS / evaluateMeasure / measureDigest -------------------------
+
+test('MEASURE_BANDS: plain JSON data — round-trips through JSON.stringify/parse unchanged', () => {
+  assert.deepEqual(JSON.parse(JSON.stringify(MEASURE_BANDS)), MEASURE_BANDS);
+});
+
+test('measureHash: null (never throws) when reference/measure.md is unreadable from this skillRoot', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-measure-missing-'));
+  try {
+    const config = loadConfig(FIXTURE);
+    assert.doesNotThrow(() => measureHash(config, tmp));
+    assert.equal(measureHash(config, tmp), null);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('measureDigest: pure, injectable, null when a MEASURE_FILES entry is null or config is null', () => {
+  const config = loadConfig(FIXTURE);
+  const files = { [MEASURE_FILES[0]]: 'step 1: run the scripts' };
+  const a = measureDigest(config, MEASURE_BANDS, files);
+  assert.match(a, /^[0-9a-f]{8}$/);
+  assert.equal(measureDigest(config, MEASURE_BANDS, files), a, 'deterministic for the same inputs');
+  assert.equal(measureDigest(config, MEASURE_BANDS, { [MEASURE_FILES[0]]: null }), null, 'an unreadable file is null, not a hash of an empty string');
+  assert.equal(measureDigest(null, MEASURE_BANDS, files), null);
+});
+
+test('MEASURE_BANDS: mutating a threshold moves the digest — a fail edit and an ok edit each move it, on their own', () => {
+  const config = loadConfig(FIXTURE);
+  const files = { [MEASURE_FILES[0]]: 'step 1: run the scripts' };
+  const base = measureDigest(config, MEASURE_BANDS, files);
+
+  const mutatedFail = MEASURE_BANDS.map((r) =>
+    r.id === 'dead_link_ratio' ? { ...r, fail: { ...r.fail, value: 0.05 } } : r
+  );
+  assert.notEqual(measureDigest(config, mutatedFail, files), base, 'a fail descriptor value edit moves the digest');
+
+  const mutatedOk = MEASURE_BANDS.map((r) => (r.id === 'orphan_ratio' ? { ...r, ok: { ...r.ok, value: 0.1 } } : r));
+  assert.notEqual(measureDigest(config, mutatedOk, files), base, 'an ok descriptor value edit moves the digest');
+  assert.notEqual(measureDigest(config, mutatedFail, files), measureDigest(config, mutatedOk, files), 'each mutation moves it to its own value');
+});
+
+// Every verdict-deciding rule lives in MEASURE_BANDS as data — including a row's secondary OK
+// condition (`ok_also`) and its `scope` — precisely so a change to either is a measure_hash move
+// like any other threshold edit, not a silent code change nothing can see.
+test('MEASURE_BANDS: mutating ok_also or scope moves the digest, on their own', () => {
+  const config = loadConfig(FIXTURE);
+  const files = { [MEASURE_FILES[0]]: 'step 1: run the scripts' };
+  const base = measureDigest(config, MEASURE_BANDS, files);
+
+  const mutatedOkAlso = MEASURE_BANDS.map((r) =>
+    r.id === 'dead_link_ratio' ? { ...r, ok_also: [{ ...r.ok_also[0], value: 1 }] } : r
+  );
+  assert.notEqual(measureDigest(config, mutatedOkAlso, files), base, 'flipping the ok_also condition value moves the digest');
+
+  const mutatedScope = MEASURE_BANDS.map((r) => (r.id === 'pollution' ? { ...r, scope: 'any' } : r));
+  assert.notEqual(measureDigest(config, mutatedScope, files), base, "flipping one row's scope moves the digest");
+
+  assert.notEqual(
+    measureDigest(config, mutatedOkAlso, files),
+    measureDigest(config, mutatedScope, files),
+    'each mutation moves it to its own value'
+  );
+});
+
+test('measure_hash / judge_hash / rubric_hash: E2b-1 sensitivity — each fingerprint moves only on the files that decide it', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-fingerprint-sensitivity-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'reference'), { recursive: true });
+    const write = (rel, body) => fs.writeFileSync(path.join(tmp, rel), body);
+    write('reference/measure.md', 'step 1: run the scripts');
+    write('reference/judge.md', 'step 2: rate against the rubric');
+    write('reference/placement.md', 'rule 4: grounds live with the conclusion');
+    write('reference/rubric.md', '★4 anchor A');
+
+    const config = loadConfig(FIXTURE);
+    const before = docgradMeta(tmp, config);
+
+    write('reference/measure.md', 'step 1: run the scripts (edited)');
+    const afterMeasure = docgradMeta(tmp, config);
+    assert.notEqual(afterMeasure.measure_hash, before.measure_hash, 'editing measure.md moves measure_hash');
+    assert.equal(afterMeasure.judge_hash, before.judge_hash, '...and leaves judge_hash alone');
+    assert.equal(afterMeasure.rubric_hash, before.rubric_hash, '...and leaves rubric_hash alone');
+
+    write('reference/judge.md', 'step 2: rate against the rubric (edited)');
+    const afterJudge = docgradMeta(tmp, config);
+    assert.notEqual(afterJudge.judge_hash, afterMeasure.judge_hash, 'editing judge.md moves judge_hash');
+    assert.equal(afterJudge.measure_hash, afterMeasure.measure_hash, '...and leaves measure_hash alone');
+    assert.equal(afterJudge.rubric_hash, afterMeasure.rubric_hash, '...and leaves rubric_hash alone');
+
+    write('reference/rubric.md', '★4 anchor B');
+    const afterRubric = docgradMeta(tmp, config);
+    assert.notEqual(afterRubric.rubric_hash, afterJudge.rubric_hash, 'editing rubric.md moves rubric_hash');
+    assert.equal(afterRubric.measure_hash, afterJudge.measure_hash, '...and leaves measure_hash alone');
+    assert.equal(afterRubric.judge_hash, afterJudge.judge_hash, '...and leaves judge_hash alone');
+
+    // Each of the three measure_hash config values still moves it too (on top of the band table +
+    // measure.md content it now also covers).
+    const at = measureHash(config, tmp);
+    for (const moved of [
+      { ...config, economy: { ...config.economy, entry_cost_tiers: [20000, 10000, 5000, 2500] } },
+      { ...config, economy: { ...config.economy, pollution_max: 0.2 } },
+      { ...config, freshness: { ...config.freshness, stale_after_days: 365 } },
+    ]) {
+      assert.notEqual(measureHash(moved, tmp), at);
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// Band edges: just below, at, and just above each OK/FAIL line, at the fixture's config (shipped
+// defaults: entry_cost_tiers [20000,10000,5000,3000], pollution_max 0.1, stale_after_days 60).
+test('evaluateMeasure: band edges — dead_link_ratio (FAIL >2%, OK ==0 and ok_also bad_anchors ==0)', () => {
+  const config = loadConfig(FIXTURE);
+  const at = (value, bad_anchors = 0) =>
+    evaluateMeasure('dead_link_ratio', { value, extra: { bad_anchors } }, config, {}).verdict;
+  assert.equal(at(0), 'OK');
+  assert.equal(at(0, 1), 'WATCH', 'the ok_also bad_anchors ==0 condition downgrades an otherwise-OK verdict to WATCH');
+  assert.equal(at(0.02), 'WATCH', 'at the FAIL boundary itself: not >2%, not ==0');
+  assert.equal(at(0.0201), 'FAIL', 'just above the FAIL boundary');
+});
+
+// #? — 1 dead link, 2 bad anchors, 100 total links: 1% ratio, not OK (anchors non-zero), not FAIL
+// (ratio ≤2%) -> WATCH. The compound OK condition the {op, value} descriptor shape cannot express
+// on its own, so it is a row-level `ok_also` condition instead.
+test('evaluateMeasure: dead_link_ratio — 1 dead / 2 bad anchors / 100 total is WATCH, not OK or FAIL', () => {
+  const config = loadConfig(FIXTURE);
+  const r = evaluateMeasure(
+    'dead_link_ratio',
+    { value: 0.01, numerator: 1, denominator: 100, extra: { bad_anchors: 2 } },
+    config,
+    {}
+  );
+  assert.equal(r.verdict, 'WATCH');
+  assert.equal(r.bad_anchors, 2);
+});
+
+test('evaluateMeasure: dead_link_ratio — total_links: 0 is OK with value 0 and note "no links"', () => {
+  const config = loadConfig(FIXTURE);
+  const r = evaluateMeasure(
+    'dead_link_ratio',
+    { value: 0, numerator: 0, denominator: 0, note: 'no links', extra: { bad_anchors: 0 } },
+    config,
+    {}
+  );
+  assert.equal(r.verdict, 'OK');
+  assert.equal(r.note, 'no links');
+});
+
+test('evaluateMeasure: band edges — orphan_ratio (FAIL >20%, OK ≤5%)', () => {
+  const config = loadConfig(FIXTURE);
+  const at = (value) => evaluateMeasure('orphan_ratio', { value }, config, {}).verdict;
+  assert.equal(at(0.05), 'OK');
+  assert.equal(at(0.0501), 'WATCH');
+  assert.equal(at(0.2), 'WATCH', 'at the FAIL boundary itself');
+  assert.equal(at(0.2001), 'FAIL');
+});
+
+// 51/1019 = 0.050049… rounds to the same 0.0500 the ≤5% OK line reads at, but the true ratio never
+// cleared it. Comparing on `raw` (the unrounded division) rather than the rounded `value` a script
+// reports keeps the verdict honest; `value` itself stays the rounded number.
+test('evaluateMeasure: orphan_ratio — 51/1019 rounds to the OK boundary but the raw ratio is WATCH', () => {
+  const config = loadConfig(FIXTURE);
+  const raw = 51 / 1019;
+  const rounded = Number(raw.toFixed(4));
+  assert.equal(rounded, 0.05, 'the rounded value lands exactly on the OK boundary');
+  const r = evaluateMeasure('orphan_ratio', { value: rounded, raw, numerator: 51, denominator: 1019 }, config, {});
+  assert.equal(r.verdict, 'WATCH', 'the true ratio is 0.050049…, which is not ≤5%');
+  assert.equal(r.value, 0.05, 'the reported value is still the rounded number');
+  // Without `raw`, evaluateMeasure falls back to comparing on `value` itself — the bug this guards.
+  const withoutRaw = evaluateMeasure('orphan_ratio', { value: rounded, numerator: 51, denominator: 1019 }, config, {});
+  assert.equal(withoutRaw.verdict, 'OK', 'documents the fallback: omitting raw compares on the rounded value');
+});
+
+test('evaluateMeasure: orphan_ratio — empty corpus (included.length: 0) is null, not a 0/0 FAIL', () => {
+  const config = loadConfig(FIXTURE);
+  const r = evaluateMeasure('orphan_ratio', { value: null, note: 'empty corpus' }, config, {});
+  assert.equal(r.verdict, null);
+  assert.equal(r.note, 'empty corpus');
+});
+
+test('evaluateMeasure: orphan_ratio — orphans: null (no index_file, unscoped) is null with its own note, distinct from index_present carrying the FAIL', () => {
+  const config = loadConfig(FIXTURE);
+  const orphan = evaluateMeasure('orphan_ratio', { value: null, note: 'orphans not computed (no index)' }, config, {});
+  assert.equal(orphan.verdict, null);
+  const indexPresent = evaluateMeasure('index_present', { value: 0 }, config, {});
+  assert.equal(indexPresent.verdict, 'FAIL');
+});
+
+test('evaluateMeasure: band edges — reachable_ratio (OK ≥95%, no FAIL line: no calibrated source)', () => {
+  const config = loadConfig(FIXTURE);
+  const at = (value) => evaluateMeasure('reachable_ratio', { value }, config, {}).verdict;
+  assert.equal(at(0.95), 'OK');
+  assert.equal(at(0.9499), 'WATCH');
+  assert.equal(at(0), 'WATCH', 'never FAIL: no calibrated source');
+});
+
+test('evaluateMeasure: band edges — index_present (binary: FAIL when absent, OK when present)', () => {
+  const config = loadConfig(FIXTURE);
+  assert.equal(evaluateMeasure('index_present', { value: 1 }, config, {}).verdict, 'OK');
+  assert.equal(evaluateMeasure('index_present', { value: 0 }, config, {}).verdict, 'FAIL');
+});
+
+test('evaluateMeasure: scoped links run — orphan_ratio, reachable_ratio, index_present all null with the scope note', () => {
+  const config = loadConfig(FIXTURE);
+  for (const id of ['orphan_ratio', 'reachable_ratio', 'index_present']) {
+    const r = evaluateMeasure(id, { value: 0.5, note: 'scope-limited' }, config, { scoped: true });
+    assert.equal(r.verdict, null, `${id} must be null when scoped`);
+    assert.equal(r.note, 'scope-limited');
+  }
+  // dead_link_ratio is still evaluated under scope — its row's scope is "any", not "full".
+  assert.equal(
+    evaluateMeasure('dead_link_ratio', { value: 0, extra: { bad_anchors: 0 } }, config, { scoped: true }).verdict,
+    'OK'
+  );
+});
+
+test('evaluateMeasure: band edges — date_coverage (FAIL <60%, OK ≥90%)', () => {
+  const config = loadConfig(FIXTURE);
+  const at = (value) => evaluateMeasure('date_coverage', { value }, config, {}).verdict;
+  assert.equal(at(0.9), 'OK');
+  assert.equal(at(0.8999), 'WATCH');
+  assert.equal(at(0.6), 'WATCH', 'at the FAIL boundary itself');
+  assert.equal(at(0.5999), 'FAIL');
+});
+
+test('evaluateMeasure: date_coverage — files_total: 0 is null with note "empty corpus", not a 0/0 FAIL', () => {
+  const config = loadConfig(FIXTURE);
+  const r = evaluateMeasure('date_coverage', { value: null, note: 'empty corpus' }, config, {});
+  assert.equal(r.verdict, null);
+  assert.equal(r.note, 'empty corpus');
+});
+
+test('evaluateMeasure: band edges — key_doc_age (FAIL >max(180, stale_after_days), OK ≤stale_after_days)', () => {
+  const config = loadConfig(FIXTURE); // stale_after_days: 60 (shipped default)
+  const at = (value) => evaluateMeasure('key_doc_age', { value }, config, {}).verdict;
+  assert.equal(at(60), 'OK');
+  assert.equal(at(61), 'WATCH');
+  assert.equal(at(180), 'WATCH', 'at the FAIL boundary itself (max(180, 60) = 180)');
+  assert.equal(at(181), 'FAIL');
+});
+
+test('evaluateMeasure: key_doc_age — stale_after_days: 365 makes a 200-day key doc OK (the FAIL line becomes stale_after_days itself)', () => {
+  const config = { ...loadConfig(FIXTURE), freshness: { ...loadConfig(FIXTURE).freshness, stale_after_days: 365 } };
+  const r = evaluateMeasure('key_doc_age', { value: 200 }, config, {});
+  assert.equal(r.verdict, 'OK');
+  assert.match(r.line, /365/, 'the line shows the effective (resolved) number');
+  assert.equal(evaluateMeasure('key_doc_age', { value: 365 }, config, {}).verdict, 'OK', 'no WATCH band once stale_after_days ≥ 180');
+  assert.equal(evaluateMeasure('key_doc_age', { value: 366 }, config, {}).verdict, 'FAIL');
+});
+
+test('evaluateMeasure: key_doc_age — scoped freshness run is null with its own note (a full-corpus concept)', () => {
+  const config = loadConfig(FIXTURE);
+  const r = evaluateMeasure('key_doc_age', { value: 999, note: 'key documents are a full-corpus concept' }, config, { scoped: true });
+  assert.equal(r.verdict, null);
+  assert.equal(r.note, 'key documents are a full-corpus concept');
+});
+
+test('evaluateMeasure: key_doc_age — no dated key document survives the key-document filter is null', () => {
+  const config = loadConfig(FIXTURE);
+  const r = evaluateMeasure('key_doc_age', { value: null, note: 'no dated key document' }, config, {});
+  assert.equal(r.verdict, null);
+  assert.equal(r.note, 'no dated key document');
+});
+
+test('evaluateMeasure: band edges — date_drift (OK <30 days, no FAIL line: no calibrated source)', () => {
+  const config = loadConfig(FIXTURE);
+  const at = (value) => evaluateMeasure('date_drift', { value }, config, {}).verdict;
+  assert.equal(at(0), 'OK');
+  assert.equal(at(29), 'OK');
+  assert.equal(at(30), 'WATCH');
+  assert.equal(at(10000), 'WATCH', 'never FAIL: only the drift-days half of ★4 is measured, no calibrated source for the rest');
+});
+
+test('evaluateMeasure: band edges — entry_cost (FAIL >tiers[1], OK ≤tiers[2])', () => {
+  const config = loadConfig(FIXTURE); // tiers: [20000, 10000, 5000, 3000]
+  const at = (value) => evaluateMeasure('entry_cost', { value }, config, {}).verdict;
+  assert.equal(at(5000), 'OK');
+  assert.equal(at(5001), 'WATCH');
+  assert.equal(at(10000), 'WATCH', 'at the FAIL boundary itself');
+  assert.equal(at(10001), 'FAIL');
+});
+
+test('evaluateMeasure: entry_cost / pollution — scoped inventory run is null with note "full-corpus concept"', () => {
+  const config = loadConfig(FIXTURE);
+  for (const id of ['entry_cost', 'pollution']) {
+    const r = evaluateMeasure(id, { value: 1 }, config, { scoped: true });
+    assert.equal(r.verdict, null);
+    assert.equal(r.note, 'full-corpus concept');
+  }
+});
+
+test('evaluateMeasure: band edges — pollution (OK <pollution_max, no FAIL line: no calibrated source)', () => {
+  const config = loadConfig(FIXTURE); // pollution_max: 0.1
+  const at = (value) => evaluateMeasure('pollution', { value }, config, {}).verdict;
+  assert.equal(at(0.0999), 'OK');
+  assert.equal(at(0.1), 'WATCH');
+  assert.equal(at(0.9), 'WATCH', 'never FAIL: no calibrated source');
+});
+
+test('evaluateMeasure: band edges — undocumented_dirs / drifted_dirs (OK ==0, no FAIL line: no calibrated source)', () => {
+  const config = loadConfig(FIXTURE);
+  for (const id of ['undocumented_dirs', 'drifted_dirs']) {
+    assert.equal(evaluateMeasure(id, { value: 0 }, config, {}).verdict, 'OK');
+    assert.equal(evaluateMeasure(id, { value: 1 }, config, {}).verdict, 'WATCH');
+  }
+});
+
+test('evaluateMeasure: coverage.mjs with src_dirs unset — both rows null with note "src_dirs is unset"', () => {
+  const config = loadConfig(FIXTURE);
+  for (const id of ['undocumented_dirs', 'drifted_dirs']) {
+    const r = evaluateMeasure(id, { value: null, note: 'src_dirs is unset' }, config, {});
+    assert.equal(r.verdict, null);
+    assert.equal(r.note, 'src_dirs is unset');
+  }
+});
+
+test('evaluateMeasure: config-resolved bounds — a custom entry_cost_tiers/pollution_max/stale_after_days shifts the line and the verdict', () => {
+  const config = {
+    ...loadConfig(FIXTURE),
+    economy: { entry_cost_tiers: [8000, 4000, 2000, 1000], pollution_max: 0.5 },
+    freshness: { ...loadConfig(FIXTURE).freshness, stale_after_days: 90 },
+  };
+  const cost = evaluateMeasure('entry_cost', { value: 2000 }, config, {});
+  assert.equal(cost.verdict, 'OK');
+  assert.match(cost.line, /2,000/);
+  const pollution = evaluateMeasure('pollution', { value: 0.3 }, config, {});
+  assert.equal(pollution.verdict, 'OK');
+  assert.match(pollution.line, /50%/);
+  const age = evaluateMeasure('key_doc_age', { value: 90 }, config, {});
+  assert.equal(age.verdict, 'OK');
+  assert.match(age.line, /90 days/);
+});
+
+test('evaluateMeasure: unknown id throws', () => {
+  assert.throws(() => evaluateMeasure('not_a_real_id', { value: 1 }, loadConfig(FIXTURE), {}));
 });

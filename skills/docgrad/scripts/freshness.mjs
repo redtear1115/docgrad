@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { loadConfig, collectFiles, parseArgs, fail, docgradMeta, extractClaimedDate, parseFreshnessConventions } from './lib.mjs';
+import { loadConfig, collectFiles, parseArgs, fail, docgradMeta, evaluateMeasure, extractClaimedDate, parseFreshnessConventions } from './lib.mjs';
 
 const MISMATCH_TOLERANCE_DAYS = 7;
 
@@ -84,6 +84,72 @@ try {
   });
 
   const withSignal = results.filter((r) => r.claimed !== null);
+  const staleList = results.filter((r) => r.age_days !== null && r.age_days > config.freshness.stale_after_days);
+  const mismatchList = results
+    .filter((r) => r.claimed && r.actual_git && dayDiff(r.actual_git, r.claimed) > MISMATCH_TOLERANCE_DAYS)
+    .map((r) => ({
+      path: r.path,
+      claimed: r.claimed,
+      actual_git: r.actual_git,
+      drift_days: dayDiff(r.actual_git, r.claimed),
+    }));
+
+  const scoped = include.length > 0;
+
+  // key_doc_age: key documents = entry_files ∪ index_file — a narrower subset than
+  // rubric.md's "key documents" (which also includes each area's authoritative document; that
+  // definition still governs the freshness ★ rating until a later epoch). Only docs present in
+  // this run's corpus and carrying a non-null age_days count.
+  const keyDocInput = (() => {
+    if (scoped) return { value: null, note: 'key documents are a full-corpus concept' };
+    const resultByPath = new Map(results.map((r) => [r.path, r]));
+    const keyDocPaths = [...new Set([...config.entry_files, config.index_file].filter(Boolean))];
+    const skipped = [];
+    const ages = [];
+    for (const p of keyDocPaths) {
+      const r = resultByPath.get(p);
+      if (!r) {
+        skipped.push(`${p} not in corpus`);
+        continue;
+      }
+      if (r.age_days === null) {
+        skipped.push(`${p} has no date signal`);
+        continue;
+      }
+      ages.push(r.age_days);
+    }
+    if (ages.length === 0) return { value: null, note: 'no dated key document' };
+    return {
+      value: Math.max(...ages),
+      ...(skipped.length ? { note: skipped.join('; ') } : {}),
+    };
+  })();
+
+  const measure = [
+    evaluateMeasure(
+      'date_coverage',
+      results.length === 0
+        ? { value: null, note: 'empty corpus' }
+        : {
+            value: Number((withSignal.length / results.length).toFixed(4)),
+            raw: withSignal.length / results.length,
+            numerator: withSignal.length,
+            denominator: results.length,
+          },
+      config,
+      { scoped }
+    ),
+    evaluateMeasure('key_doc_age', keyDocInput, config, { scoped }),
+    // ★4's "only isolated mismatches" clause has no count, so it is not measured: this line
+    // covers the drift-days-<30 half only, per measure.md.
+    evaluateMeasure(
+      'date_drift',
+      { value: mismatchList.length ? Math.max(...mismatchList.map((m) => m.drift_days)) : 0 },
+      config,
+      { scoped }
+    ),
+  ];
+
   process.stdout.write(
     `${JSON.stringify(
       {
@@ -92,6 +158,9 @@ try {
         // compared field by field: which tool version, which rubric, which corpus definition.
         docgrad: docgradMeta(undefined, config),
         ...(combinedNoteText ? { note: combinedNoteText } : {}),
+        // The band-table verdicts (E2b-1), placed right after docgrad/note so all four scripts
+        // that emit one stay comparable field by field.
+        measure,
         // the actual convention list applied (a single value is still returned as an array;
         // with multiple values they're tried in order, see lib.mjs's extractClaimedDate).
         convention: parseFreshnessConventions(config.freshness.convention),
@@ -99,15 +168,8 @@ try {
         files_with_signal: withSignal.length,
         coverage_ratio: results.length ? Number((withSignal.length / results.length).toFixed(4)) : 0,
         date_concentration: dateConcentration(withSignal.map((r) => r.claimed)),
-        stale: results.filter((r) => r.age_days !== null && r.age_days > config.freshness.stale_after_days),
-        mismatches: results
-          .filter((r) => r.claimed && r.actual_git && dayDiff(r.actual_git, r.claimed) > MISMATCH_TOLERANCE_DAYS)
-          .map((r) => ({
-            path: r.path,
-            claimed: r.claimed,
-            actual_git: r.actual_git,
-            drift_days: dayDiff(r.actual_git, r.claimed),
-          })),
+        stale: staleList,
+        mismatches: mismatchList,
       },
       null,
       2

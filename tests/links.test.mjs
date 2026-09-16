@@ -194,6 +194,66 @@ test('links: --locate-ledger is a no-op, note explains why, and it need not even
 // linkage for a convention that is not broken. The test pins both directions: the convention is not
 // reported, and a real mistyped anchor still is — a fix that silenced both would be worse than the
 // defect, because bad_anchors is the only thing that reports a broken anchor at all.
+// --- E2b-1: measure verdicts -----------------------------------------------------------
+
+test('links: measure array — ids in table order, right after docgrad, FAIL on this fixture (dead links + orphans over the anchors)', () => {
+  const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', FIXTURE], { encoding: 'utf8' }));
+  assert.deepEqual(Object.keys(out).slice(0, 3), ['scope', 'docgrad', 'measure']);
+  assert.deepEqual(
+    out.measure.map((m) => m.id),
+    ['dead_link_ratio', 'orphan_ratio', 'reachable_ratio', 'index_present']
+  );
+  const byId = Object.fromEntries(out.measure.map((m) => [m.id, m]));
+  // basic fixture: 1 dead / 5 total = 20% -> FAIL; 1 orphan / 4 included = 25% -> FAIL;
+  // reachable_ratio 0.75 -> WATCH (not >=95%); index_file is set and present -> OK.
+  assert.equal(byId.dead_link_ratio.verdict, 'FAIL');
+  assert.equal(byId.dead_link_ratio.bad_anchors, 1);
+  assert.equal(byId.orphan_ratio.verdict, 'FAIL');
+  assert.equal(byId.reachable_ratio.verdict, 'WATCH');
+  assert.equal(byId.index_present.verdict, 'OK');
+});
+
+test('links: measure — scoped run nulls orphan_ratio/reachable_ratio/index_present, dead_link_ratio still evaluated', () => {
+  const out = JSON.parse(
+    execFileSync(process.execPath, [SCRIPT, '--root', FIXTURE, '--include', 'docs/**'], { encoding: 'utf8' })
+  );
+  const byId = Object.fromEntries(out.measure.map((m) => [m.id, m]));
+  for (const id of ['orphan_ratio', 'reachable_ratio', 'index_present']) {
+    assert.equal(byId[id].verdict, null, `${id} must be null when scoped`);
+    assert.equal(byId[id].value, null);
+    assert.match(byId[id].note, /reachability is a full-index concept/);
+  }
+  assert.notEqual(byId.dead_link_ratio.verdict, null, 'dead_link_ratio is not a full-corpus-only row');
+});
+
+test('links: measure — no index_file: index_present is FAIL, orphan_ratio/reachable_ratio are null with their own note', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-noindex-measure-'));
+  fs.mkdirSync(path.join(tmp, 'docs'));
+  fs.writeFileSync(path.join(tmp, '.docgrad.yml'), 'docs_dirs: [docs/]\nentry_files: []\nindex_file: null\nexclude: []\n');
+  fs.writeFileSync(path.join(tmp, 'docs/a.md'), '# A\n\nnothing links here.\n');
+  fs.writeFileSync(path.join(tmp, 'docs/b.md'), '# B\n\nnothing links here either.\n');
+  try {
+    const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' }));
+    const byId = Object.fromEntries(out.measure.map((m) => [m.id, m]));
+    assert.equal(byId.index_present.verdict, 'FAIL');
+    assert.equal(byId.orphan_ratio.verdict, null);
+    assert.match(byId.orphan_ratio.note, /orphans not computed \(no index\)/);
+    assert.equal(byId.reachable_ratio.verdict, null);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('links: measure — this repo is dead 0 / bad anchors 0 / orphans [] / reachable 1, so all four rows are OK', () => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', root], { encoding: 'utf8' }));
+  assert.deepEqual(out.dead_links, []);
+  assert.deepEqual(out.bad_anchors, []);
+  assert.deepEqual(out.orphans, []);
+  assert.equal(out.reachable_ratio, 1);
+  assert.ok(out.measure.every((m) => m.verdict === 'OK'), JSON.stringify(out.measure));
+});
+
 test('links: #L39-L86 is a line-range fragment, not a bad anchor — but a mistyped one still is (#74)', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-line-range-'));
   try {

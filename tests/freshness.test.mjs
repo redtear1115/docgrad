@@ -94,6 +94,85 @@ test('freshness: not a git repo -> actual_git is null, no crash', () => {
   assert.ok(out.stale.every((s) => s.actual_git === null)); // falls back to claimed as the basis
 });
 
+// --- E2b-1: measure verdicts -----------------------------------------------------------
+
+test('freshness: measure array — ids in table order, right after docgrad/note, WATCH on the git fixture (key_doc_age 78 days, date_drift 14 days)', () => {
+  const tmp = makeGitFixture();
+  const r = spawnSync(process.execPath, [SCRIPT, '--root', tmp], {
+    encoding: 'utf8',
+    env: { ...process.env, DOCGRAD_TODAY: '2026-09-01' },
+  });
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.deepEqual(
+    out.measure.map((m) => m.id),
+    ['date_coverage', 'key_doc_age', 'date_drift']
+  );
+  const byId = Object.fromEntries(out.measure.map((m) => [m.id, m]));
+  assert.equal(byId.date_coverage.verdict, 'FAIL'); // coverage_ratio 0.5 < 60%
+  // key docs = entry_files (CLAUDE.md) ∪ index_file (docs/README.md), both aged 78 days:
+  // > 60 (stale_after_days) and ≤ 180 -> WATCH.
+  assert.equal(byId.key_doc_age.value, 78);
+  assert.equal(byId.key_doc_age.verdict, 'WATCH');
+  assert.equal(byId.date_drift.value, 14);
+  assert.equal(byId.date_drift.verdict, 'OK'); // 14 < 30
+});
+
+test('freshness: measure — files_total: 0 (an --include matching nothing) makes date_coverage null, not a 0/0 FAIL', () => {
+  const r = spawnSync(process.execPath, [SCRIPT, '--root', FIXTURE, '--include', 'nope/**'], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.files_total, 0);
+  const dateCoverage = out.measure.find((m) => m.id === 'date_coverage');
+  assert.equal(dateCoverage.verdict, null);
+  assert.equal(dateCoverage.note, 'empty corpus');
+});
+
+test('freshness: measure — a scoped run nulls key_doc_age only; date_coverage and date_drift are still evaluated over the scope', () => {
+  const tmp = makeGitFixture();
+  const r = spawnSync(process.execPath, [SCRIPT, '--root', tmp, '--include', 'docs/**'], {
+    encoding: 'utf8',
+    env: { ...process.env, DOCGRAD_TODAY: '2026-09-01' },
+  });
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  const byId = Object.fromEntries(out.measure.map((m) => [m.id, m]));
+  assert.equal(byId.key_doc_age.verdict, null);
+  assert.equal(byId.key_doc_age.note, 'key documents are a full-corpus concept');
+  assert.notEqual(byId.date_coverage.verdict, null);
+  assert.notEqual(byId.date_drift.verdict, null);
+});
+
+test('freshness: measure — a key document missing a date signal is skipped and named, not counted as age 0', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-keydoc-nodate-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'docs'));
+    fs.writeFileSync(path.join(tmp, 'CLAUDE.md'), '# entry\n\nno date signal here.\n');
+    fs.writeFileSync(path.join(tmp, 'docs', 'README.md'), '# Index\n\n> **Last updated:** 2026-06-01\n');
+    fs.writeFileSync(
+      path.join(tmp, '.docgrad.yml'),
+      'docs_dirs: [docs/]\nentry_files: [CLAUDE.md]\nindex_file: docs/README.md\nfreshness:\n  convention: heading-line\n  field: "Last updated:"\n'
+    );
+    const r = spawnSync(process.execPath, [SCRIPT, '--root', tmp], {
+      encoding: 'utf8',
+      env: { ...process.env, DOCGRAD_TODAY: '2026-09-01' },
+    });
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    const keyDocAge = out.measure.find((m) => m.id === 'key_doc_age');
+    assert.notEqual(keyDocAge.verdict, null, 'README.md still has a date signal, so the row is measurable');
+    assert.match(keyDocAge.note, /CLAUDE\.md has no date signal/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('freshness: measure — this repo is date_coverage OK, key_doc_age OK, date_drift OK', () => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', root], { encoding: 'utf8' }));
+  assert.ok(out.measure.every((m) => m.verdict === 'OK'), JSON.stringify(out.measure));
+});
+
 function makeMixedConventionFixture(conventionLine) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-mixed-'));
   fs.mkdirSync(path.join(tmp, 'docs'));

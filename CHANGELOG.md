@@ -52,19 +52,57 @@ to `['reference/judge.md', 'reference/placement.md']`.
 - **`judge_hash` moves, from `c40cc974` (epoch 1's pinned value) to `742bdf54`.** This is a
   **false break**: the file judge_hash covers moved from audit.md to judge.md, but no rating rule
   changed.
-- **`measure_hash` stays `ec596daf`** — it is config-only in this epoch (D2); whether a measure-side
+- **`measure_hash` stays `ec596daf`** — it is config-only in this epoch; whether a measure-side
   fingerprint should also cover `measure.md` is decided in epoch 2b.
 - **`corpus_hash` stays `71d1ce84`** — `.docgrad.yml` is untouched.
 - **`rubric_hash` moves, from `28b8b7fc` to `e2fab513`**, because of the new
   `reference/rubric.md` §Version history entry (v2.0.0, E2a) and the audit.md → judge.md/measure.md
   reference updates it required.
-- **Rule-1 waiver (D3), deliberate and disclosed:** `judge_hash` moves twice within 2.0.0 — once in
+- **Rule-1 waiver, deliberate and disclosed:** `judge_hash` moves twice within 2.0.0 — once in
   this epoch because its coverage changed (audit.md → judge.md, no rule changed: a false break), and
   once in epoch 2b because rules change. The two moves cannot be told apart from the hash alone. Treat
   every 1.x → 2.0 pair of rounds as a break, whatever the hashes say. This is acceptable only because
   2.0.0 is a major release, and the release procedure already requires a major release to state
   restart-from-baseline. CONTRIBUTING.md rule 1 ("do not change what a hash covers in the same release
   as a change it would have revealed") is waived for 2.0.0, and this is the disclosure.
+
+### v2.0.0 epoch 2b-1 — the scripts emit measure verdicts (OK/WATCH/FAIL), and `measure_hash` covers the rules
+
+**This section supersedes epoch 2a's "measure_hash stays config-only."** `links.mjs`, `freshness.mjs`,
+`inventory.mjs` and `coverage.mjs` each gain a top-level `measure` array: one row per mechanical
+signal, each carrying its raw value (with `numerator`/`denominator` when it is a ratio), an
+`OK`/`WATCH`/`FAIL` verdict, the boundary line that decided it, and the rubric.md anchor it was read
+from. `retrieval.mjs` stays report-only and carries none. No star anchor, no judge rule, and no
+improve/loop rule changed in this epoch — the star anchors and these verdict lines coexist; the
+anchors retire in a later epoch. See [reference/measure.md](skills/docgrad/reference/measure.md)
+§Verdict lines for the full band table.
+
+- **`measure_hash` moves, from `ec596daf` to `ae3014b1`.** Its inputs grow: alongside the same three
+  config values as before (`economy.entry_cost_tiers`, `economy.pollution_max`,
+  `freshness.stale_after_days`), it now also covers `lib.mjs › MEASURE_BANDS` (the band table,
+  unresolved) and `reference/measure.md`'s content. Every verdict-deciding rule lives in that band
+  table as plain data — including a row's `scope` (whether it is nulled under a scoped run) and a
+  row's secondary OK condition, where one exists (`dead_link_ratio`'s `ok_also`) — precisely so a
+  change to any of them moves this hash the same way a threshold edit does.
+- **`judge_hash` is unchanged, `742bdf54`.** `judge.md` and `placement.md` are untouched in this
+  epoch.
+- **`corpus_hash` is unchanged, `71d1ce84`.** `.docgrad.yml` is untouched.
+- **`rubric_hash` moves, from `e2fab513` to `de7f3203`**, because of the new
+  `reference/rubric.md` §Version history entry (v2.0.0, E2b-1) and a cleanup within the epoch 2a
+  entry above it: two parenthetical internal plan-review labels are replaced with their meaning in
+  words, no semantic change.
+- **The 2.0.0 rule-1 waiver (recorded above, epoch 2a) also covers this move**, with the same
+  disclosure: every 1.x → 2.0 pair of rounds is treated as a break regardless of which hash reveals
+  it, because 2.0.0 is a major release.
+- `measureHash`'s signature changes to `measureHash(config, skillRoot = SKILL_ROOT)`, matching
+  `judgeHash`'s parameter order (config first). It still returns `null`, never throws, when `config`
+  is `null` or when `reference/measure.md` cannot be read.
+- **Fixed: a ratio row's verdict is decided on the unrounded division, not the rounded `value` it
+  reports.** `dead_link_ratio`, `orphan_ratio`, `date_coverage` and `reachable_ratio` used to compare
+  the four-decimal `value` against the OK/FAIL lines, so a ratio that rounds exactly onto a boundary
+  without actually clearing it (51/1019 orphans rounds to 0.0500, the ★4 "orphans ≤5%" line, while
+  the true ratio is 0.050049…) read as OK. They now evaluate the raw numerator/denominator; the
+  reported `value` is unchanged.
 
 ## 1.9.2 — 2026-09-16
 

@@ -298,3 +298,15 @@ test('retrieval: a percent-encoded link target now resolves like links.mjs reads
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// E2b-1: measure verdicts are additive to links/freshness/inventory/coverage only. retrieval.mjs
+// stays report-only and carries no `measure` array.
+test('retrieval: report-only — no top-level measure array (E2b-1)', () => {
+  const tmp = copyFixture();
+  try {
+    const out = run(tmp);
+    assert.equal('measure' in out, false);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
