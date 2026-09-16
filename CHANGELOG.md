@@ -39,6 +39,33 @@ circular in a way worth stating: the move is caused by the §Version history ent
   key is `version` (#90), and its example row still mixes live fingerprint values with fictional ones
   (#89). Both pre-date this epoch; both are tracked.
 
+### v2.0.0 epoch 2a — `reference/audit.md` splits into `measure.md` + `judge.md`
+
+**This section supersedes epoch 1's "neither value moved" and "not split yet."** The split named as
+"the next epoch" above has happened: `reference/audit.md` (480 lines) is split along one line — steps
+that run scripts go to **`measure.md`** (steps 1, 8, 8b), steps that rate go to **`judge.md`** (steps
+2–7, 9, and §Scoped audit). No semantic change: no anchor, threshold, target, command, or output
+format moved. `reference/audit.md` stays as a thin router and the `audit` command itself is
+unchanged. `lib.mjs`'s `JUDGE_FILES` repoints from `['reference/audit.md', 'reference/placement.md']`
+to `['reference/judge.md', 'reference/placement.md']`.
+
+- **`judge_hash` moves, from `c40cc974` (epoch 1's pinned value) to `742bdf54`.** This is a
+  **false break**: the file judge_hash covers moved from audit.md to judge.md, but no rating rule
+  changed.
+- **`measure_hash` stays `ec596daf`** — it is config-only in this epoch (D2); whether a measure-side
+  fingerprint should also cover `measure.md` is decided in epoch 2b.
+- **`corpus_hash` stays `71d1ce84`** — `.docgrad.yml` is untouched.
+- **`rubric_hash` moves, from `28b8b7fc` to `e2fab513`**, because of the new
+  `reference/rubric.md` §Version history entry (v2.0.0, E2a) and the audit.md → judge.md/measure.md
+  reference updates it required.
+- **Rule-1 waiver (D3), deliberate and disclosed:** `judge_hash` moves twice within 2.0.0 — once in
+  this epoch because its coverage changed (audit.md → judge.md, no rule changed: a false break), and
+  once in epoch 2b because rules change. The two moves cannot be told apart from the hash alone. Treat
+  every 1.x → 2.0 pair of rounds as a break, whatever the hashes say. This is acceptable only because
+  2.0.0 is a major release, and the release procedure already requires a major release to state
+  restart-from-baseline. CONTRIBUTING.md rule 1 ("do not change what a hash covers in the same release
+  as a change it would have revealed") is waived for 2.0.0, and this is the disclosure.
+
 ## 1.9.2 — 2026-09-16
 
 Four measurement fixes and one documentation entry. No ★1–★5 anchor text changed and no default

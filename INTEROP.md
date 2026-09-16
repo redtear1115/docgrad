@@ -62,7 +62,7 @@ every time a document is edited and the text does not.
 ### The trust rule comes first
 
 An earlier draft of this design put the skill's name in the graded repository's `.docgrad.yml`. That
-is wrong, and this repo had already written down why. [audit.md](skills/docgrad/reference/audit.md)
+is wrong, and this repo had already written down why. [measure.md](skills/docgrad/reference/measure.md)
 §8b refuses to execute the graduation gate in these words:
 
 > **docgrad does not execute it.** Not when it looks unmodified, **not behind a config flag.** It is

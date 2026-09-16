@@ -54,7 +54,9 @@ docgrad/
 │   ├── reference/
 │   │   ├── init.md       # scan + questionnaire -> writes the target repo's .docgrad.yml
 │   │   ├── rubric.md     # six-dimension star anchors (key to scoring stability, see below)
-│   │   ├── audit.md      # single scoring pass flow: scripts -> LLM spot-check -> scorecard (incl. scoped audit)
+│   │   ├── audit.md      # router for the `audit` command: measure.md then judge.md
+│   │   ├── measure.md    # script run, token report, gate check
+│   │   ├── judge.md      # LLM rating and the scorecard, including scoped audit
 │   │   ├── improve.md    # convergence round flow (shared by improve and loop)
 │   │   └── placement.md  # information placement policy: rules for placement and duplication (consumed by the consistency dimension)
 │   ├── scripts/
@@ -128,7 +130,7 @@ targets:                           # target star rating per dimension (loop stop
   freshness: 4
   linkage: 4
   consistency: 4
-correctness_sample: 8              # number of claims drawn new each round (re-verification is a separate budget, see skills/docgrad/reference/audit.md step 3)
+correctness_sample: 8              # number of claims drawn new each round (re-verification is a separate budget, see skills/docgrad/reference/judge.md step 3)
 claim_candidates_cap: 60           # how many ranked claim candidates inventory.mjs emits; coverage can only grow as far as this window, and claim_population reports when it is truncated
 scenario: "add a typical new feature to <some module>"  # LLM simulation fallback when there are no scenarios
 scenarios: [src/foo/bar.ts]        # used by retrieval.mjs to mechanically simulate marginal cost + traceability (report-only)
@@ -160,7 +162,7 @@ Scores need to be comparable across rounds, so the anchors must be fixed. The �
 
 When the same fact appears in multiple documents, the following rules decide which one is authoritative (dogfooding consistency ★5, "one authority per topic + explicit arbitration"):
 
-1. **doc vs code**: code is always authoritative; when docs disagree with code, fix the docs to align with code (see the claim ledger in [skills/docgrad/reference/audit.md](../skills/docgrad/reference/audit.md)).
+1. **doc vs code**: code is always authoritative; when docs disagree with code, fix the docs to align with code (see the claim ledger in [skills/docgrad/reference/judge.md](../skills/docgrad/reference/judge.md)).
 2. **doc vs doc**: newer wins — whichever file has the more recent `> **Last updated:**` is authoritative; the older location is rewritten as "summary + link" pointing to the authority, with no two full copies left standing.
 3. **Cannot be arbitrated** (two documents are mutually exclusive and code is irrelevant): don't guess — this goes to loop's "needs human decision" stop condition (see [skills/docgrad/reference/improve.md](../skills/docgrad/reference/improve.md)).
 

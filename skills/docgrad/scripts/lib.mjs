@@ -761,7 +761,7 @@ export function collectFiles(rootDir, config, { include = [], tracked } = {}) {
   // They aren't picked up by docs_dirs' directory scan, and putting a single file in docs_dirs
   // would blow up (ENOTDIR); listing them as entry_files would get them in, but inventory.mjs's
   // fileType() would tag them as 'entry' and inflate the fixed cost (measured on oikos:
-  // 9,037 -> 21,474 tokens, economy ★3 -> ★1), which also contradicts audit.md's requirement
+  // 9,037 -> 21,474 tokens, economy ★3 -> ★1), which also contradicts judge.md's requirement
   // that entry_cost.files really be loaded on every single task. Hence a separate field.
   for (const f of config.docs_files) pushSingleFile(rootDir, f, 'docs_files', all);
   // entry_files and index_file may fall outside docs_dirs (e.g. a repo-root SKILL.md/README.md);
@@ -1427,11 +1427,11 @@ function findManifest(startDir) {
 
 // --- judge_hash (v2: was judgement_hash) ---------------------------------------------
 //
-// Renamed, not recomputed: the same two files, in the same order, so the value does not move.
-// `reference/audit.md` is still one of them **and still contains measure-side instructions** —
-// that file is split into `measure.md` / `judge.md` in the next epoch, and this hash repoints then.
-// Until it does, a judge-side fingerprint covering measure-side prose is a named intermediate
-// state, not an oversight.
+// Renamed in E1 without recomputing, so the value held. E2a then repointed the hash
+// (audit.md → judge.md), which moved it (a false break, D3): the split moved judge_hash's
+// coverage from audit.md to judge.md, no rule changed. The two moves — E1's rename and E2a's
+// repoint — cannot be told apart from the hash alone; see rubric.md §Version history for the
+// full disclosure.
 //
 // rubric_hash fingerprints the **anchors**. It does not fingerprint the **rules for applying them**,
 // and those live in different files — which v1.7.0 demonstrated the hard way: #48 added two boundary
@@ -1440,9 +1440,8 @@ function findManifest(startDir) {
 //
 // What is in, and why — decided by what the skill's own blockers say decides a rating (SKILL.md §2):
 //
-//   reference/audit.md      the scoring procedure, the sampling rule, the boundary rules. `audit`
-//                           runs it; `improve`/`loop` delegate to it ("run a full evaluation per
-//                           audit.md").
+//   reference/judge.md      the rating procedure, the sampling rule, the boundary rules;
+//                           `audit` and `improve`/`loop` reach it through the audit.md router.
 //   reference/placement.md  "Before rating **consistency** you must also read placement.md — the
 //                           rules for judging placement and duplication live there." Editing it
 //                           changes what counts as a deduction, so it changes the consistency star.
@@ -1451,8 +1450,13 @@ function findManifest(startDir) {
 //
 //   reference/rubric.md     already covered by rubric_hash. Hashing it twice would make one edit
 //                           move two fingerprints and tell a reader nothing extra.
+//   reference/measure.md    the script run and the graduation gate check — mechanical and
+//                           reproducible. D2 keeps it out of every fingerprint in E2a; whether a
+//                           measure-side fingerprint should cover it is decided in E2b.
+//   reference/audit.md      a thin router with no rules of its own; it points readers to
+//                           measure.md and judge.md and carries nothing that changes a rating.
 //   reference/improve.md    it is the round *flow* — recording, committing, graduation — and it
-//                           delegates the rating itself to audit.md. It can change which claims a
+//                           delegates the rating itself to judge.md. It can change which claims a
 //                           *loop* draws (it tells the round to pass --exclude-ledger), so it is the
 //                           closest call here; it is out because a plain `audit` never reads it, and
 //                           a fingerprint that moves for runs it cannot affect is noise.
@@ -1460,7 +1464,7 @@ function findManifest(startDir) {
 // Whole-file, like rubric_hash: a formatting-only edit moves it. That is the same trade rubric_hash
 // already makes, and narrowing to rule sections would have to change rubric_hash too to stay
 // coherent — a separate decision, not a side effect of this one.
-const JUDGE_FILES = ['reference/audit.md', 'reference/placement.md'];
+const JUDGE_FILES = ['reference/judge.md', 'reference/placement.md'];
 
 export function judgeHash(skillRoot = SKILL_ROOT) {
   const h = createHash('sha256');
