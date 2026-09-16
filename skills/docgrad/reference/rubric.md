@@ -1,6 +1,6 @@
 # docgrad rubric — star anchors for the six dimensions
 
-> **Last updated:** 2026-09-13
+> **Last updated:** 2026-09-16
 
 > This file is the only basis on which scores from different rounds can be compared. The anchors
 > are frozen; any change to them makes historical scores incomparable, counts as a breaking
@@ -405,6 +405,9 @@ individual dimension did not).
     side of a change to it. Folding it in would draw a whole-round comparability break across all six dimensions — five of
     which cannot have been affected — every time someone applies the fix the tool itself recommends. The narrower, honest
     disclosure is the per-round `claim_population.truncated`, which is emitted whether or not anyone changed the field.
+- **v1.9.0 — a `corpus_hash` move here may be a parser fix rather than a corpus edit** (**not an anchor change**): inline
+  lists are now split on commas **outside quotes**, so a config containing `["docs/a,b/"]` selects a different corpus than
+  it used to. Compare the tool version against the config actually in use; the config's own history usually tells them apart.
 - **v1.8.0 — the rules for applying the anchors are fingerprinted, and the sampling window counts what it can draw**
   (issues #56, #54, #57) (**not an anchor change**): no ★1–★5 threshold moved and every shipped default is unchanged.
   - **New `judgement_hash`**, covering `audit.md` and `placement.md` — the files that decide *how* the anchors are applied
