@@ -104,6 +104,37 @@ anchors retire in a later epoch. See [reference/measure.md](skills/docgrad/refer
   the true ratio is 0.050049…) read as OK. They now evaluate the raw numerator/denominator; the
   reported `value` is unchanged.
 
+### v2.0.0 epoch 4a — history rows carry schema 2
+
+`.docgrad/history.jsonl` rows written by `improve`/`loop` now carry `"schema": 2` and a nested
+`docgrad` object — the fingerprint block copied **verbatim** from `inventory.mjs`'s output, so its
+version key is `version`, not the old top-level `docgrad_version`. `report` (SKILL.md's `report` row)
+now tells the two shapes apart instead of reading a schema-2 row's fields as "unknown":
+
+- **`docgrad_version` → `docgrad.version`.** The five comparability fields (`version`, `rubric_hash`,
+  `measure_hash`, `judge_hash`, `corpus_hash`) travel together as one object, written whole every
+  round even when nothing moved.
+- **Legacy handling.** A row with no `schema` is a 1.x row: it is shown in its own "1.x rounds"
+  block, never joined to a schema-2 row, and the four legacy break rules (rubric fingerprint, corpus
+  fingerprint, measure fingerprint under its old or new name, judge fingerprint under its old or new
+  name) and the five-dimension note keep applying inside that block exactly as before. A field
+  missing from a legacy row is still read as unknown and still draws no break.
+- **New break rules for schema-2 rows.** A schema-2 row missing its `docgrad` object, its `measure`
+  object, or any of `docgrad`'s five required keys is no longer silently "unknown" — `report` prints
+  it as a spec violation, one line per row, and excludes that row as a comparison baseline. Among
+  rows that are not violations: the measure trend breaks on `docgrad.measure_hash` or
+  `docgrad.corpus_hash`; the judge series (optional to draw, always labelled "not comparable across
+  rounds") breaks on `docgrad.judge_hash` or `docgrad.rubric_hash`; a `null` value is a value, not a
+  violation, and compares equal only to `null`. No overall score is ever computed.
+- **improve.md:141**'s citation of "judge.md step 4" is fixed to "judge.md step 3 (boundary rules)" —
+  judge.md's top-level step 4 does not carry the boundary rules and would have dangled once a later
+  epoch removes it.
+- Closes #87, #88, #89, #90.
+
+**No fingerprint moves.** `improve.md`, `SKILL.md`, `CONTRIBUTING.md`, `docs/design.md` and
+`inventory.mjs`'s comments are not inputs to any hash: `rubric_hash`/`measure_hash`/`judge_hash`/
+`corpus_hash` are `de7f3203`/`ae3014b1`/`742bdf54`/`71d1ce84`, identical before and after this epoch.
+
 ## 1.9.2 — 2026-09-16
 
 Four measurement fixes and one documentation entry. No ★1–★5 anchor text changed and no default

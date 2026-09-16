@@ -379,7 +379,7 @@ try {
     `${JSON.stringify(
       {
         scope: include.length ? include : null,
-        // history.jsonl's docgrad_version/rubric_hash/corpus_hash all come from here
+        // history.jsonl copies this `docgrad` object verbatim (improve.md step 5)
         docgrad: docgradMeta(undefined, config),
         // The band-table verdicts (E2b-1), right after docgrad so all four scripts that emit one
         // stay comparable field by field.
