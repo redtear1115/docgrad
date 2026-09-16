@@ -86,8 +86,9 @@ Release steps:
    (Antigravity) has no `version` field and needs nothing. A test asserts the two copies match, so a
    half-done bump fails the suite rather than shipping two different answers.
 5. Add a section to [CHANGELOG.md](../CHANGELOG.md) (date + change list; a major bump must explicitly state breaking and the restart-from-baseline recommendation).
-6. commit -> merge into main.
-7. Tag on main and push:
+6. Assign every issue and PR shipped in this version to that version's milestone: `gh issue edit <n> --milestone "<version>"` / `gh pr edit <n> --milestone "<version>"`. Create the milestone first if it doesn't exist yet: `gh api repos/{owner}/{repo}/milestones -f title="<version>"`. This step exists because it kept not happening on its own — see [#92](https://github.com/redtear1115/docgrad/issues/92): v1.9.0's milestone was created with zero items assigned, and v1.9.1's milestone was never created at all.
+7. commit -> merge into main.
+8. Tag on main and push:
 
    ```bash
    claude plugin tag --push
@@ -95,7 +96,7 @@ Release steps:
 
    The official tool's format is `docgrad--v<version>` (an annotated tag); it verifies that `plugin.json` and the marketplace entry are consistent before creating it — **this is the authoritative format for release tags**, don't type it by hand.
 
-8. **Publish the GitHub Release.** A tag is not a release: a tag is visible to anyone who looks for it, a release is what shows on the repository's front page, what "Latest" points at, and what notifies whoever is watching.
+9. **Publish the GitHub Release.** A tag is not a release: a tag is visible to anyone who looks for it, a release is what shows on the repository's front page, what "Latest" points at, and what notifies whoever is watching.
 
    ```bash
    gh release create docgrad--v<version> --title "docgrad v<version>" --notes-file <(sed -n '/^## <version>/,/^## /p' CHANGELOG.md | sed '$d')
@@ -103,7 +104,7 @@ Release steps:
 
    The body is that version's CHANGELOG section, unchanged — the changelog is written to be read by a human deciding whether to upgrade, which is exactly what a release body is for, so there is nothing to rewrite.
 
-   > **This step was missing until v1.9.1, and it drifted silently for three versions.** Steps 1–7 were all followed for v1.7.0, v1.8.0 and v1.9.0; every one of them was tagged (v1.8.0 late), and none of them was released. The front page said "Latest: v1.6.0" while the plugin manifest said 1.9.0. Nothing in the process noticed, because the process did not mention it — the same shape as the missing `--scaffold` in `evals/README.md`: a documented procedure whose last step was never written down does not get performed.
+   > **This step was missing until v1.9.1, and it drifted silently for three versions.** The other steps (then numbered 1–7) were all followed for v1.7.0, v1.8.0 and v1.9.0; every one of them was tagged (v1.8.0 late), and none of them was released. The front page said "Latest: v1.6.0" while the plugin manifest said 1.9.0. Nothing in the process noticed, because the process did not mention it — the same shape as the missing `--scaffold` in `evals/README.md`: a documented procedure whose last step was never written down does not get performed.
 
 > **The old `vX.Y.Z` series**: every version from v0.2.0 to v1.3.0 also has a lightweight tag on the same commit; that was the convention before `claude plugin tag` existed, and they're kept, not deleted (external links may point to them).
 > **New versions only get the official format**, the old format is no longer added — the two sets coexisting only needs to cover existing history, it doesn't need to keep growing.
