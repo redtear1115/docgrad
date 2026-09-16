@@ -97,9 +97,9 @@ try {
   const scoped = include.length > 0;
 
   // key_doc_age: key documents = entry_files ∪ index_file — a narrower subset than
-  // rubric.md's "key documents" (which also includes each area's authoritative document; that
-  // definition still governs the freshness ★ rating until a later epoch). Only docs present in
-  // this run's corpus and carrying a non-null age_days count.
+  // rubric.md's pre-2.0 "key documents" (which also included each area's authoritative document);
+  // since v2.0.0 only this subset is measured; area-authority staleness surfaces through
+  // correctness. Only docs present in this run's corpus and carrying a non-null age_days count.
   const keyDocInput = (() => {
     if (scoped) return { value: null, note: 'key documents are a full-corpus concept' };
     const resultByPath = new Map(results.map((r) => [r.path, r]));
@@ -140,8 +140,8 @@ try {
       { scoped }
     ),
     evaluateMeasure('key_doc_age', keyDocInput, config, { scoped }),
-    // ★4's "only isolated mismatches" clause has no count, so it is not measured: this line
-    // covers the drift-days-<30 half only, per measure.md.
+    // the retired ★4's "only isolated mismatches" clause has no count, so it is not measured:
+    // this line covers the drift-days-<30 half only, per measure.md.
     evaluateMeasure(
       'date_drift',
       { value: mismatchList.length ? Math.max(...mismatchList.map((m) => m.drift_days)) : 0 },

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// retrieval.mjs — traceability + marginal cost (a newer measurement script, report-only, see reference/rubric.md §Token economy)
+// retrieval.mjs — traceability + marginal cost (a newer measurement script, report-only, see reference/measure.md §Token economy signals)
 // Usage: node retrieval.mjs [--root <repo>] [--config <file>] [--include <glob, see note below for why it's a no-op>] [--exclude-ledger <path>] [--locate-ledger <path>]; JSON -> stdout.
 // --exclude-ledger (#54) is also a no-op here, for an unrelated reason: only inventory.mjs draws
 // claim candidates from a claim ledger, and retrieval measures traceability/marginal cost, not

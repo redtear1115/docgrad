@@ -145,8 +145,8 @@ try {
   const symbols = symbolIndex ? symbolIndex.symbols : null;
   const filesRaw = included.map((p) => measure(root, p, config, symbols));
   const excludedFiles = excluded.map((p) => measure(root, p, config, symbols));
-  // out_of_scope files are outside every rated population — no claims, no rules, no structure are
-  // drawn from them. Only their size is reported, so only their size is computed.
+  // out_of_scope files are outside every measured or judged population — no claims, no rules, no
+  // structure are drawn from them. Only their size is reported, so only their size is computed.
   const outOfScopeFiles = outOfScope.map((p) => ({
     path: p,
     tokens_est: estimateTokens(fs.readFileSync(path.join(root, p), 'utf8')),
@@ -253,12 +253,12 @@ try {
   const excludedTokens = excludedFiles.reduce((s, f) => s + f.tokens_est, 0);
 
   // Untracked files among everything this run collected (included + excluded — both sides feed
-  // pollution.ratio, which is a rated input). Reporting them is what makes the difference between
+  // pollution.ratio, which is a measure input). Reporting them is what makes the difference between
   // a working checkout and a clean one visible instead of silent; it does not change the numbers.
   //
   // out_of_scope files are deliberately **not** in this population (#44). This block exists to
-  // explain how two checkouts of the same commit can land on different star ratings, and its
-  // membership test is "does this file feed a rated input". out_of_scope feeds none — not the
+  // explain how two checkouts of the same commit can land on different verdicts, and its
+  // membership test is "does this file feed a measure input". out_of_scope feeds none — not the
   // corpus, not the pollution ratio — so an untracked file in there cannot produce that
   // divergence, and listing it would pad `untracked` with paths that provably cannot move a score.
   // out_of_scope's own size is reported separately and is report-only. (When exclude_untracked is
@@ -298,11 +298,11 @@ try {
     files: outOfScopeFiles.map((f) => f.path).slice(0, OUT_OF_SCOPE_LIST_CAP),
     ...(outOfScopeNotes.length ? { note: outOfScopeNotes.join('; ') } : {}),
   };
-  // The ratio itself is left exactly as it was — silently changing everyone's economy rating is
+  // The ratio itself is left exactly as it was — silently changing everyone's economy verdicts is
   // the kind of break this tool exists to catch. The note only says the number is checkout-bound.
   const pollutionNote =
     untrackedFiles && untrackedFiles.length
-      ? `this ratio includes ${untrackedFiles.length} untracked local file(s) (see "untracked"), so it will differ on a clean checkout of the same commit and two people can arrive at different economy ratings; set exclude_untracked: true in .docgrad.yml to measure the clean-checkout corpus instead`
+      ? `this ratio includes ${untrackedFiles.length} untracked local file(s) (see "untracked"), so it will differ on a clean checkout of the same commit and two people can arrive at different pollution verdicts; set exclude_untracked: true in .docgrad.yml to measure the clean-checkout corpus instead`
       : null;
   const entryCost = (() => {
     // When scope-limited, count only entry files within the scope — fixed cost is a
@@ -348,9 +348,9 @@ try {
   // changed no outcome, and init.md warned against editing them for a reason that did not exist.
   // They are read here now, so the rubric can cite one source instead of keeping a second copy.
   //
-  // The verdicts below are arithmetic over two already-mechanical numbers, not a rating: the star
-  // still comes from the anchors. `cost_allows_star` is the ceiling the fixed cost alone permits;
-  // ★5 additionally requires a mechanical gate, which no script can observe.
+  // The legacy star fields below are arithmetic kept until E2c; verdicts are in `measure`.
+  // `cost_allows_star` is the ceiling the fixed cost alone permits; the retired ★5 anchor
+  // additionally required a mechanical gate, which no script can observe.
   const tiers = config.economy.entry_cost_tiers;
   const pollutionMax = config.economy.pollution_max;
   const cost = entryCost.tokens_est;
@@ -364,12 +364,12 @@ try {
     star_5_cost_met: cost <= tiers[3],
     pollution_caps_at: pollutionRatio >= pollutionMax ? 3 : null,
     note:
-      'thresholds come from .docgrad.yml economy:; cost_allows_star is the ceiling the fixed cost alone permits and ★5 also requires a mechanical gate. When customised is true these are not the shipped anchors, so this repo\'s economy rating is not comparable with one graded at the defaults.',
+      'legacy star fields, retired in E2c; verdicts are in `measure`. cost_allows_star is the ceiling the fixed cost alone permits and the retired ★5 anchor also required a mechanical gate. When customised is true these are not the shipped defaults, so this repo\'s measure verdicts are not comparable with one graded at the defaults.',
   };
 
   const scoped = include.length > 0;
-  // entry_cost and pollution are full-corpus concepts (matching judge.md §Scoped audit's economy
-  // row): under --include, evaluateMeasure nulls both given { scoped }.
+  // entry_cost and pollution are full-corpus concepts (measure.md: full-corpus rows are null
+  // under scope): under --include, evaluateMeasure nulls both given { scoped }.
   const measureRows = [
     evaluateMeasure('entry_cost', { value: cost }, config, { scoped }),
     evaluateMeasure('pollution', { value: pollutionRatio }, config, { scoped }),

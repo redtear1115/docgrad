@@ -72,8 +72,9 @@ claim verification precisely because it matched the code at the time. The code w
 took a re-verification round to notice, because nothing connects "we fixed the defect" to "a document was written in its
 shape".
 
-The failure is not an error of fact — it is a placement error, and it costs freshness and correctness rather than
-consistency. A shortfall is process, not intent, so it belongs where process belongs (rule 5): an issue, or
+The failure is not an error of fact — it is a placement error, and it shows up in correctness and in
+the freshness measure signals rather than in consistency. A shortfall is process, not intent, so it
+belongs where process belongs (rule 5): an issue, or
 `.docgrad/out-of-scope.jsonl` when it falls outside docgrad's remit (see [improve.md](improve.md) §Exit for findings outside
 docgrad's remit). The spec keeps the intended behaviour. If the gap has to be visible from the document at all, mark it as a
 gap and point at the issue — one line, obviously temporary, and easy to delete —
@@ -125,8 +126,8 @@ This policy isn't a new dimension; it's a higher-level rule over the existing an
   **within docs**.
 - correctness ★5, "authoritative lists refer to code, don't restate it" = this policy's special case **between docs and
   code**.
-- freshness: the drift-risk axis is the upstream cause of freshness deductions — misplaced information is destined to go
-  stale.
+- freshness (a measure signal since v2.0.0): the drift-risk axis is the upstream cause of stale
+  documents — misplaced information is destined to go stale.
 
 ## Every repo can override this
 
