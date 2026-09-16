@@ -413,6 +413,30 @@ anchors (see its entry).
   anchors judge/measure read from; the convergence flow (`improve.md`) still reasons about six rated
   dimensions and is updated in a later epoch of this release. This is a named intermediate state, not
   something this slice fixes.
+- **v2.0.0 (E4b) — `rubric_hash` folded into `judge_hash`** (**not an anchor change**): no ★1–★5
+  threshold moved and no default changed. This waited on E2b-2: before it, `rubric.md` still carried
+  a measure threshold, so editing it could move a judge fingerprint for a measure-side reason, and
+  folding it into `judge_hash` then would have muddied the two layers this release exists to
+  separate. E2b-2 retired that last measure threshold, so `rubric.md` now holds only judge anchors —
+  the same layer `judge.md` and `placement.md` already carry — and `judge_hash` can cover all three
+  whole-file, the way it already covered the other two.
+  - **`judge_hash` moves.** `rubric.md` is added to its inputs (see `lib.mjs › JUDGE_FILES`), and this
+    entry adds lines to the file, which moves the hash a second time in the same edit. The new value
+    cannot be quoted here — this file is one of its own inputs now, so a literal would move the hash
+    again — see the CHANGELOG's `v2.0.0 epoch 4b` section for the recorded old → new value.
+  - **The `docgrad` block no longer has `rubric_hash`.** `docgradMeta()` now returns `version`,
+    `measure_hash`, `judge_hash`, `corpus_hash` — four fields, not five.
+  - **How `report` treats old rows.** In a legacy (1.x) row, the rubric break (legacy rule (a)) still
+    applies unchanged — those rows never had `judge_hash` to fold anything into. In a schema-2 row
+    written before this entry, a `rubric_hash` key may still be present; `report`'s "a key not in the
+    list is ignored" rule now covers it explicitly, so such a row is read fine and draws no break on
+    that key alone.
+  - **`measure_hash` and `corpus_hash` are unmoved.** No measure.md, `MEASURE_BANDS` or config value
+    changed, and `.docgrad.yml` is untouched.
+  - **The rule-1 waiver extends to this move too**, for the same reason it did in E2a, E2b-1 and
+    E2b-2: CONTRIBUTING.md rule 1 does not forbid a hash moving in the same release as the coverage
+    change it reveals, because 2.0.0 is a major release and every 1.x → 2.0 pair of rounds is already
+    treated as a break regardless of which hash shows it.
 - **v1.8.0 — the rules for applying the anchors are fingerprinted, and the sampling window counts what it can draw**
   (issues #56, #54, #57) (**not an anchor change**): no ★1–★5 threshold moved and every shipped default is unchanged.
   - **New `judgement_hash`**, covering `audit.md` and `placement.md` — the files that decide *how* the anchors are applied

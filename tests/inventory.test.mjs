@@ -113,16 +113,16 @@ test('inventory: a long untracked list is capped, and the note says so (count/to
   }
 });
 
-test('inventory: docgrad carries corpus_hash alongside rubric_hash', () => {
+test('inventory: docgrad carries corpus_hash alongside judge_hash', () => {
   const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', FIXTURE], { encoding: 'utf8' }));
   assert.match(out.docgrad.corpus_hash, /^[0-9a-f]{8}$/);
-  assert.match(out.docgrad.rubric_hash, /^[0-9a-f]{8}$/);
+  assert.match(out.docgrad.judge_hash, /^[0-9a-f]{8}$/);
   // #36: a corpus that genuinely differs must produce a different fingerprint, even though the
-  // rubric — and therefore rubric_hash — is identical.
+  // judge material — and therefore judge_hash — is identical.
   const other = JSON.parse(
     execFileSync(process.execPath, [SCRIPT, '--root', DOCS_FILES_FIXTURE], { encoding: 'utf8' })
   );
-  assert.equal(other.docgrad.rubric_hash, out.docgrad.rubric_hash);
+  assert.equal(other.docgrad.judge_hash, out.docgrad.judge_hash);
   assert.notEqual(other.docgrad.corpus_hash, out.docgrad.corpus_hash);
 });
 

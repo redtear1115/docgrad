@@ -187,6 +187,32 @@ anchors judge/measure read from; `improve.md`'s convergence flow still reasons a
 dimensions and is updated in a later epoch of this release. This is a named intermediate state, not
 something this epoch fixes.
 
+### v2.0.0 epoch 4b — `rubric_hash` folded into `judge_hash`
+
+This waited on epoch 2b-2: before it, `rubric.md` still carried a measure threshold, so editing it
+could move a judge fingerprint for a measure-side reason, and folding it into `judge_hash` then would
+have muddied the two layers this release exists to separate. Epoch 2b-2 retired that last measure
+threshold, so `rubric.md` now holds only judge anchors — the same layer `judge.md` and
+`placement.md` already carry — so `judge_hash` now covers all three whole-file, and `rubric_hash`
+stops existing as its own field. No ★1–★5 threshold moved and no default changed. **This slice does
+not touch the graduation gate**: `skills/docgrad/templates/docs-gate.mjs` already asserts only
+mechanical numbers, and the remaining star/target wording tied to graduation belongs to a later
+epoch (E2c) — #82 can be closed once that lands.
+
+- **`judge_hash` moves, from `e8881920` to `6c0f1ed0`.** `rubric.md` is added to `lib.mjs ›
+  JUDGE_FILES`, and this epoch's `rubric.md` §Version history entry adds lines to the file, moving
+  the hash a second time in the same edit.
+- **The `docgrad` block no longer has `rubric_hash`.** `docgradMeta()` now returns `version`,
+  `measure_hash`, `judge_hash`, `corpus_hash` — four fields, not five.
+- **`measure_hash` and `corpus_hash` are unchanged**, `38724510` and `71d1ce84`. No measure.md,
+  `MEASURE_BANDS` or config value changed, and `.docgrad.yml` is untouched.
+- **How `report` treats old rows**: in a legacy (1.x) row the rubric break (legacy rule (a)) still
+  applies unchanged; in a schema-2 row written before this epoch, a `rubric_hash` key may still be
+  present and is now read as an ignored key rather than a schema violation.
+- **The 2.0.0 rule-1 waiver (recorded above, epoch 2a) also covers this move**, with the same
+  disclosure: every 1.x → 2.0 pair of rounds is treated as a break regardless of which hash reveals
+  it, because 2.0.0 is a major release.
+
 ## 1.9.2 — 2026-09-16
 
 Four measurement fixes and one documentation entry. No ★1–★5 anchor text changed and no default

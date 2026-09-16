@@ -278,7 +278,7 @@ test('corpusHash: cosmetic differences that mean the same corpus hash the same',
     index_file: ' docs/README.md',
   };
   assert.equal(corpusHash(cosmetic), corpusHash(base));
-  assert.match(corpusHash(base), /^[0-9a-f]{8}$/, 'same shape as rubric_hash');
+  assert.match(corpusHash(base), /^[0-9a-f]{8}$/, 'same shape as judge_hash');
 });
 
 test('corpusHash: fields outside the corpus definition do not move it', () => {
@@ -305,7 +305,8 @@ test('corpusHash: every corpus-defining field genuinely changes it', () => {
     docs_dirs: ['docs/'], docs_files: [], entry_files: ['CLAUDE.md'], exclude: [], index_file: 'docs/README.md',
   };
   const before = corpusHash(base);
-  // the v1.4.0 case from #36: adding docs_files moved files_total 46->48 while rubric_hash stood still
+  // the v1.4.0 case from #36: adding docs_files moved files_total 46->48 while the ruler fingerprint
+  // (rubric_hash before E4b, judge_hash today) stood still
   assert.notEqual(corpusHash({ ...base, docs_files: ['PRODUCT.md'] }), before, 'docs_files');
   assert.notEqual(corpusHash({ ...base, docs_dirs: ['docs/', 'guides/'] }), before, 'docs_dirs');
   assert.notEqual(corpusHash({ ...base, entry_files: ['CLAUDE.md', 'AGENTS.md'] }), before, 'entry_files');
@@ -790,25 +791,27 @@ test('judgeHash: covers the rule files, not the anchors, and each one moves it o
     write('reference/placement.md', 'rule 4: grounds may live anywhere');
     assert.notEqual(judgeHash(tmp), afterJudge);
 
-    // rubric.md is rubric_hash's job; hashing it twice would move two fingerprints for one edit.
+    // rubric.md is folded into judge_hash's inputs since v2.0.0 E4b, once E2b-2 left it holding
+    // only judge anchors — the same layer as judge.md and placement.md.
     const beforeRubric = judgeHash(tmp);
     write('reference/rubric.md', '★4 anchor B');
-    assert.equal(judgeHash(tmp), beforeRubric, 'rubric.md must not move judge_hash');
+    const afterRubric = judgeHash(tmp);
+    assert.notEqual(afterRubric, beforeRubric, 'rubric.md must move judge_hash (folded in at v2.0.0 E4b)');
 
     // improve.md delegates the rating to judge.md and is never read by a plain `audit`.
     write('reference/improve.md', 'round flow, rewritten');
-    assert.equal(judgeHash(tmp), beforeRubric, 'improve.md must not move judge_hash');
+    assert.equal(judgeHash(tmp), afterRubric, 'improve.md must not move judge_hash');
 
     // measure.md is the script run and gate check — it is covered by measure_hash (since E2b-1),
     // not judge_hash, so editing it here must not move judgeHash's value.
     write('reference/measure.md', 'step 1: run the scripts (edited)');
-    assert.equal(judgeHash(tmp), beforeRubric, 'measure.md must not move judge_hash');
+    assert.equal(judgeHash(tmp), afterRubric, 'measure.md must not move judge_hash');
 
     // audit.md is a thin router with no rules of its own; editing it must not move judge_hash.
     write('reference/audit.md', 'router: measure.md then judge.md (edited)');
-    assert.equal(judgeHash(tmp), beforeRubric, 'audit.md (the router) must not move judge_hash');
+    assert.equal(judgeHash(tmp), afterRubric, 'audit.md (the router) must not move judge_hash');
 
-    // Missing files read as unknown, not as a value — the rubric_hash contract.
+    // Missing files read as unknown, not as a value.
     assert.equal(judgeHash(fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-empty-'))), null);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -860,7 +863,7 @@ test('validateConfigTypes: the nested maps that can move a judgement are checked
 });
 
 // measure_hash (the former thresholds_hash) exists because these three values move judgement boundaries without changing a
-// word of rubric.md, so rubric_hash alone cannot tell two differently-ruled rounds apart.
+// word of rubric.md, judge.md or placement.md, so judge_hash alone cannot tell two differently-ruled rounds apart.
 test('measureHash: stable at the defaults, moves for each of the three fields, null without a config', () => {
   const base = loadConfig(FIXTURE);
   const at = measureHash(base);
@@ -904,10 +907,12 @@ test('docgradMeta: the manifest search walks up, and stops rather than escaping 
     fs.mkdirSync(path.join(tmp, '.claude-plugin'));
     fs.writeFileSync(path.join(tmp, '.claude-plugin/plugin.json'), '{"version":"9.9.9"}');
     fs.writeFileSync(path.join(skillRoot, 'reference/rubric.md'), '★4 anchor A');
+    fs.writeFileSync(path.join(skillRoot, 'reference/judge.md'), 'step 2: rate against the rubric');
+    fs.writeFileSync(path.join(skillRoot, 'reference/placement.md'), 'rule 4: grounds live with the conclusion');
     // Found two levels up, which is the shipped layout.
     assert.equal(docgradMeta(skillRoot).version, '9.9.9');
-    // rubric_hash still resolves from the skill root itself, not from the manifest's directory.
-    assert.match(docgradMeta(skillRoot).rubric_hash, /^[0-9a-f]{8}$/);
+    // judge_hash still resolves from the skill root itself, not from the manifest's directory.
+    assert.match(docgradMeta(skillRoot).judge_hash, /^[0-9a-f]{8}$/);
 
     // A skill root with no manifest anywhere above it inside the search window reports null rather
     // than picking up an unrelated manifest from further up the filesystem.
@@ -922,10 +927,10 @@ test('docgradMeta: the manifest search walks up, and stops rather than escaping 
   }
 });
 
-test('docgradMeta: returns version and rubric fingerprint; the hash changes when rubric changes', () => {
+test('docgradMeta: returns version and judge fingerprint; the hash changes when rubric changes', () => {
   const meta = docgradMeta();
   assert.match(meta.version, /^\d+\.\d+\.\d+$/);
-  assert.match(meta.rubric_hash, /^[0-9a-f]{8}$/);
+  assert.match(meta.judge_hash, /^[0-9a-f]{8}$/);
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-meta-'));
   try {
@@ -933,10 +938,15 @@ test('docgradMeta: returns version and rubric fingerprint; the hash changes when
     fs.mkdirSync(path.join(tmp, 'reference'));
     fs.writeFileSync(path.join(tmp, '.claude-plugin/plugin.json'), '{"version":"9.9.9"}');
     fs.writeFileSync(path.join(tmp, 'reference/rubric.md'), '★4 anchor A');
+    fs.writeFileSync(path.join(tmp, 'reference/judge.md'), 'step 2: rate against the rubric');
+    fs.writeFileSync(path.join(tmp, 'reference/placement.md'), 'rule 4: grounds live with the conclusion');
     const before = docgradMeta(tmp);
     assert.equal(before.version, '9.9.9');
+    assert.match(before.judge_hash, /^[0-9a-f]{8}$/);
     fs.writeFileSync(path.join(tmp, 'reference/rubric.md'), '★4 anchor B');
-    assert.notEqual(docgradMeta(tmp).rubric_hash, before.rubric_hash);
+    const after = docgradMeta(tmp);
+    assert.match(after.judge_hash, /^[0-9a-f]{8}$/);
+    assert.notEqual(after.judge_hash, before.judge_hash, 'editing rubric.md must move judge_hash (folded in at v2.0.0 E4b)');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -947,7 +957,6 @@ test('docgradMeta: returns null instead of throwing when files cannot be read', 
   try {
     assert.deepEqual(docgradMeta(tmp), {
       version: null,
-      rubric_hash: null,
       measure_hash: null,
       judge_hash: null,
       corpus_hash: null,
@@ -1258,16 +1267,20 @@ test('loadLedgerRows: error text names the flag it was called for, and loadLedge
 // grows new §Freshness/§Linkage/§Economy notes and §Token economy signals sections and
 // `MEASURE_BANDS[*].source` strings are reworded to cite the retired anchors (so `measure_hash`
 // moves too); rubric.md itself changes (so `rubric_hash` moves). `corpus_hash` is unaffected.
+// **E4b (this epoch) folds the fingerprint that was `rubric_hash` (before E4b) into `judge_hash`.**
+// Once E2b-2 left rubric.md holding only judge anchors, rubric.md joins `lib.mjs › JUDGE_FILES`:
+// `judge_hash` moves a third time and the separate field retires. `measure_hash` and `corpus_hash`
+// are unaffected.
 // The literals below were pinned rather than recomputed because a hash that quietly changed would
 // otherwise look exactly like one that did not.
-test('docgradMeta: measure_hash and judge_hash move again in E2b-2 (rubric.md is judge-only), and the four hashes stay independent', () => {
+test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes stay independent', () => {
   const skillRoot = fileURLToPath(new URL('../skills/docgrad/', import.meta.url));
   const config = loadConfig(fileURLToPath(new URL('../', import.meta.url)));
   const meta = docgradMeta(skillRoot, config);
 
-  assert.deepEqual(Object.keys(meta), ['version', 'rubric_hash', 'measure_hash', 'judge_hash', 'corpus_hash']);
-  assert.equal(meta.measure_hash, '38724510', 'measure_hash after E2b-2 (was ae3014b1 through E2b-1)');
-  assert.equal(meta.judge_hash, 'e8881920', 'judge_hash after E2b-2 (was 742bdf54 through E2b-1)');
+  assert.deepEqual(Object.keys(meta), ['version', 'measure_hash', 'judge_hash', 'corpus_hash']);
+  assert.equal(meta.measure_hash, '38724510', 'measure_hash unaffected by E4b (unchanged since E2b-2)');
+  assert.equal(meta.judge_hash, '6c0f1ed0', 'judge_hash after E4b (was e8881920 through E2b-2)');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
   // change; a placement.md edit is a judge-side one; neither may disturb the other, or #82's
@@ -1351,7 +1364,7 @@ test('MEASURE_BANDS: mutating ok_also or scope moves the digest, on their own', 
   );
 });
 
-test('measure_hash / judge_hash / rubric_hash: E2b-1 sensitivity — each fingerprint moves only on the files that decide it', () => {
+test('measure_hash / judge_hash: sensitivity — measure.md moves only measure_hash; rubric.md, judge.md and placement.md each move only judge_hash (rubric.md folded in at v2.0.0 E4b)', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-fingerprint-sensitivity-'));
   try {
     fs.mkdirSync(path.join(tmp, 'reference'), { recursive: true });
@@ -1368,19 +1381,21 @@ test('measure_hash / judge_hash / rubric_hash: E2b-1 sensitivity — each finger
     const afterMeasure = docgradMeta(tmp, config);
     assert.notEqual(afterMeasure.measure_hash, before.measure_hash, 'editing measure.md moves measure_hash');
     assert.equal(afterMeasure.judge_hash, before.judge_hash, '...and leaves judge_hash alone');
-    assert.equal(afterMeasure.rubric_hash, before.rubric_hash, '...and leaves rubric_hash alone');
 
     write('reference/judge.md', 'step 2: rate against the rubric (edited)');
     const afterJudge = docgradMeta(tmp, config);
     assert.notEqual(afterJudge.judge_hash, afterMeasure.judge_hash, 'editing judge.md moves judge_hash');
     assert.equal(afterJudge.measure_hash, afterMeasure.measure_hash, '...and leaves measure_hash alone');
-    assert.equal(afterJudge.rubric_hash, afterMeasure.rubric_hash, '...and leaves rubric_hash alone');
+
+    write('reference/placement.md', 'rule 4: grounds may live anywhere');
+    const afterPlacement = docgradMeta(tmp, config);
+    assert.notEqual(afterPlacement.judge_hash, afterJudge.judge_hash, 'editing placement.md moves judge_hash');
+    assert.equal(afterPlacement.measure_hash, afterJudge.measure_hash, '...and leaves measure_hash alone');
 
     write('reference/rubric.md', '★4 anchor B');
     const afterRubric = docgradMeta(tmp, config);
-    assert.notEqual(afterRubric.rubric_hash, afterJudge.rubric_hash, 'editing rubric.md moves rubric_hash');
-    assert.equal(afterRubric.measure_hash, afterJudge.measure_hash, '...and leaves measure_hash alone');
-    assert.equal(afterRubric.judge_hash, afterJudge.judge_hash, '...and leaves judge_hash alone');
+    assert.notEqual(afterRubric.judge_hash, afterPlacement.judge_hash, 'editing rubric.md moves judge_hash (folded in at v2.0.0 E4b)');
+    assert.equal(afterRubric.measure_hash, afterPlacement.measure_hash, '...and leaves measure_hash alone');
 
     // Each of the three measure_hash config values still moves it too (on top of the band table +
     // measure.md content it now also covers).
