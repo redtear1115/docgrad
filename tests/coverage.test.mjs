@@ -123,6 +123,49 @@ test('coverage: main flow covered/undocumented/drifted + the min_commits gate', 
   }
 });
 
+// --- E2b-1: measure verdicts -----------------------------------------------------------
+
+test('coverage: measure array — ids in order, right after docgrad, WATCH (undocumented/drifted both >0, no FAIL line — U4)', () => {
+  const tmp = makeCoverageFixture();
+  try {
+    const out = run(tmp);
+    assert.deepEqual(Object.keys(out).slice(0, 2), ['scope', 'docgrad']);
+    assert.deepEqual(
+      out.measure.map((m) => m.id),
+      ['undocumented_dirs', 'drifted_dirs']
+    );
+    const byId = Object.fromEntries(out.measure.map((m) => [m.id, m]));
+    assert.equal(byId.undocumented_dirs.value, out.undocumented.length);
+    assert.equal(byId.undocumented_dirs.verdict, 'WATCH');
+    assert.equal(byId.drifted_dirs.value, out.drifted.length);
+    assert.equal(byId.drifted_dirs.verdict, 'WATCH');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('coverage: measure — src_dirs unset nulls both rows with note "src_dirs is unset"', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-cov-measure-empty-'));
+  try {
+    write(tmp, '.docgrad.yml', 'docs_dirs: [docs/]\nentry_files: [CLAUDE.md]\n');
+    write(tmp, 'CLAUDE.md', '# 專案\n');
+    const out = run(tmp);
+    for (const id of ['undocumented_dirs', 'drifted_dirs']) {
+      const row = out.measure.find((m) => m.id === id);
+      assert.equal(row.verdict, null);
+      assert.equal(row.note, 'src_dirs is unset');
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('coverage: measure — this repo is undocumented_dirs OK, drifted_dirs OK', () => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', root], { encoding: 'utf8' }));
+  assert.ok(out.measure.every((m) => m.verdict === 'OK'), JSON.stringify(out.measure));
+});
+
 test('coverage: boundary matching -- src/authx, mysrc/auth do not count as mentions', () => {
   const tmp = makeCoverageFixture();
   try {

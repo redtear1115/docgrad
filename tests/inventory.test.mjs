@@ -863,6 +863,58 @@ test('inventory: custom thresholds are honoured, flagged, and move measure_hash 
   }
 });
 
+// --- E2b-1: measure verdicts -----------------------------------------------------------
+
+test('inventory: measure array — ids in order, right after docgrad, OK on the shipped-tier fixture', () => {
+  const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', FIXTURE], { encoding: 'utf8' }));
+  assert.deepEqual(Object.keys(out).slice(0, 3), ['scope', 'docgrad', 'measure']);
+  assert.deepEqual(
+    out.measure.map((m) => m.id),
+    ['entry_cost', 'pollution']
+  );
+  const byId = Object.fromEntries(out.measure.map((m) => [m.id, m]));
+  assert.equal(byId.entry_cost.value, out.entry_cost.tokens_est);
+  assert.equal(byId.entry_cost.verdict, 'OK');
+  assert.equal(byId.pollution.value, out.pollution.ratio);
+  assert.equal(byId.pollution.verdict, 'OK');
+});
+
+test('inventory: measure — tight custom tiers make entry_cost FAIL, and a scoped run nulls both rows', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-measure-econ-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'docs'));
+    fs.writeFileSync(path.join(tmp, 'docs/README.md'), '# index\n\nsome prose.\n');
+    fs.writeFileSync(path.join(tmp, 'ENTRY.md'), `# entry\n\n${'padding words here. '.repeat(40)}\n`);
+    fs.writeFileSync(
+      path.join(tmp, '.docgrad.yml'),
+      'docs_dirs: [docs/]\nentry_files: [ENTRY.md]\neconomy:\n  entry_cost_tiers: [50, 40, 30, 20]\n'
+    );
+    const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' }));
+    const entryCost = out.measure.find((m) => m.id === 'entry_cost');
+    assert.equal(entryCost.verdict, 'FAIL');
+    assert.match(entryCost.line, /entry_cost_tiers\[1\]/);
+
+    const scoped = JSON.parse(
+      execFileSync(process.execPath, [SCRIPT, '--root', tmp, '--include', 'docs/**'], { encoding: 'utf8' })
+    );
+    for (const id of ['entry_cost', 'pollution']) {
+      const row = scoped.measure.find((m) => m.id === id);
+      assert.equal(row.verdict, null);
+      assert.equal(row.note, 'full-corpus concept');
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('inventory: measure — this repo is entry_cost OK, pollution OK', () => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const out = JSON.parse(
+    execFileSync(process.execPath, [SCRIPT, '--root', root, '--exclude-ledger', '.docgrad/ledger.jsonl'], { encoding: 'utf8' })
+  );
+  assert.ok(out.measure.every((m) => m.verdict === 'OK'), JSON.stringify(out.measure));
+});
+
 // #51: anchored_ratio was left behind when #40 taught the claim population to recognise API-shaped
 // coordinates. A library repo documents an API, not a file tree, so every rule line scored
 // unanchored *by construction* — and rubric.md's traceability note fires below 0.5, i.e. precisely
