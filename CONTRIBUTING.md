@@ -1,6 +1,6 @@
 # Contributing to docgrad
 
-> **Last updated:** 2026-09-15
+> **Last updated:** 2026-09-17
 
 Thanks for looking. This file covers what is different about contributing here: docgrad measures
 things, so a change can be correct and still be a problem if it silently moves a number that past
@@ -15,6 +15,7 @@ rounds are compared against.
 - [`docs(docgrad):` is a reserved commit prefix](#docsdocgrad-is-a-reserved-commit-prefix)
 - [`.docgrad/` is version-controlled, all of it](#docgrad-is-version-controlled-all-of-it)
 - [Before opening a PR](#before-opening-a-pr)
+  - [Stacked PRs: retarget before the lower one merges](#stacked-prs-retarget-before-the-lower-one-merges)
 - [Interop with other skills](#interop-with-other-skills)
 
 ## Development environment
@@ -119,6 +120,25 @@ break, with no error to notice.
 - `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` agree on `version`
 - Issue first for anything beyond a typo. The issues in this repo carry the reasoning — see #54 or
   #56 for the shape: state the problem, show the measurement, leave the undecided directions visible.
+
+### Stacked PRs: retarget before the lower one merges
+
+A PR whose base is another feature branch merges **into that branch**, not into `main` — and
+GitHub does not retarget it for you when the lower PR merges first. Merge the lower PR, and the
+upper one lands on a branch that is already done: its content is on the remote, the PR reads
+"Merged", and `main` does not have it. Nothing reports the difference.
+
+This has happened twice: #27 merged into `docs/bp-structure-alignment` after #25 had already
+taken that branch into `main` (#28 re-opened the same branch against `main`), and #94 merged into
+the E1 branch after #91 had — #95 existed only to carry it the rest of the way.
+
+So, for every stacked PR:
+
+1. **Before merging the lower PR**, change the upper PR's base to `main`
+   (`gh pr edit <upper> --base main`). Its diff will briefly include the lower PR's commits; that
+   is expected and disappears once the lower PR merges.
+2. **After merging**, check the content actually reached `main`, not just that the PR says Merged:
+   `git fetch && git merge-base --is-ancestor <head-sha> origin/main && echo in-main`.
 
 ## Interop with other skills
 
