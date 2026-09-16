@@ -826,10 +826,10 @@ test('inventory: economy_thresholds reports the shipped values and the arithmeti
   assert.equal(e.pollution_ratio, out.pollution.ratio);
   assert.equal(e.cost_allows_star, 4);
   assert.equal(e.pollution_caps_at, null);
-  assert.match(out.docgrad.thresholds_hash, /^[0-9a-f]{8}$/);
+  assert.match(out.docgrad.measure_hash, /^[0-9a-f]{8}$/);
 });
 
-test('inventory: custom thresholds are honoured, flagged, and move thresholds_hash (#50)', () => {
+test('inventory: custom thresholds are honoured, flagged, and move measure_hash (#50)', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-econ-'));
   try {
     fs.mkdirSync(path.join(tmp, 'docs'));
@@ -850,7 +850,7 @@ test('inventory: custom thresholds are honoured, flagged, and move thresholds_ha
     assert.equal(tight.economy_thresholds.customised, true);
     assert.equal(tight.economy_thresholds.cost_allows_star, 1, 'the same file, a different ruler');
     assert.equal(tight.economy_thresholds.star_5_cost_met, false);
-    assert.notEqual(tight.docgrad.thresholds_hash, shipped.docgrad.thresholds_hash);
+    assert.notEqual(tight.docgrad.measure_hash, shipped.docgrad.measure_hash);
     assert.equal(tight.entry_cost.tokens_est, shipped.entry_cost.tokens_est, 'the measurement itself must not move');
 
     // A partial economy block must keep the other key at its default (the missing deep-merge).

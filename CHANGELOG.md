@@ -3,6 +3,42 @@
 Version authority is `version` in [.claude-plugin/plugin.json](.claude-plugin/plugin.json); this file records changes per version.
 For version-number semantics (semver, docgrad-specific) see [docs/how-to.md](docs/how-to.md) §Cut a release.
 
+## Unreleased
+
+### v2.0.0 epoch 1 — the fingerprints speak in two layers
+
+v2 separates **`measure`** — the five scripts' deterministic output, reproducible, fit to gate CI —
+from **`judge`**, the model's stars, which are not. The evidence for the split is measured: the first
+`--runs 5` eval distribution had the rating each case exists to pin identical in all five runs of all
+three cases, while judge votes over those same unchanging ratings ran `2/3 1/3 3/3 0/3 3/3` (#69,
+#79).
+
+This epoch does **one** thing: it renames the fingerprints into that vocabulary.
+
+- `thresholds_hash` → **`measure_hash`**
+- `judgement_hash` → **`judge_hash`**
+
+**Both digest the same inputs in the same order, so neither value moved** — `ec596daf` and
+`c40cc974` on this repo, either side of the change, pinned as literals in the test suite. A rename
+that quietly changed a digest would otherwise look exactly like one that did not.
+
+**`rubric_hash` does move**, from **`1bd26aa6` to `28b8b7fc`**, and the reason is
+circular in a way worth stating: the move is caused by the §Version history entry that discloses it.
+`reference/rubric.md` is hashed whole, so recording a break inside it *is* a break. `judge_hash`,
+`measure_hash` and `corpus_hash` are unmoved.
+
+**Not in this epoch**, and named so the intermediate state is not mistaken for an oversight:
+
+- `reference/audit.md` is **not** split yet, and `judge_hash` still covers it — so a judge-side
+  fingerprint still covers measure-side instructions. The split, and the repoint, are the next epoch.
+- No ★ anchor changed. The retirement of linkage/freshness/economy's star anchors — the actual
+  semantic change behind the major — is the next epoch too.
+- `history.jsonl` rows written before this carry the old field names, and nothing rewrites them.
+  `report` will need to map them; until it does, one ruler under two names reads as two rulers (#82).
+- `reference/improve.md` still tells a round to copy `docgrad_version` "straight from" a block whose
+  key is `version` (#90), and its example row still mixes live fingerprint values with fictional ones
+  (#89). Both pre-date this epoch; both are tracked.
+
 ## 1.9.2 — 2026-09-16
 
 Four measurement fixes and one documentation entry. No ★1–★5 anchor text changed and no default

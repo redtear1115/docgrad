@@ -146,7 +146,7 @@ const DEFAULTS = {
   // they were inert and reference/rubric.md retyped the numbers in prose, so editing them changed
   // nothing while init.md warned that it changed everything). inventory.mjs reads them now and the
   // rubric cites what it emits. Changing them does not change a *shipped* anchor — it changes the
-  // ruler this repo is graded by, which is why they are in thresholds_hash: a score measured at
+  // ruler this repo is graded by, which is why they are in measure_hash: a score measured at
   // custom thresholds is not comparable with one measured at the defaults, and the fingerprint is
   // how a reader can tell.
   economy: { entry_cost_tiers: [20000, 10000, 5000, 3000], pollution_max: 0.1 },
@@ -1360,7 +1360,16 @@ function resolveSkillRoot() {
   }
 }
 
-// --- thresholds_hash ---------------------------------------------------------------
+// --- measure_hash (v2: was thresholds_hash) -----------------------------------------
+//
+// v2 splits the two layers everywhere: `measure` is the deterministic script output, reproducible
+// and fit to gate CI; `judge` is the model's stars, which are not. The fingerprints follow, because
+// a hash spanning both would put judge's prose in the way of measure's trend — exactly what the
+// split exists to prevent.
+//
+// This epoch renames only. The digest is byte-identical to the `thresholds_hash` it replaces: the
+// same three config values, in the same order. `measure.md`'s content joins it when that file
+// exists (the next epoch); until then this covers the config half of measure's ruler alone.
 //
 // rubric_hash fingerprints the ruler docgrad ships. It does not cover the ruler a *repo* is
 // actually graded by, because three config values move judgement boundaries without touching a
@@ -1373,11 +1382,11 @@ function resolveSkillRoot() {
 // The first two were inert until v1.7.0 and warned about anyway; the third has been live since it
 // was introduced and was never warned about at all — the wiring was the opposite of what the docs
 // said in both directions (#50). Now they are all read, and all fingerprinted: two rounds whose
-// thresholds_hash differs were not measured by the same ruler, however identical their rubric_hash.
+// measure_hash differs were not measured by the same ruler, however identical their rubric_hash.
 //
 // null without a config, for the same reason corpus_hash is: "unknown" must stay distinguishable
 // from "the defaults".
-export function thresholdsHash(config) {
+export function measureHash(config) {
   if (!config) return null;
   return createHash('sha256')
     .update(
@@ -1416,7 +1425,13 @@ function findManifest(startDir) {
   return null;
 }
 
-// --- judgement_hash ------------------------------------------------------------------
+// --- judge_hash (v2: was judgement_hash) ---------------------------------------------
+//
+// Renamed, not recomputed: the same two files, in the same order, so the value does not move.
+// `reference/audit.md` is still one of them **and still contains measure-side instructions** —
+// that file is split into `measure.md` / `judge.md` in the next epoch, and this hash repoints then.
+// Until it does, a judge-side fingerprint covering measure-side prose is a named intermediate
+// state, not an oversight.
 //
 // rubric_hash fingerprints the **anchors**. It does not fingerprint the **rules for applying them**,
 // and those live in different files — which v1.7.0 demonstrated the hard way: #48 added two boundary
@@ -1445,12 +1460,12 @@ function findManifest(startDir) {
 // Whole-file, like rubric_hash: a formatting-only edit moves it. That is the same trade rubric_hash
 // already makes, and narrowing to rule sections would have to change rubric_hash too to stay
 // coherent — a separate decision, not a side effect of this one.
-const JUDGEMENT_FILES = ['reference/audit.md', 'reference/placement.md'];
+const JUDGE_FILES = ['reference/audit.md', 'reference/placement.md'];
 
-export function judgementHash(skillRoot = SKILL_ROOT) {
+export function judgeHash(skillRoot = SKILL_ROOT) {
   const h = createHash('sha256');
   try {
-    for (const rel of JUDGEMENT_FILES) {
+    for (const rel of JUDGE_FILES) {
       // The path is hashed alongside the content so that adding a file later cannot collide with an
       // edit to an existing one.
       h.update(rel, 'utf8');
@@ -1480,8 +1495,8 @@ export function docgradMeta(skillRoot = SKILL_ROOT, config = null) {
   return {
     version,
     rubric_hash: rubricHash,
-    judgement_hash: judgementHash(skillRoot),
-    thresholds_hash: thresholdsHash(config),
+    measure_hash: measureHash(config),
+    judge_hash: judgeHash(skillRoot),
     corpus_hash: corpusHash(config),
   };
 }

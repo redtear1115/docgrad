@@ -76,11 +76,11 @@
    Any dimension dropping → revert the change that caused the drop, and note it.
 5. **Record and commit**:
    - Append one line to `.docgrad/history.jsonl` (create it if it doesn't exist). `docgrad_version`, `rubric_hash`,
-     `judgement_hash`, `thresholds_hash` and `corpus_hash` **must be copied straight from `inventory.mjs`'s
+     `judge_hash`, `measure_hash` and `corpus_hash` **must be copied straight from `inventory.mjs`'s
      output `docgrad` block** (all five live there), don't fill them in yourself:
 
      ```json
-     {"round": 3, "date": "2026-07-12", "dimension": "linkage", "docgrad_version": "1.1.0", "rubric_hash": "b6e4f7f3", "judgement_hash": "c40cc974", "thresholds_hash": "ec596daf", "corpus_hash": "684034d6", "scores": {"completeness": 4, "correctness": 3, "freshness": 4, "linkage": 4, "consistency": 4, "economy": 4}, "coverage": {"claims_verified": 23, "claims_total": 68}, "notes": "fixed 12 dead links; folded 2 orphans into the index"}
+     {"round": 3, "date": "2026-07-12", "dimension": "linkage", "docgrad_version": "1.1.0", "rubric_hash": "b6e4f7f3", "judge_hash": "c40cc974", "measure_hash": "ec596daf", "corpus_hash": "684034d6", "scores": {"completeness": 4, "correctness": 3, "freshness": 4, "linkage": 4, "consistency": 4, "economy": 4}, "coverage": {"claims_verified": 23, "claims_total": 68}, "notes": "fixed 12 dead links; folded 2 orphans into the index"}
      ```
 
      The five version fields are for `report` to draw comparability breakpoints: when `rubric_hash` changes it means the ruler changed,
@@ -91,15 +91,15 @@
      consecutive lines, so a round that omits it leaves the break undetectable. `corpus_hash` is `null` when the round ran without a
      config. Old records missing these fields are treated as unknown and don't block anything.
 
-     `thresholds_hash` (added v1.7.0) covers the three config values that move a judgement boundary without changing a word of
+     `measure_hash` (**added as `thresholds_hash` in v1.7.0, renamed in v2.0.0** — same three values, same digest) covers the three config values that move a judgement boundary without changing a word of
      `rubric.md`: `economy.entry_cost_tiers`, `economy.pollution_max` and `freshness.stale_after_days`. Two rounds whose
-     `thresholds_hash` differs were **not measured by the same ruler**, however identical their `rubric_hash` — so treat a move
+     `measure_hash` differs were **not measured by the same ruler**, however identical their `rubric_hash` — so treat a move
      exactly like a `rubric_hash` move and draw the break. One thing it cannot tell you: rounds recorded **before** v1.7.0 have no
      such field, so the round where a repo's custom `economy:` block went from inert to authoritative reads as "unknown → first
      value", not as a change. That transition is a real break and it is stated in the v1.7.0 CHANGELOG rather than detectable
      here.
 
-     `judgement_hash` (added v1.8.0) covers the files that carry **the rules for applying the anchors** — `audit.md` (the
+     `judge_hash` (**added as `judgement_hash` in v1.8.0, renamed in v2.0.0**) covers the files that carry **the rules for applying the anchors** — `audit.md` (the
      scoring procedure, the sampling rule, the boundary rules) and `placement.md` (what counts as a consistency deduction).
      `rubric_hash` fingerprints the anchors themselves; this one fingerprints how they are applied, and the two move
      independently. Treat a move exactly like a `rubric_hash` move. Same blind spot as the others: rounds recorded **before**

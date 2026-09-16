@@ -56,15 +56,19 @@ repo's `.docgrad.yml`, write JSON to stdout, report errors on stderr with a non-
 
 ## The fingerprint discipline
 
-Four hashes travel in every round's `history.jsonl` line, and `report` uses them to draw
+Four hashes travel in every round's `history.jsonl` line. **Two were renamed in v2.0.0** —
+`judgement_hash` → `judge_hash` and `thresholds_hash` → `measure_hash` — digesting the same inputs,
+so the values did not move. The names now say which of the two layers each one answers for: v2 separates
+`measure` (the scripts' output, reproducible, fit to gate CI) from `judge` (the model's stars, which
+are not), and a fingerprint spanning both would put judge's prose in the way of measure's trend, and `report` uses them to draw
 comparability breaks — the lines that tell a reader "scores either side of this cannot be compared".
 Know which one your change moves:
 
 | Hash | Covers | Source |
 |---|---|---|
 | `rubric_hash` | `reference/rubric.md`, whole file | `lib.mjs › docgradMeta()` |
-| `judgement_hash` | `reference/audit.md` + `reference/placement.md` | `lib.mjs › JUDGEMENT_FILES` |
-| `thresholds_hash` | `economy.entry_cost_tiers`, `economy.pollution_max`, `freshness.stale_after_days` | `lib.mjs › thresholdsHash()` |
+| `judge_hash` | `reference/audit.md` + `reference/placement.md` | `lib.mjs › JUDGE_FILES` |
+| `measure_hash` | `economy.entry_cost_tiers`, `economy.pollution_max`, `freshness.stale_after_days` | `lib.mjs › measureHash()` |
 | `corpus_hash` | The config fields that select the corpus | `lib.mjs › corpusFingerprint()` |
 
 Two rules follow from this:
