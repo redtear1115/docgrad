@@ -300,3 +300,34 @@ test('coverage: --locate-ledger no-op note survives the src_dirs-unset early ret
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// --- v2.0.0 E2c-1: targets / accept / meets_target / legacy-target note ------------------------
+
+test('coverage: measure — every row carries accept and meets_target, and legacy targets are absent by default', () => {
+  const tmp = makeCoverageFixture();
+  try {
+    const out = run(tmp);
+    for (const row of out.measure) {
+      assert.ok('accept' in row, `${row.id} is missing accept`);
+      assert.ok('meets_target' in row, `${row.id} is missing meets_target`);
+    }
+    assert.equal(out.note, undefined, 'no legacy targets in this config, no note');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('coverage: legacy star target keys produce the shared warning clause in note, dropped from targets', () => {
+  const tmp = makeCoverageFixture();
+  try {
+    fs.writeFileSync(
+      path.join(tmp, '.docgrad.yml'),
+      DOCGRAD_YML + 'targets:\n  completeness: 4\n  economy: 3\n'
+    );
+    const out = run(tmp);
+    assert.match(out.note, /targets: ignored legacy star targets completeness, economy/);
+    assert.match(out.note, /measure\.md §Targets/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});

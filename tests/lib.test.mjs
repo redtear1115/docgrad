@@ -36,8 +36,8 @@ freshness:
   convention: frontmatter
   field: last_updated
 targets:
-  completeness: 4
-  correctness: 3
+  entry_cost: WATCH
+  dead_link_ratio: OK
 correctness_sample: 8
 scenario: "Add a typical new feature to core"  # trailing comment
 language: zh-TW
@@ -48,8 +48,8 @@ language: zh-TW
   assert.equal(got.index_file, 'docs/README.md');
   assert.deepEqual(got.exclude, []);
   assert.deepEqual(got.freshness, { convention: 'frontmatter', field: 'last_updated' });
-  assert.equal(got.targets.completeness, 4);
-  assert.equal(got.targets.correctness, 3);
+  assert.equal(got.targets.entry_cost, 'WATCH');
+  assert.equal(got.targets.dead_link_ratio, 'OK');
   assert.equal(got.correctness_sample, 8);
   assert.equal(got.scenario, 'Add a typical new feature to core');
   assert.equal(got.language, 'zh-TW');
@@ -99,8 +99,8 @@ test('loadConfig: unset fields get their defaults, nested maps deep-merge', () =
     assert.deepEqual(cfg.docs_files, []); // v1.4.0 new field: must default to an empty array even when an old config omits it (otherwise collectFiles crashes)
     assert.deepEqual(cfg.out_of_scope, []); // #44's new field: same requirement, and [] is what keeps every pre-#44 config's ratings and corpus_hash exactly where they were
     assert.equal(cfg.index_file, null);
-    assert.equal(cfg.targets.completeness, 4);
-    assert.equal(cfg.targets.economy, 4); // v1.0.0's sixth dimension: an old config that omits it must still get the default target
+    assert.deepEqual(cfg.targets, {}); // v2: no targets block at all -> {} (default OK for every signal)
+    assert.deepEqual(cfg.legacy_targets, []);
     assert.deepEqual(cfg.economy.entry_cost_tiers, [20000, 10000, 5000, 3000]);
     assert.equal(cfg.economy.pollution_max, 0.1);
     assert.equal(cfg.freshness.convention, 'frontmatter');
@@ -284,7 +284,7 @@ test('corpusHash: cosmetic differences that mean the same corpus hash the same',
 test('corpusHash: fields outside the corpus definition do not move it', () => {
   const base = { docs_dirs: ['docs/'], docs_files: [], entry_files: [], exclude: [], index_file: null };
   assert.equal(
-    corpusHash({ ...base, src_dirs: ['src/'], scenarios: ['src/a.ts'], correctness_sample: 20, targets: { economy: 5 } }),
+    corpusHash({ ...base, src_dirs: ['src/'], scenarios: ['src/a.ts'], correctness_sample: 20, targets: { entry_cost: 'WATCH' } }),
     corpusHash(base),
     'a corpus fingerprint must not react to rubric/target/measurement settings'
   );
@@ -1267,10 +1267,14 @@ test('loadLedgerRows: error text names the flag it was called for, and loadLedge
 // grows new §Freshness/§Linkage/§Economy notes and §Token economy signals sections and
 // `MEASURE_BANDS[*].source` strings are reworded to cite the retired anchors (so `measure_hash`
 // moves too); rubric.md itself changes (so `rubric_hash` moves). `corpus_hash` is unaffected.
-// **E4b (this epoch) folds the fingerprint that was `rubric_hash` (before E4b) into `judge_hash`.**
+// **E4b folds the fingerprint that was `rubric_hash` (before E4b) into `judge_hash`.**
 // Once E2b-2 left rubric.md holding only judge anchors, rubric.md joins `lib.mjs › JUDGE_FILES`:
 // `judge_hash` moves a third time and the separate field retires. `measure_hash` and `corpus_hash`
 // are unaffected.
+// **E2c-1 (this epoch) moves `measure_hash` again**: `.docgrad.yml`'s `targets` block converts to
+// v2 form (a bare `targets:`, no config *values* change — this hash has never read `targets`) and
+// `reference/measure.md` grows a new §Targets section and §Version history entry, both
+// `measure_hash` inputs. `judge_hash` and `corpus_hash` are unaffected.
 // The literals below were pinned rather than recomputed because a hash that quietly changed would
 // otherwise look exactly like one that did not.
 test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes stay independent', () => {
@@ -1279,8 +1283,8 @@ test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes st
   const meta = docgradMeta(skillRoot, config);
 
   assert.deepEqual(Object.keys(meta), ['version', 'measure_hash', 'judge_hash', 'corpus_hash']);
-  assert.equal(meta.measure_hash, '38724510', 'measure_hash unaffected by E4b (unchanged since E2b-2)');
-  assert.equal(meta.judge_hash, '6c0f1ed0', 'judge_hash after E4b (was e8881920 through E2b-2)');
+  assert.equal(meta.measure_hash, '4623109b', 'measure_hash after E2c-1 (was 38724510 through E4b)');
+  assert.equal(meta.judge_hash, '6c0f1ed0', 'judge_hash after E4b (was e8881920 through E2b-2), unchanged by E2c-1');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
   // change; a placement.md edit is a judge-side one; neither may disturb the other, or #82's
@@ -1324,6 +1328,18 @@ test('measureDigest: pure, injectable, null when a MEASURE_FILES entry is null o
   assert.equal(measureDigest(config, MEASURE_BANDS, files), a, 'deterministic for the same inputs');
   assert.equal(measureDigest(config, MEASURE_BANDS, { [MEASURE_FILES[0]]: null }), null, 'an unreadable file is null, not a hash of an empty string');
   assert.equal(measureDigest(null, MEASURE_BANDS, files), null);
+});
+
+// Targets decide when a repo is satisfied, not how it is measured — unchanged from 1.x, when
+// `targets` held star values instead. tests/lib.test.mjs's corpusHash test above covers the same
+// property for corpus_hash; this is the measure_hash counterpart.
+test('measureDigest/measureHash: unchanged when only config.targets differs', () => {
+  const config = loadConfig(FIXTURE);
+  const files = { [MEASURE_FILES[0]]: 'step 1: run the scripts' };
+  const base = measureDigest(config, MEASURE_BANDS, files);
+  const withTargets = { ...config, targets: { entry_cost: 'WATCH', dead_link_ratio: 'WATCH' } };
+  assert.equal(measureDigest(withTargets, MEASURE_BANDS, files), base, 'targets are not a measure_hash input');
+  assert.equal(measureHash(withTargets), measureHash(config), 'same property through measureHash');
 });
 
 test('MEASURE_BANDS: mutating a threshold moves the digest — a fail edit and an ok edit each move it, on their own', () => {
@@ -1638,4 +1654,177 @@ test('evaluateMeasure: config-resolved bounds — a custom entry_cost_tiers/poll
 
 test('evaluateMeasure: unknown id throws', () => {
   assert.throws(() => evaluateMeasure('not_a_real_id', { value: 1 }, loadConfig(FIXTURE), {}));
+});
+
+// --- v2 E2c-1: targets / accept / meets_target ------------------------------------------------
+
+function writeConfig(tmp, targetsBlock) {
+  fs.writeFileSync(
+    path.join(tmp, '.docgrad.yml'),
+    `docs_dirs: [docs/]\nfreshness:\n  convention: heading-line\n  field: "Last updated:"\n${targetsBlock}`
+  );
+}
+
+test('loadConfig/normalizeTargets: absent key, null/~, bare targets:, and the string "{}" all mean {}', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-targets-'));
+  try {
+    writeConfig(tmp, ''); // absent key
+    assert.deepEqual(loadConfig(tmp).targets, {});
+    assert.deepEqual(loadConfig(tmp).legacy_targets, []);
+
+    writeConfig(tmp, 'targets: null\n');
+    assert.deepEqual(loadConfig(tmp).targets, {});
+
+    writeConfig(tmp, 'targets: ~\n');
+    assert.deepEqual(loadConfig(tmp).targets, {});
+
+    writeConfig(tmp, 'targets:\n'); // bare -> parses to {}
+    assert.deepEqual(loadConfig(tmp).targets, {});
+
+    writeConfig(tmp, 'targets: {}\n'); // parser has no flow-map support: this is the string "{}"
+    assert.deepEqual(loadConfig(tmp).targets, {});
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig/normalizeTargets: block form with a valid OK/WATCH measure signal parses', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-targets-'));
+  try {
+    writeConfig(tmp, 'targets:\n  entry_cost: WATCH\n  dead_link_ratio: OK\n');
+    const cfg = loadConfig(tmp);
+    assert.deepEqual(cfg.targets, { entry_cost: 'WATCH', dead_link_ratio: 'OK' });
+    assert.deepEqual(cfg.legacy_targets, []);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig/normalizeTargets: legacy numeric star keys are dropped into legacy_targets', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-targets-'));
+  try {
+    writeConfig(tmp, 'targets:\n  completeness: 4\n  economy: 3\n  entry_cost: WATCH\n');
+    const cfg = loadConfig(tmp);
+    assert.deepEqual(cfg.targets, { entry_cost: 'WATCH' });
+    assert.deepEqual(cfg.legacy_targets.sort(), ['completeness', 'economy']);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig/normalizeTargets: legacy dimension with a non-numeric value is a config error', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-targets-'));
+  try {
+    writeConfig(tmp, 'targets:\n  completeness: WATCH\n');
+    assert.throws(() => loadConfig(tmp), /judged dimensions have no targets in v2/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig/normalizeTargets: FAIL is never an acceptable target', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-targets-'));
+  try {
+    writeConfig(tmp, 'targets:\n  entry_cost: FAIL\n');
+    assert.throws(() => loadConfig(tmp), /must be "OK" or "WATCH"/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig/normalizeTargets: an invalid value on a measure signal (lowercase, a number) is a config error', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-targets-'));
+  try {
+    writeConfig(tmp, 'targets:\n  entry_cost: watch\n');
+    assert.throws(() => loadConfig(tmp), /must be "OK" or "WATCH"/);
+
+    writeConfig(tmp, 'targets:\n  entry_cost: 4\n');
+    assert.throws(() => loadConfig(tmp), /must be "OK" or "WATCH"/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig/normalizeTargets: an unknown key is a config error naming the valid ids', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-targets-'));
+  try {
+    writeConfig(tmp, 'targets:\n  not_a_signal: OK\n');
+    assert.throws(() => loadConfig(tmp), /is not a measure signal/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig/normalizeTargets: targets: WATCH (a bare scalar) is a config error', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-targets-'));
+  try {
+    writeConfig(tmp, 'targets: WATCH\n');
+    assert.throws(() => loadConfig(tmp), /targets must be a map/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig/normalizeTargets: targets: [x] (a list) is a config error', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-targets-'));
+  try {
+    writeConfig(tmp, 'targets: [x]\n');
+    assert.throws(() => loadConfig(tmp), /targets must be a map/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig/normalizeTargets: targets: 4 (a number) is a config error', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-targets-'));
+  try {
+    writeConfig(tmp, 'targets: 4\n');
+    assert.throws(() => loadConfig(tmp), /targets must be a map/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('evaluateMeasure: accept/meets_target — every verdict × accept combination, including a null verdict', () => {
+  const configDefault = loadConfig(FIXTURE); // no targets block -> {} -> accept defaults to OK everywhere
+  const configWatch = { ...configDefault, targets: { entry_cost: 'WATCH' } };
+
+  // OK verdict: meets_target true regardless of accept.
+  assert.deepEqual(
+    [evaluateMeasure('entry_cost', { value: 5000 }, configDefault, {}).accept, evaluateMeasure('entry_cost', { value: 5000 }, configDefault, {}).meets_target],
+    ['OK', true]
+  );
+  assert.deepEqual(
+    [evaluateMeasure('entry_cost', { value: 5000 }, configWatch, {}).accept, evaluateMeasure('entry_cost', { value: 5000 }, configWatch, {}).meets_target],
+    ['WATCH', true]
+  );
+
+  // WATCH verdict: meets_target only when accept is WATCH.
+  assert.deepEqual(
+    [evaluateMeasure('entry_cost', { value: 8000 }, configDefault, {}).accept, evaluateMeasure('entry_cost', { value: 8000 }, configDefault, {}).meets_target],
+    ['OK', false]
+  );
+  assert.deepEqual(
+    [evaluateMeasure('entry_cost', { value: 8000 }, configWatch, {}).accept, evaluateMeasure('entry_cost', { value: 8000 }, configWatch, {}).meets_target],
+    ['WATCH', true]
+  );
+
+  // FAIL verdict: meets_target is always false, even when accept is WATCH.
+  assert.deepEqual(
+    [evaluateMeasure('entry_cost', { value: 20000 }, configWatch, {}).accept, evaluateMeasure('entry_cost', { value: 20000 }, configWatch, {}).verdict, evaluateMeasure('entry_cost', { value: 20000 }, configWatch, {}).meets_target],
+    ['WATCH', 'FAIL', false]
+  );
+
+  // null verdict (no number to judge): meets_target is null, accept is still reported.
+  const scoped = evaluateMeasure('entry_cost', { value: 1 }, configWatch, { scoped: true });
+  assert.equal(scoped.verdict, null);
+  assert.equal(scoped.accept, 'WATCH');
+  assert.equal(scoped.meets_target, null);
+});
+
+test('evaluateMeasure: accept/meets_target keys sit right after verdict', () => {
+  const r = evaluateMeasure('entry_cost', { value: 5000 }, loadConfig(FIXTURE), {});
+  const keys = Object.keys(r);
+  assert.equal(keys[keys.indexOf('verdict') + 1], 'accept');
+  assert.equal(keys[keys.indexOf('accept') + 1], 'meets_target');
 });
