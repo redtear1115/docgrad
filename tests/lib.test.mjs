@@ -1283,7 +1283,7 @@ test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes st
   const meta = docgradMeta(skillRoot, config);
 
   assert.deepEqual(Object.keys(meta), ['version', 'measure_hash', 'judge_hash', 'corpus_hash']);
-  assert.equal(meta.measure_hash, '4623109b', 'measure_hash after E2c-1 (was 38724510 through E4b)');
+  assert.equal(meta.measure_hash, 'cc49bc6f', 'measure_hash after E2c-1 (was 38724510 through E4b)');
   assert.equal(meta.judge_hash, '6c0f1ed0', 'judge_hash after E4b (was e8881920 through E2b-2), unchanged by E2c-1');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
@@ -1716,30 +1716,40 @@ test('loadConfig/normalizeTargets: legacy dimension with a non-numeric value is 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-targets-'));
   try {
     writeConfig(tmp, 'targets:\n  completeness: WATCH\n');
-    assert.throws(() => loadConfig(tmp), /judged dimensions have no targets in v2/);
+    assert.throws(() => loadConfig(tmp), /1\.x dimension names are not v2 targets/);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
 
-test('loadConfig/normalizeTargets: FAIL is never an acceptable target', () => {
+test('loadConfig/normalizeTargets: FAIL is never an acceptable target, and the message says so', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-targets-'));
   try {
     writeConfig(tmp, 'targets:\n  entry_cost: FAIL\n');
-    assert.throws(() => loadConfig(tmp), /must be "OK" or "WATCH"/);
+    assert.throws(() => loadConfig(tmp), /must be "OK" or "WATCH".*FAIL can never be accepted as a target/);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
 
-test('loadConfig/normalizeTargets: an invalid value on a measure signal (lowercase, a number) is a config error', () => {
+test('loadConfig/normalizeTargets: an invalid value on a measure signal (lowercase, a number) is a config error, with no FAIL clause when the value is not FAIL', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-targets-'));
   try {
     writeConfig(tmp, 'targets:\n  entry_cost: watch\n');
     assert.throws(() => loadConfig(tmp), /must be "OK" or "WATCH"/);
+    try {
+      loadConfig(tmp);
+    } catch (e) {
+      assert.ok(!/FAIL can never be accepted/.test(e.message), 'the FAIL-specific clause must not appear for a non-FAIL value');
+    }
 
     writeConfig(tmp, 'targets:\n  entry_cost: 4\n');
     assert.throws(() => loadConfig(tmp), /must be "OK" or "WATCH"/);
+    try {
+      loadConfig(tmp);
+    } catch (e) {
+      assert.ok(!/FAIL can never be accepted/.test(e.message), 'the FAIL-specific clause must not appear for a non-FAIL value');
+    }
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

@@ -354,11 +354,12 @@ function validateFreshnessFields(freshness, configFile) {
 
 // --- targets (v2) -----------------------------------------------------------------
 //
-// v1's `targets` held a star (1–5) per judged dimension (completeness, correctness, freshness,
-// linkage, consistency, economy) and fed the judge's rating. v2 splits judge from measure (#79/#80),
-// and a judged dimension has no target any more — only a measure signal (a `MEASURE_BANDS` id) does,
-// and only two verdicts are ever acceptable: `OK` (the default for every signal) or `WATCH`. `FAIL`
-// can never be a target — see `meets_target` in `evaluateMeasure`.
+// v1's `targets` held a star (1–5) per 1.x dimension (completeness, correctness, freshness,
+// linkage, consistency, economy) and fed the judge's rating. v2 splits judge from measure (#79/#80):
+// three of those names (completeness, correctness, consistency) are judged and have no target any
+// more; the other three (freshness, linkage, economy) are now measure signals, named by their
+// `MEASURE_BANDS` id instead. Only two verdicts are ever acceptable for a signal: `OK` (the default
+// for every signal) or `WATCH`. `FAIL` can never be a target — see `meets_target` in `evaluateMeasure`.
 //
 // A v1 config's six star keys are recognized and dropped rather than rejected outright, so an old
 // `.docgrad.yml` still loads; `legacy_targets` carries the dropped key names back to the caller so
@@ -393,8 +394,10 @@ export function normalizeTargets(parsedTargets, configFile) {
       }
       throw new Error(
         `${configFile}: targets.${key} must be a number in v1 configs, but got ${describeValue(value)}. ` +
-          `judged dimensions have no targets in v2; targets now name measure signals (entry_cost, dead_link_ratio, …) ` +
-          `with an accepted verdict of OK or WATCH — see measure.md §Targets.`
+          `1.x dimension names are not v2 targets: completeness, correctness and consistency are judged ` +
+          `and have no targets; freshness, linkage and economy are now measure signals, so name the signal ` +
+          `id instead (e.g. \`key_doc_age\`, \`dead_link_ratio\`, \`entry_cost\`). Block form: ` +
+          `targets:\n  entry_cost: WATCH`
       );
     }
     if (MEASURE_BANDS.some((r) => r.id === key)) {
@@ -403,8 +406,8 @@ export function normalizeTargets(parsedTargets, configFile) {
         continue;
       }
       throw new Error(
-        `${configFile}: targets.${key} must be "OK" or "WATCH", but got ${describeValue(value)}. ` +
-          `FAIL can never be accepted as a target.`
+        `${configFile}: targets.${key} must be "OK" or "WATCH", but got ${describeValue(value)}.` +
+          (value === 'FAIL' ? ' FAIL can never be accepted as a target.' : '')
       );
     }
     const validIds = MEASURE_BANDS.map((r) => r.id).join(', ');

@@ -215,7 +215,7 @@ epoch (E2c) — #82 can be closed once that lands.
 
 ### v2.0.0 epoch 2c-1 — `targets` names measure signals, `accept`/`meets_target` are added, the 1.x economy star fields retire
 
-`targets` held a star (1–5) per judged dimension in 1.x. Since judge and measure split, a judged
+`targets` held a star (1–5) per 1.x dimension in 1.x. Since judge and measure split, a judged
 dimension has no target any more: `targets` now names a `measure` signal id (`entry_cost`,
 `dead_link_ratio`, …) and accepts exactly `OK` (the default, for every signal) or `WATCH`, in block
 form —
@@ -225,9 +225,10 @@ targets:
   entry_cost: WATCH
 ```
 
-— validated at `loadConfig` time: an unknown id, a judged dimension, `FAIL`, a number or any other
-spelling is a config error naming the correct form. A config still carrying a 1.x star-valued key
-(`completeness: 4`, …) is not rejected: the key is dropped and a warning is appended to the run's
+— validated at `loadConfig` time: an unknown id, a 1.x dimension name with a non-numeric value,
+`FAIL`, a number or any other spelling is a config error naming the correct form. A config still
+carrying a 1.x star-valued key (`completeness: 4`, …) is not rejected: the key is dropped and a
+warning is appended to the run's
 `note` (a new top-level `note` on `inventory.mjs`, which had none before, present only when this
 fires); `links.mjs`, `freshness.mjs` and `coverage.mjs` append the same clause to their existing
 `note`. `retrieval.mjs` emits no `measure` array and gets no warning. See
@@ -244,7 +245,7 @@ fires); `links.mjs`, `freshness.mjs` and `coverage.mjs` append the same clause t
 - **`targets` is still not a `measure_hash` input**, unchanged from 1.x: it decides when a repo is
   satisfied, not how it is measured. `tests/lib.test.mjs` pins this both for `corpus_hash` (as
   before) and for `measure_hash` (new).
-- **`measure_hash` moves, from `38724510` to `4623109b`.** `reference/measure.md` grows a new
+- **`measure_hash` moves, from `38724510` to `cc49bc6f`.** `reference/measure.md` grows a new
   §Targets section and its own §Version history section (with one entry, v2.0.0 E2c-1) — both
   `measure_hash` inputs. **`judge_hash` is unchanged, `6c0f1ed0`.** `corpus_hash` is unchanged,
   `71d1ce84`: `.docgrad.yml`'s `targets` block converts to v2 form (a bare `targets:`), which is not

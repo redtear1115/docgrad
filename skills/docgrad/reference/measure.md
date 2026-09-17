@@ -125,13 +125,14 @@ what a repo may settle at, it never excuses a FAIL. `meets_target` is `null` exa
 is `null` (no number was measured, so there is nothing to judge).
 
 A `targets` key must name a `measure` signal id (`entry_cost`, `dead_link_ratio`, …) with a value of
-exactly `OK` or `WATCH`; anything else — a judged dimension, an unknown id, `FAIL`, a number, a
-different spelling — is a config error at load time, not a silently ignored setting. Configs written
-before v2.0.0 named one of the six judged dimensions (`completeness`, `correctness`, `freshness`,
-`linkage`, `consistency`, `economy`) with a star value (`completeness: 4`); those keys are **ignored
-with a warning** rather than rejected, so an old config still loads. The warning lands in the same
-`note` field each script already reports on (a new top-level `note` on `inventory.mjs`, which has no
-other top-level `note`, present only when this fires) and names the dropped keys.
+exactly `OK` or `WATCH`; anything else — a 1.x dimension name with a non-numeric value, an unknown
+id, `FAIL`, a number, a different spelling — is a config error at load time, not a silently ignored
+setting. Configs written before v2.0.0 named one of the six 1.x star-rated dimensions
+(`completeness`, `correctness`, `freshness`, `linkage`, `consistency`, `economy`) with a star value
+(`completeness: 4`); those keys are **ignored with a warning** rather than rejected, so an old config
+still loads. The warning lands in the same `note` field each script already reports on (a new
+top-level `note` on `inventory.mjs`, which has no other top-level `note`, present only when this
+fires) and names the dropped keys.
 
 `targets` is **not** a `measure_hash` input, same as in 1.x when it held star values instead: it
 decides when a repo is *satisfied*, not *how it is measured*, and two rounds measured the same way
@@ -469,6 +470,9 @@ partially parse it. Report *"the gate has been modified beyond its thresholds; d
 evaluate it — run it yourself with the command above"* and stop at that. Never `import` it, never
 evaluate it, never shell out to it.
 
+No gate file → say nothing. An absent gate is the normal state for a repo that has not graduated,
+and reporting its absence every round would be noise.
+
 ## Version history
 
 Comparability notes for a measure-side change — the counterpart to [rubric.md](rubric.md) §Version
@@ -479,9 +483,10 @@ E4b entry for why `judge_hash` now folds rubric.md in.
 <details>
 <summary>Expand</summary>
 
-- **v2.0.0 (E2c-1) — `targets` names measure signals instead of judged dimensions, `accept` /
-  `meets_target` are added to every verdict row, and the three 1.x economy star fields are removed**:
-  - **`targets` semantics.** In 1.x, `targets` held a star (1–5) per judged dimension and fed the
+- **v2.0.0 (E2c-1) — `targets` names measure signals instead of 1.x star-rated dimensions,
+  `accept` / `meets_target` are added to every verdict row, and the three 1.x economy star fields
+  are removed**:
+  - **`targets` semantics.** In 1.x, `targets` held a star (1–5) per 1.x dimension and fed the
     judge. Since judge and measure split (E1/E2a), a judged dimension has no target: `targets` now
     names a `measure` signal id and accepts exactly `OK` (the default, for every signal) or `WATCH`,
     written in block form — `targets:\n  entry_cost: WATCH`. `FAIL` can never be accepted. A config
@@ -492,7 +497,8 @@ E4b entry for why `judge_hash` now folds rubric.md in.
     `null` verdict) — see §Targets above for the full semantics. These are new fields on an existing
     row shape; no existing field changed meaning.
   - **The three 1.x economy star fields are removed.** `inventory.economy_thresholds` no longer
-    reports `cost_allows_star`, `star_5_cost_met` or `pollution_caps_at` — arithmetic over the retired ★1–★5 economy anchor, kept one epoch past E2b-2's rating retirement and now gone. This
+    reports `cost_allows_star`, `star_5_cost_met` or `pollution_caps_at` — arithmetic over the
+    retired ★1–★5 economy anchor, kept one epoch past E2b-2's rating retirement and now gone. This
     is a breaking output change for anything still reading those three keys; `entry_cost_tiers`,
     `pollution_max`, `customised`, `entry_cost_tokens_est` and `pollution_ratio` are unchanged.
   - **`measure_hash` moves, because this file changed** (this section, and §Targets above, are both
@@ -505,6 +511,3 @@ E4b entry for why `judge_hash` now folds rubric.md in.
     when a repo is satisfied, not how it is measured.
 
 </details>
-
-No gate file → say nothing. An absent gate is the normal state for a repo that has not graduated,
-and reporting its absence every round would be noise.
