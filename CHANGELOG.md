@@ -17,8 +17,8 @@ For version-number semantics (semver, docgrad-specific) see [docs/how-to.md](doc
   an overall score.**
 
 1.x put both on one scorecard, one history and one set of targets. The case for splitting them is
-measured twice over. On a production repo in 1.x, a same-day re-verification after graduation dropped
-consistency ★4→★2 while every unit test stayed green (#12). And across the `--runs 5` eval runs, the
+measured twice over. In 1.x, a same-day re-verification after a repo's graduation dropped
+consistency ★4→★2 (#12), and not one unit test went red. And across the `--runs 5` eval runs, the
 script outputs never moved while model judgement did — completeness split ★1/★2 on one unchanged
 fixture (#70). The epoch sections below carry the detail; **[UPGRADING.md](UPGRADING.md)
 is the short version for anyone upgrading.**
@@ -28,10 +28,10 @@ is the short version for anyone upgrading.**
 - **`audit` no longer rates by default.** It is a deprecated alias for `measure`; stars need
   `judge` (or `audit --judge`). New commands: `measure`, `judge`.
   → [UPGRADING §1](UPGRADING.md#1-commands-audit--measure--judge----judge)
-- **`improve` / `loop` rate only with `--judge`.** Without it a round writes no stars, verifies no
-  claims (so the ledger does not grow, and the history row's `coverage` is `null`), and picks its row
-  from the measure verdicts; the history row's `dimension` is that measure id, and the commit message
-  lists unmet measure rows. In 1.x every round rated. → [UPGRADING §1](UPGRADING.md#1-commands-audit--measure--judge----judge)
+- **`improve` / `loop` rate only with `--judge`.** Without it a round writes no stars and verifies no
+  claims, so the ledger does not grow and the history row's `coverage` is `null`. In 1.x every round
+  rated. Either way, a round now picks its row from the measure verdicts, never from a star: the
+  history row's `dimension` is that measure id, and the commit message lists unmet measure rows. → [UPGRADING §1](UPGRADING.md#1-commands-audit--measure--judge----judge)
 - **`.docgrad.yml` `targets` names measure signals** (`entry_cost: WATCH`), accepting only `OK` or `WATCH`,
   block form only. 1.x star values (`completeness: 4`) are ignored with a `note`; other shapes are errors.
   → [UPGRADING §2](UPGRADING.md#2-docgradyml-targets-star-values-are-ignored-not-honoured)
