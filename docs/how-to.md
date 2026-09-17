@@ -81,7 +81,7 @@ The version authority = the `version` field in [.claude-plugin/plugin.json](../.
 Version number semantics (docgrad-specific):
 
 - **major**: a semantic change to a judge star anchor (rubric.md) — historical scores lose comparability, and affected repos' convergence rounds should restart from baseline.
-- **minor**: a new dimension, a new measurement signal, a new command, or a new `.docgrad.yml` field (backward compatible).
+- **minor**: a new dimension, a new measurement signal, a new command, or a new `.docgrad.yml` field (backward compatible); **or a change to an existing measure verdict line or rule** (`reference/measure.md`, `lib.mjs › MEASURE_BANDS`). Such a change can flip an existing repo's verdict, but it is not treated as major: `measure_hash` moves, so `report` already draws a comparability break across it, and the change carries its own comparability entry and CHANGELOG line (see [CONTRIBUTING.md §Three tiers of change](../CONTRIBUTING.md#three-tiers-of-change)). State in the CHANGELOG which verdicts can flip.
 - **patch**: bug fixes, document corrections, measurement script bug fixes (no change to judgment semantics).
 
 Release steps:
