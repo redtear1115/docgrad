@@ -113,7 +113,7 @@ When `.docgrad.yml` already exists, rerunning init = rescan, using the existing 
     `--exclude-ledger` (#54), coverage can only grow as far as this window, so it is the ceiling `correctness_sample` climbs
     toward. **Take the default** — it is the right answer until a repo's ledger approaches it, and emitting every candidate
     with its text is a real cost in a tool that rates context economy. Raise it when `claim_population.truncated` is `true`
-    *and* the ledger is near `emitted`; `audit` reports both numbers every round, so there is no need to guess at init time.
+    *and* the ledger is near `emitted`; `judge` reports both numbers every round it runs (judge.md step 3), so there is no need to guess at init time.
     Passing `--exclude-ledger .docgrad/ledger.jsonl` to `inventory.mjs` is the other way to widen what a round can draw: it
     filters already-ledgered candidates out before the cap is applied, so the cap counts drawable candidates instead of
     raising the cap being the only lever
@@ -185,7 +185,7 @@ As soon as it's written, verify: it's only done once `node "$SKILL_DIR/scripts/i
 ## When the doc source is not writable (config file elsewhere)
 
 When the doc tree itself can't take a written file (a read-only mount, an export directory) → write `.docgrad.yml` elsewhere,
-and the scripts can run `audit` by specifying `--config <file>` (`improve`/`loop` still need a writable workspace with git).
+and the scripts can run `measure` (or `judge`) by specifying `--config <file>` (`improve`/`loop` still need a writable workspace with git).
 This only solves the config file's placement — it doesn't change the premise that "the docs must be a local markdown file
 tree." See [design.md](../../../docs/design.md) §Positioning and boundaries for the boundary.
 

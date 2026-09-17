@@ -467,6 +467,54 @@ verdict computation changed — this is a formatting and disclosure slice, not a
   resolve them. This repo's own `.docgrad/scorecard-latest.md` is left as-is, a record of a past round under the
   old layout; `report` reprints it verbatim regardless.
 
+### v2.0.0 epoch 5a — user-facing docs speak the two layers (#83)
+
+`README.md`/`README.zh-TW.md` and their supporting files catch up to the two-layer vocabulary the previous
+epochs already gave the skill itself: `measure` (reproducible OK/WATCH/FAIL, targets, what CI and `loop` act
+on) and `judge` (★1–★5 for completeness/correctness/consistency only, not reproducible, never gates CI, no
+overall score). No rubric anchor, measure band, or loop rule changed — this slice is documentation only.
+
+- **README command table** now lists `init` / `measure` / `judge` / `improve` / `loop` / `report`, with `audit`
+  kept as one row marked **deprecated alias** (still report-only, still runs `measure` plus `judge` only with
+  `--judge` — see [SKILL.md](skills/docgrad/SKILL.md) routing). The intro states plainly that ★ ratings are
+  never reproducible and never gate CI, mirroring the sentence #83 asked for.
+- **"Every dimension ≥★4" and "design ceiling" are gone.** The stop-condition bullets under §From install to
+  graduation now link to [improve.md](skills/docgrad/reference/improve.md) §Stop conditions instead of
+  restating them (`tests/single-source-rules.test.mjs`'s README `ALLOWED` entry is removed along with the
+  restated text it excused); "design ceiling" is named once as a retired 1.x concept, per
+  [improve.md](skills/docgrad/reference/improve.md) §Rows outside the working set.
+- **New `UPGRADING.md`** at the repo root: the eight 1.x → 2.0 breaking changes (commands, `.docgrad.yml`
+  `targets`, output shape, fingerprint renames, `history.jsonl` schema 2, the scorecard's two blocks, the
+  graduation gate's new pollution threshold, and "re-run `measure` for a new baseline"), each linking to its
+  source section instead of restating it. Linked from both READMEs near the top ("Coming from 1.x?"). Not part
+  of the docgrad corpus (same as `NOTICE.md`) — outside `docs_dirs`/`docs_files`/`entry_files`/`index_file` in
+  `.docgrad.yml`, so it cannot register as an orphan.
+- **Case studies 1–4's README rows are untouched in number**, but rows 3 and 4 are reworded (row 3 in both of its
+  text columns) to state plainly that they graded 1.x star ratings, and `case-studies/README.md` gains a top-of-file disclaimer
+  that cases 1–4 were recorded under 1.x, before the measure/judge split — see UPGRADING.md for how those
+  numbers map. `case-studies/01–04*.md` themselves are untouched (#79 comment: they are records of past
+  measurements, not edited).
+- **`CONTRIBUTING.md` §Tests and evals**, `docs/how-to.md` (the `audit` references in §Fewer permission
+  prompts and §Run the skill-level evals), `skills/docgrad/reference/init.md`,
+  `skills/docgrad/templates/graduation-README.md`, `INTEROP.md`, and `NOTICE.md` are updated to name
+  `measure`/`judge` instead of the retired `audit` verb, or to state the six-dimension rating as a 1.x fact
+  (NOTICE.md) rather than a current one. `docs/design.md`'s evals-directory line now names both layers.
+- **Both READMEs link, rather than paraphrase, the loop's rules**: which row a round picks (improve.md step 2),
+  whether its change is kept (step 4), and when `loop` stops (§Stop conditions).
+- **`docs/how-to.md` §Cut a release's semver lines (83–85) are unchanged policy**: only "rubric star anchor" is
+  renamed to "judge star anchor (rubric.md)"; no new semver category or sentence was added for measure-band
+  changes (whether measure-band changes need their own semver level is an open question, not decided here).
+- **Smaller corrections found by the same sweep**: `docs/design.md`'s blocker sentence now applies to every
+  command except `init` (it named only `audit`/`improve`/`loop`), its attribution labels the six-dimension rating
+  as 1.x, and `CONTRIBUTING.md`'s unit-test count is brought up to date.
+- **`placement.md` says `judge`, not the retired `audit` router**, in the line describing what consumes a
+  consistency deduction — see the E5a entry in `rubric.md` §Version history.
+  **`judge_hash` moves accordingly, from `9c31f7e3` to `41cb532f`.** `measure_hash` and `corpus_hash` are unaffected — no `measure.md`,
+  `MEASURE_BANDS`, or `.docgrad.yml` value changed. `tests/lib.test.mjs` pins the new literal.
+- Non-goals: `case-studies/01–04*.md` content, `evals/` (E5b, #83), and `SKILL.md`/`measure.md`/`judge.md`/
+  `improve.md`/`rubric.md` content — already v2, untouched except the new `rubric.md` §Version history entry
+  above.
+
 ## 1.9.2 — 2026-09-16
 
 Four measurement fixes and one documentation entry. No ★1–★5 anchor text changed and no default

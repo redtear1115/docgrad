@@ -140,7 +140,7 @@ name, is what the operator confirms.
 
 ## The reverse direction
 
-docgrad's `audit --include <file>` is report-only and writes nothing to `.docgrad/`, which makes it a
+docgrad's `measure --include <file>` is report-only and writes nothing to `.docgrad/`, which makes it a
 zero-side-effect post-check for a style pass: whether tokens inflated, whether a rewrite broke an
 inline link or an anchor, whether a body changed without its date. `inventory.mjs`, `links.mjs` and
 `freshness.mjs` honour `--include`; `coverage.mjs` and `retrieval.mjs` accept and deliberately ignore

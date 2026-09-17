@@ -4,7 +4,7 @@
 
 ## Fewer permission prompts when running the scripts (optional, user-configured)
 
-`audit` always runs the same five scripts every time, and `loop` runs them every round, so each run prompts for permission once. You can add an allow rule to **your own** settings to skip the prompt:
+`measure` always runs the same five scripts every time, and `loop` runs them every round, so each run prompts for permission once. You can add an allow rule to **your own** settings to skip the prompt:
 
 ```jsonc
 // ~/.claude/settings.json or the target repo's .claude/settings.local.json
@@ -47,7 +47,7 @@ Use the absolute path from the line that actually runs after `/docgrad` is trigg
 
 ## Run the skill-level evals
 
-`tests/` tests the scripts' output — it **cannot test whether star ratings are stable** — in the oikos incident, consistency went ★4->★2 and not a single unit test turned red. The reproducibility of star ratings is the job of `evals/` (three cases and fixture baselines are in [evals/README.md](../evals/README.md)):
+`tests/` tests the scripts' output — it **cannot test whether `measure`'s numbers or `judge`'s star ratings are stable across runs** — in the oikos incident (1.x), consistency went ★4->★2 and not a single unit test turned red. That reproducibility question is the job of `evals/` (three cases and fixture baselines are in [evals/README.md](../evals/README.md)):
 
 ```bash
 claude plugin eval . --runs 5 --scaffold --allow-tools Bash --keep-temp
@@ -66,9 +66,9 @@ Three of those flags are not optional for this plugin:
   filesystem access". Every diagnosis in [evals/README.md](../evals/README.md) §Current status came
   out of a kept trace.
 
-`--runs` isn't about running multiple times and taking the mode: **the distribution of star ratings is itself the metric**. If the same fixture comes out ★2/★2/★3, that means there's still slack there, and it should be tracked as a defect.
+`--runs` isn't about running multiple times and taking the mode: **the distribution of `judge`'s star ratings is itself the metric**. If the same fixture comes out ★2/★2/★3, that means there's still slack there, and it should be tracked as a defect (#69) rather than a suite that goes green on a lucky run. `measure`'s numbers are a separate axis: they're expected to be identical run to run on an unchanged tree, and a mismatch there is a bug in the scripts, not discretion.
 
-After changing a rubric anchor, the audit sampling flow, or the judgment semantics of any script, **this must run before release**.
+After changing a rubric anchor, the judge sampling flow (judge.md), or the judgment semantics of any script, **this must run before release**.
 
 If `claude plugin eval` answers `` `plugin eval` is currently in early access ``, that is **a stale CLI build, not a pending entitlement** — the [official troubleshooting](https://code.claude.com/docs/en/plugin-evals) says to run `claude update` and retry in a fresh session. On a Homebrew install `claude update` can be a no-op while the `claude-code` cask trails GA; `claude-code@latest` is the newer channel. (A different message, `` `plugin eval` is currently unavailable ``, means Anthropic switched it off server-side and nothing local helps.) Until v1.7.0 this file described the early-access message as access awaiting a grant, which sent anyone hitting it looking for the wrong remedy.
 
@@ -80,7 +80,7 @@ The version authority = the `version` field in [.claude-plugin/plugin.json](../.
 
 Version number semantics (docgrad-specific):
 
-- **major**: a semantic change to a rubric star anchor — historical scores lose comparability, and affected repos' convergence rounds should restart from baseline.
+- **major**: a semantic change to a judge star anchor (rubric.md) — historical scores lose comparability, and affected repos' convergence rounds should restart from baseline.
 - **minor**: a new dimension, a new measurement signal, a new command, or a new `.docgrad.yml` field (backward compatible).
 - **patch**: bug fixes, document corrections, measurement script bug fixes (no change to judgment semantics).
 

@@ -68,7 +68,7 @@ docgrad/
 │   │   └── retrieval.mjs # traceability + marginal cost: scenarios/areas/index_hotness (report-only)
 │   └── templates/        # graduation deliverable templates: docs-gate.mjs / docs-gate.yml (produced, not installed)
 ├── tests/                # node --test: unit behavior of the scripts; fixtures/ are miniature target repos
-├── evals/                # skill-level evals: reproducibility of star ratings / sampling coverage / false positives
+├── evals/                # skill-level evals: measure reproducibility / judge star stability / sampling coverage / false positives
 │                         # (claude plugin eval; three cases + fixtures/ with three repos)
 ├── case-studies/         # records of real runs, each pinned to the docgrad version that produced it
 ├── docs/
@@ -137,7 +137,7 @@ language: zh-TW                    # language for reports and commits
 
 The example above is **illustrative**; each field's default value is authoritative in `skills/docgrad/scripts/lib.mjs › DEFAULTS` (not repeated here, to avoid drift).
 
-When a repo has no `.docgrad.yml`, `audit`/`improve`/`loop` always redirect to `init` first (the same blocker pattern as impeccable's "teach first when PRODUCT.md is missing").
+When a repo has no `.docgrad.yml`, every command except `init` — `measure`/`judge`/`audit`/`improve`/`loop`/`report` — always redirects to `init` first (the same blocker pattern as impeccable's "teach first when PRODUCT.md is missing").
 
 ## The judged-dimension rubric (anchored in skills/docgrad/reference/rubric.md)
 
@@ -216,4 +216,4 @@ All five are zero-dependency Node (>=18) scripts that read `.docgrad.yml`, outpu
 
 ## Attribution (full list in NOTICE.md)
 
-The claim-ledger correctness sampling approach draws on ln-21-documentation-auditor; document typology references Diátaxis; the entry-file token economy perspective references HumanLayer's "Writing a Good CLAUDE.md"; the six-dimension star rating and loop methodology come from hands-on scoring of two real documentation systems on 2026-07-10/11.
+The claim-ledger correctness sampling approach draws on ln-21-documentation-auditor; document typology references Diátaxis; the entry-file token economy perspective references HumanLayer's "Writing a Good CLAUDE.md"; the six-dimension star rating (1.x; split into measure and judge in 2.0) and loop methodology come from hands-on scoring of two real documentation systems on 2026-07-10/11.

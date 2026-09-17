@@ -1,6 +1,14 @@
 # docgrad case studies
 
-> **Last updated:** 2026-09-13
+> **Last updated:** 2026-09-17
+
+> **These four cases were recorded under 1.x**, before v2.0.0 split the six-dimension star rating
+> into `measure` (reproducible `OK`/`WATCH`/`FAIL`) and `judge` (★1–★5 for completeness, correctness
+> and consistency only). Linkage, freshness and economy ★ anchors mentioned below are retired — see
+> [rubric.md §Version history](../skills/docgrad/reference/rubric.md#version-history-and-comparability-notes)
+> for what they mapped to, and [UPGRADING.md](../UPGRADING.md) for the general 1.x → 2.0 mapping. The
+> case files themselves (`01`–`04`) are records of past measurements and are not edited to match 2.0 —
+> this page annotates instead.
 
 Measured runs, written so you can check them. Each case states what it measures, what it does not,
 and the commands to reproduce it. Numbers that make the tool look bad are in here too — a case
@@ -12,7 +20,7 @@ study that only reports wins is marketing with a table in it.
 |---|---|---|
 | [1](01-commander-js.md) | `tj/commander.js` at a pinned commit | Does an agent doing the same feature-design task spend fewer tokens after docgrad has converged the docs? |
 | [2](02-docgrad-self.md) | docgrad itself, nine real convergence rounds | Where does a documentation system's token cost land as the product grows? |
-| [3](03-fixtures.md) | The three eval fixtures | Is the star rating reproducible at all — and does the skill actually fire? |
+| [3](03-fixtures.md) | The three eval fixtures | Is the (1.x) star rating reproducible at all — and does the skill actually fire? |
 | [4](04-long-running.md) | A private production repo, 13 rounds | What does a long run actually buy, and what decays anyway? |
 
 Case 1 is the one that tests the claim people care about. Case 2 is longitudinal and confounded by
