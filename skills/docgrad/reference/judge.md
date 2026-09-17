@@ -10,6 +10,7 @@ This process **does not modify any file** and writes no state — pure report. R
 - [Step 2. Completeness](#2-completeness)
 - [Step 3. Correctness (claim ledger)](#3-correctness-claim-ledger)
 - [Step 6. Consistency (across documents and carriers)](#6-consistency-across-documents-and-carriers)
+- [Known instability](#known-instability)
 - [Step 9. Emit the scorecard](#9-emit-the-scorecard)
 - [Scoped audit (limited scope / single dimension)](#scoped-audit-limited-scope--single-dimension)
 
@@ -259,12 +260,30 @@ Read [placement.md](placement.md) first — the rules for judging placement and 
 5. Assign a star rating against the rubric's consistency anchors. **Only judge placement and duplication, never comment quality** — see the boundary in
    [design.md](../../../docs/design.md) §Positioning and boundaries.
 
+### Known instability
+
+Measured and unresolved (`--runs 5`, 2026-09-16, #68) — part of why step 9's scorecard states stars are never
+compared across rounds:
+
+- **#70 — a star this flow assigns is not stable.** On the `linkage-known` fixture, completeness split ★1/★2
+  across 5 runs (★2/★1/★1/★2/★1) on an unchanged tree, config and anchor set, because the ★1/★2 boundary has
+  no criterion for "documents exist but are hollow" — the fixture's stub docs satisfy both anchors' wording
+  at once.
+- **#69 — a second LLM grading this flow's output is not stable either.** This is the eval harness's
+  grader, not this flow: across the same 5 runs the pinned stars were identical every time (linkage ★2 ×5,
+  consistency ★2 ×5), yet the harness judges' votes on `planted-contradiction` ran 2/3, 1/3, 3/3, 0/3, 3/3,
+  and the 0/3 run had the most explicit deduction of the five. It means a star cannot be checked by asking
+  another model either — stability has to be read from the `--runs` distribution, not from a vote.
+
+Neither is fixed in 2.0.0; both are disclosed here instead of averaged away.
+
 ### 9. Emit the scorecard
 
 ```markdown
-# docgrad scorecard — <repo> @ <YYYY-MM-DD>
+# docgrad scorecard — <repo> @ <short-sha> · <YYYY-MM-DD>
 
 ## Measure
+measure_hash <h> · corpus_hash <h>
 One line per `measure` item — number first, then verdict and line (id, value with
 numerator/denominator when it is a ratio, verdict, line, **`accept` and `meets_target`**); see
 [measure.md](measure.md) §Verdict lines and §Targets for the full table and the degenerate cases.
@@ -276,7 +295,18 @@ disclosed relaxation of the default, not a way for a row to quietly disappear fr
 - the custom-thresholds statement: when `economy_thresholds.customised` is **true**, print the
   tiers and `pollution_max` and state plainly that this repo's verdict lines are not comparable
   with one graded at the defaults — the reader cannot infer that from a verdict alone, and
-  `measure_hash` only tells them the ruler changed, not what it changed to.
+  `measure_hash` only tells them the ruler changed, not what it changed to;
+- `improve`/`loop` act on this block only — see [improve.md](improve.md) §Stop conditions; judge
+  stars are not an input.
+
+## Judge — not comparable across rounds
+judge_hash <h> · correctness sample: <new claims drawn this round>/<claims_total> claims
+- scoped run: `<n>/<claims_total in scope> claims (scope only — not comparable with a full report)`
+- `--dim completeness` / `--dim consistency`: `correctness not judged` in place of the sample part
+- 0 verifiable claims: `correctness sample: n/a (0 verifiable claims)`
+
+Stars are model judgement: never compared with another round, never averaged or summed, and never
+combined into an overall rating.
 
 | Dimension | Rating | Main deductions |
 |---|---|---|
@@ -361,9 +391,16 @@ Refuse even if the user asks to "log it while you're at it" — suggest running 
 **Report header** (replaces the full scorecard's title line):
 
 ```markdown
-# docgrad scoped report — <repo> @ <YYYY-MM-DD>
+# docgrad scoped report — <repo> @ <short-sha> · <YYYY-MM-DD>
 
 > scope: `docs/infra/**` (from "infra-related docs") | dimension: all | **pure report, nothing written to `.docgrad/`**
 ```
 
-With `--dim`, the scorecard lists only that one dimension's row; "Suggested next steps" still gives that dimension's deductions — dimensions that weren't scored get no star rating and no blank row.
+A scoped or `--dim` report that ran judge still carries the `## Judge — not comparable across rounds`
+heading, the sample line (in whichever of the scoped / non-correctness / zero-claim forms in step 9
+applies), and the no-overall sentence, unchanged from the full scorecard. A scoped run that did not
+judge (`measure <scope>`, or `audit <scope>` without `--judge`) keeps the heading and prints only the
+line **"judge not run this round — no judged-dimension table"** under it, as
+[improve.md](improve.md) step 5 does. With `--dim`, the scorecard lists only
+that one dimension's row under that heading; "Suggested next steps" still gives that dimension's
+deductions — dimensions that weren't scored get no star rating and no blank row.
