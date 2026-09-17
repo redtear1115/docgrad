@@ -37,13 +37,12 @@
 2. **Working set**: the rows the four scripts' `measure` arrays report with `meets_target: false` — never a judge star
    (see [measure.md](measure.md) §Targets for `verdict` / `accept` / `meets_target`). Two kinds of row never enter it:
    - **`meets_target: null`** — not measured this round (a scoped run, `src_dirs` unset, an empty corpus, no key
-     document with a date signal, …). Name these in the report with their `note`. Targets are met exactly when *every*
-     row whose `meets_target` is non-null reads `true`; a null row counts neither for nor against that. **If every row
-     is null, targets are not met** — nothing was measured, so there is nothing to have met; see the stop conditions.
+     document with a date signal, …). Name these in the report with their `note`. How null rows count toward stopping is
+     defined once, in [Stop conditions](#stop-conditions-loop-any-one-of-them-ends-it).
    - **A row whose only fix is outside docgrad's remit** — the fix needs CI, source code, or a product decision this
      tool cannot make on its own (see [Exit for findings outside docgrad's remit](#exit-for-findings-outside-docgrads-remit)
      below). This row is excluded from the working set — the loop never tries to fix it directly — but it **counts as
-     not met**: graduation is withheld while any such row is unmet, and the report must say why.
+     not met** (see [Stop conditions](#stop-conditions-loop-any-one-of-them-ends-it)), and the report must say why.
 
    **Pick order**: every `FAIL` before any unaccepted `WATCH` (a `WATCH` row whose `accept` is `"WATCH"` already has
    `meets_target: true` and so is not in the working set at all). Within the same verdict, fixed tie-break order —
@@ -65,7 +64,7 @@
      documents, and one-signal-per-round there is pure round overhead — its own scorecard notes that "the two install methods could be unified,
      but fixing it would violate one-signal-per-round," pushing out a two-line, zero-risk fix for no reason.
 
-   Neither exception exempts step 4's verification: if any other row's `meets_target` moves to `false`, revert regardless.
+   Neither exception exempts step 4's verification — it applies in full, exactly as step 4 states it.
 3. **Fix**: generate and execute focused changes for the picked signal's deductions, one at a time:
    - Mechanical fixes go straight through: dead-link repair, folding orphans into the index, date backfilling — always use
      the real date from `git log -1 --format=%as -- <file>`, **fabricating a date is forbidden**.
@@ -228,16 +227,16 @@
 
 ## Rows outside the working set
 
-Two kinds of `measure` row never enter selection, for different reasons — neither one stops the loop, it just removes
-that row from the working set (step 2 above):
+Two kinds of `measure` row never enter selection, for different reasons. Being outside the working set removes a row
+from selection only (step 2 above); whether the loop stops is decided solely by
+[Stop conditions](#stop-conditions-loop-any-one-of-them-ends-it) below.
 
 - **`meets_target: null` rows.** Not measured this round: a scoped run, `src_dirs` unset, an empty corpus, no key
-  document surviving the date-signal filter, and so on. Name each one in the report along with its `note`. Targets are
-  met exactly when every non-null-`meets_target` row reads `true`; a null row counts neither for nor against that.
+  document surviving the date-signal filter, and so on. Name each one in the report along with its `note`.
 - **A row whose only fix is outside docgrad's remit.** The fix needs CI, source code, or a product decision this tool
   cannot make on its own (see [Exit for findings outside docgrad's remit](#exit-for-findings-outside-docgrads-remit)).
-  Excluded from the working set — the loop never tries to fix it directly — but it **counts as not met**: graduation
-  is withheld while any such row is unmet, and the report must say why.
+  Excluded from the working set — the loop never tries to fix it directly — and the report must say why; how it counts
+  toward stopping is in the stop conditions below.
 
 **This is not a "design ceiling."** That language belonged to two star anchors (freshness's and economy's top anchor)
 that [rubric.md](rubric.md) retired along with the rest of the linkage/freshness/economy star anchors — there is no
@@ -246,22 +245,22 @@ likewise no longer a rule this loop enforces: it is judge's own finding, reporte
 (see [judge.md](judge.md) §3. Correctness (claim ledger)), and the loop never selects on a judge star in the first
 place, so there is nothing for that finding to be excluded from here.
 
-**Plateau, defined only over a non-empty working set**: two consecutive rounds where no working-set row improves at
-all (verdict, or value toward the OK line) — see the stop conditions below for what happens when the working set is
-empty instead.
-
 ## Stop conditions (loop; any one of them ends it)
 
-- ✅ **Targets met**: at least one `measure` row has a non-null `meets_target`, and every such row reads `true` (a null row counts neither way,
-  a row excluded as outside docgrad's remit always counts as unmet — see above) → final report + graduation
-  recommendation (see below).
+This section is the **only** definition of when `loop` stops; every other file links here instead of restating it.
+
+- ✅ **Targets met**: at least one `measure` row has a non-null `meets_target`, and every such row reads `true`. A null
+  row counts neither way; a row excluded as outside docgrad's remit always counts as unmet, so graduation is withheld
+  while any such row remains. **If every row is null, targets are not met** — see "Nothing measured" → final report +
+  graduation recommendation (see below).
 - ⏸ **Nothing measured**: every `measure` row's `meets_target` is `null` → stop with a report that this round measured
   nothing (name each row's `note`); this is never "targets met" and never leads to graduation.
 - ⏸ **Outside docgrad's remit**: the working set is otherwise empty, but some row is unmet only because its fix is
   outside docgrad's remit → **stop immediately**: run no round, commit nothing, write no history row. Emit this
   round's own "outside docgrad's remit" stop report naming every such row, and append each one to
   `.docgrad/out-of-scope.jsonl` (`kind` per the existing vocabulary — see [Exit for findings outside docgrad's remit](#exit-for-findings-outside-docgrads-remit) — skip an entry if an identical `status: "open"` one already exists). This is not a plateau: a plateau is defined only over a non-empty working set, and this working set is empty.
-- ⏸ **Plateau**: two consecutive rounds where no working-set row improves at all → a plateau report: which row is stuck on which deductions, and
+- ⏸ **Plateau, defined only over a non-empty working set**: two consecutive rounds where no working-set row improves at
+  all (verdict, or value toward the OK line; a round step 4 records as **no improvement** counts) → a plateau report: which row is stuck on which deductions, and
   why docgrad can't fix it (e.g., needs domain knowledge to be written in, needs a human to decide a trade-off).
 - ⏸ **Needs human decision**: two documents are mutually exclusive and the code can't arbitrate, or the fix involves a product decision → list the options
   (A/B, with each one's consequences and a recommendation), pause and wait for the user's decision before continuing.

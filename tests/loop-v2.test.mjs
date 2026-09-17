@@ -139,11 +139,3 @@ test('history example: `dimension` names only a measure id (A3)', () => {
   const text = read(IMPROVE);
   assert.ok(!/"dimension": "[^"]*judged dimension/.test(text), 'dimension must not allow a judged dimension');
 });
-
-test('INTEROP.md quotes improve.md step 4\'s current revert rule (picked row included)', () => {
-  const interop = read(path.join(ROOT, 'INTEROP.md'));
-  const improve = read(IMPROVE);
-  assert.match(interop, /\*\*any\*\* row gets worse, the picked row included/);
-  assert.match(improve, /\*\*any\*\* row gets worse, the picked row\s+included/);
-  assert.ok(!/any other `measure` row/.test(interop), 'INTEROP must not quote the old other-rows-only rule');
-});

@@ -295,6 +295,11 @@ recommending graduation. It never again reasons about a star rating anywhere in 
   kept and counts toward plateau, while a fix that worsens any row — the picked row included, verdict or value — is
   reverted; the history row's `dimension` is always the picked measure id; `audit --dim <dimension>`
   implies `--judge`, since a dimension can only be judged.
+- **One source for the loop's rules.** `improve.md` step 4 (keep or revert) and `improve.md` §Stop conditions are the
+  only places those rules are defined; `docs/design.md` and `INTEROP.md` now link there instead of restating them, and
+  `improve.md`'s own step 2 / §Rows outside the working set point at §Stop conditions. `tests/single-source-rules.test.mjs`
+  fails when any other tracked markdown file (outside CHANGELOG, case studies, evals and §Version history sections)
+  restates either rule (#102).
 - **SKILL.md gains `measure` and `judge` as first-class commands** (#80): `measure` runs the four scripts only,
   needs no rubric.md; `judge` reads rubric.md and rates the three LLM-judged dimensions, needs this round's `measure`
   output. **`audit` becomes a documented deprecated alias**: it runs `measure`; it runs `judge` too only with

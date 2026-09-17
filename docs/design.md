@@ -172,7 +172,7 @@ The authoritative operating procedure is in [skills/docgrad/reference/improve.md
 1. Run the four scripts (always); run `judge.md` too only when the round is passed `--judge` -> scorecard.
 2. Pick a **`measure` row not meeting its target** (`meets_target: false`; every FAIL before any unaccepted WATCH, then a fixed tie-break order — see [improve.md](../skills/docgrad/reference/improve.md) step 2), and generate a batch of focused fixes from that row's deductions (each round fixes only one signal, to avoid half-finished changes across everything that leave contradictions — convergence is not a rewrite). A judge star, when `--judge` ran, is never what gets picked.
 3. Mechanical fixes (dead links, date backfill using the real date from `git log -1 --format=%as` rather than making one up, adding orphans into the index) are done directly; semantic changes (merging redundant documents, rewriting narrative into refer-to-code, deleting files) are also done, but are explicitly listed in the commit message.
-4. Rerun the four scripts to confirm that row's `verdict` improved and no other row's `meets_target` moved to `false`.
+4. Rerun the four scripts and keep or revert the change — the verify-and-revert rule is defined only in [improve.md](../skills/docgrad/reference/improve.md) step 4 and is not restated here.
 5. Commit on a dedicated branch (`docgrad/converge`), with the commit message including a summary of this round's `measure` rows not meeting target; state is written to `.docgrad/` (one line appended to history, and ledger accumulates by appending only when `--judge` ran).
 
 **`.docgrad/` is version-controlled, deliberately.** It holds state, not scratch: `history.jsonl` is the baseline the next
@@ -185,11 +185,7 @@ local files without saying so, because the pollution surface and the economy ver
 
 **Why scores need to be reproducible (v1.1.0, issue #12)**: in the 2026-07-13 oikos production run, re-verifying consistency the same day after closing out dropped it from ★4 to ★2 — not because the ruler changed, but because **sampling wasn't constrained**: four rounds of sampling never hit the one balance sign that was the opposite of what the code said. The fix is not to write the anchors in more detail (finer anchors still can't control "which items get sampled"), but to take sampling itself back out of the LLM's hands: the population and draw order are mechanically produced by `inventory.mjs` (stable ordering), verification results accumulate in `.docgrad/ledger.jsonl`, and the next round re-verifies old entries before sampling new ones. The report gives both the pass rate and the cumulative coverage rate — **a star rating alone doesn't reveal how large a sample it's built on**. This matches Anthropic's skill-authoring principle: operations that must be consistent should have their degrees of freedom reduced, not get more explanatory text.
 
-**Stop conditions** (stops as soon as any one holds):
-- ✅ Every `measure` row with a non-null `meets_target` reads `true` -> closing report + graduation recommendation.
-- ⏸ The working set is otherwise empty, but some row is unmet only because its fix is outside docgrad's remit (CI, source code, a product decision) -> stop immediately, no round run, an "outside docgrad's remit" report naming the rows.
-- ⏸ Two consecutive rounds with no improvement in any working-set row -> plateau report (explains where it's stuck and why the skill can't fix it further).
-- ⏸ Hitting a semantic contradiction that needs human decision (two documents mutually exclusive and code can't arbitrate, or the fix involves a product decision) -> lists the arbitration options and pauses.
+**Stop conditions**: `loop` ends on targets met, nothing measured, an unmet row outside docgrad's remit, a plateau, or a decision only a human can make. What each of those means is defined only in [improve.md](../skills/docgrad/reference/improve.md) §Stop conditions and is not restated here, so the two files cannot drift apart.
 
 Branch isolation lets the user review everything in a batch before merging; committing every round guarantees the work can be resumed after interruption and can be rolled back.
 
