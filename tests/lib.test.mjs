@@ -766,7 +766,7 @@ test('extractCodeRefs: skips backticks inside a code fence, skips non-path-shape
 // #56: rubric_hash fingerprints the anchors, not the rules for applying them. v1.7.0 added two
 // boundary rules to audit.md — one of which can only lower a pass rate — and no fingerprint moved,
 // so the break could only be disclosed in prose. These tests pin which files decide a rating.
-test('judgeHash: covers the rule files, not the anchors, and each one moves it on its own', () => {
+test('judgeHash: covers the anchors (rubric.md, since v2.0.0 E4b) and the rule files, and each one moves it on its own', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-judge-'));
   try {
     fs.mkdirSync(path.join(tmp, 'reference'), { recursive: true });
