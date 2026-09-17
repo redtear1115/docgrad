@@ -16,6 +16,11 @@ you scripted or documented `docgrad audit`, switch to `docgrad measure` (plus `d
 want stars). See [skills/docgrad/SKILL.md](skills/docgrad/SKILL.md#routing) §Routing for the full
 table, including the scoped/`--dim` forms.
 
+The same applies to `improve` and `loop`: a round rates only when you pass `--judge`. Without it the
+round writes no stars and verifies no claims, so `.docgrad/ledger.jsonl` does not grow and the history
+row's `coverage` is `null`. If you relied on every 1.x round growing correctness coverage, pass
+`--judge` on those runs.
+
 ## 2. `.docgrad.yml` `targets`: star values are ignored, not honoured
 
 A 1.x config could set `targets` to one of the six star-rated dimension names with a star value
