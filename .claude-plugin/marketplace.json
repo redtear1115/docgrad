@@ -8,7 +8,7 @@
     {
       "name": "docgrad",
       "source": "./",
-      "description": "Documentation system grading and convergence: six-dimension star rating (including economy / entry-file token cost) plus a loop that fixes docs round by round until targets are met."
+      "description": "Documentation system grading and convergence: measure (OK/WATCH/FAIL signals, including entry-file token cost) plus judge (LLM star ratings), and a loop that fixes docs round by round until every measure signal meets its target."
     }
   ]
 }
