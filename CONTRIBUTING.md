@@ -51,7 +51,7 @@ Which tier a change lands in decides what else it has to carry:
 | **Scripts** (`skills/docgrad/scripts/`) | Mechanical measurement | Determinism: same tree + same config ⇒ same JSON, on any machine. New output fields get a test. |
 | **Judgement** (`reference/rubric.md`, `judge.md`, `placement.md`) | The rules a model applies when rating | A fingerprint moves (below), so it needs a comparability entry and a CHANGELOG line |
 | **Measure** (`reference/measure.md`) | The verdict lines the scripts apply | `measure_hash` moves; needs a comparability entry and a CHANGELOG line. `lib.mjs › MEASURE_BANDS` (the band table itself) is covered by the same hash. |
-| **Documentation** | Everything else | docgrad's own measure signals and judged dimensions apply; run an audit on this repo if a change is large |
+| **Documentation** | Everything else | docgrad's own measure signals and judged dimensions apply; run `measure`/`judge` on this repo if a change is large |
 
 The scripts' contract is stated once in [SKILL.md](skills/docgrad/SKILL.md) §Scripts: read the target
 repo's `.docgrad.yml`, write JSON to stdout, report errors on stderr with a non-zero exit. Keep it.

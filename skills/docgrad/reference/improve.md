@@ -1,13 +1,14 @@
 # improve / loop — convergence rounds
 
-> **Last updated:** 2026-09-13
+> **Last updated:** 2026-09-17
 
 `improve` = run one round and stop; `loop` = run repeatedly until a stop condition. The process is exactly the same.
 
 ## Preconditions (blockers)
 
 1. No `.docgrad.yml` → stop, point to `/docgrad init`.
-2. Haven't read [rubric.md](rubric.md) yet → read it first.
+2. This round runs `judge.md` (i.e. `improve --judge` / `loop --judge`) and haven't read [rubric.md](rubric.md) yet →
+   read it first. A round without `--judge` never rates against the rubric, so rubric.md is not required for it.
 3. Target repo's working tree has uncommitted changes (not produced by docgrad) → stop, ask the user to deal with it before running.
 
 ## Branch discipline
@@ -25,74 +26,107 @@
 
 ## Steps in each round
 
-1. **Score**: run a full evaluation per [measure.md](measure.md) then [judge.md](judge.md) (scripts + LLM), producing this round's scorecard. When
-   `.docgrad/ledger.jsonl` already exists, pass it to `inventory.mjs` as `--exclude-ledger .docgrad/ledger.jsonl` (#54, see
-   [measure.md](measure.md) step 1) — otherwise every claim this loop has already verified keeps occupying a slot in the emitted
-   candidate window, and the round after round it draws from shrinks toward nothing even though `claims_total` hasn't moved.
-2. **Pick a dimension**: take the lowest-scoring dimension; on a tie → take whichever comes first in rubric order
-   (completeness → correctness → freshness → linkage → consistency → economy).
-   A dimension already judged to have hit its **design ceiling** (see stop conditions) is excluded from selection; take the next-lowest instead.
-   **Fix only this one dimension per round** — convergence is not a rewrite, and changing everything halfway leaves contradictions behind. There are two exceptions, and both must be stated in the report:
+1. **Score**: run [measure.md](measure.md) (the four scripts) every round. Run [judge.md](judge.md) only when this
+   round was invoked with `--judge` (`improve --judge` / `loop --judge`) — judge stars are optional context for the
+   report, never part of what a round selects, verifies or stops on (see [rubric.md](rubric.md) §Scoring principles:
+   judge covers only the three LLM-judged dimensions, and this loop no longer reasons about any of them). When
+   `.docgrad/ledger.jsonl` already exists, pass it to `inventory.mjs` as `--exclude-ledger .docgrad/ledger.jsonl` (#54,
+   see [measure.md](measure.md) step 1) — otherwise every claim this loop has already verified keeps occupying a slot
+   in the emitted candidate window, and round after round the window it draws from shrinks toward nothing even though
+   `claims_total` hasn't moved. This only matters for a round that also runs `--judge`; it is harmless to pass either way.
+2. **Working set**: the rows the four scripts' `measure` arrays report with `meets_target: false` — never a judge star
+   (see [measure.md](measure.md) §Targets for `verdict` / `accept` / `meets_target`). Two kinds of row never enter it:
+   - **`meets_target: null`** — not measured this round (a scoped run, `src_dirs` unset, an empty corpus, no key
+     document with a date signal, …). Name these in the report with their `note`. How null rows count toward stopping is
+     defined once, in [Stop conditions](#stop-conditions-loop-any-one-of-them-ends-it).
+   - **A row whose only fix is outside docgrad's remit** — the fix needs CI, source code, or a product decision this
+     tool cannot make on its own (see [Exit for findings outside docgrad's remit](#exit-for-findings-outside-docgrads-remit)
+     below). This row is excluded from the working set — the loop never tries to fix it directly — but it **counts as
+     not met** (see [Stop conditions](#stop-conditions-loop-any-one-of-them-ends-it)), and the report must say why.
 
-   - **The trivial-fix allowlist**: dead-link fixes, folding orphans into the index, typo-level consistency — **fixable on the side in any round**,
-     just list them in the commit message. Reason: these three categories have full mechanical verification (re-running the scripts tells you instantly), so there's no
+   **Pick order**: every `FAIL` before any unaccepted `WATCH` (a `WATCH` row whose `accept` is `"WATCH"` already has
+   `meets_target: true` and so is not in the working set at all). Within the same verdict, fixed tie-break order —
+   `undocumented_dirs`, `drifted_dirs`, `date_coverage`, `key_doc_age`, `date_drift`, `index_present`,
+   `dead_link_ratio`, `orphan_ratio`, `reachable_ratio`, `entry_cost`, `pollution` (this is the 1.x rubric tie-break
+   order completeness → freshness → linkage → economy, with the judged dimensions removed). **A signal id not on this
+   list** (a future `MEASURE_BANDS` row) is picked after every id that is, in `lib.mjs › MEASURE_BANDS` order — so
+   adding a new signal never requires touching the list above to keep it pickable, only to give it a considered
+   position (see [how-to.md](../../../docs/how-to.md) §Add a scoring dimension).
+
+   **Fix only this one signal per round** — convergence is not a rewrite, and changing everything halfway leaves contradictions behind. There are two exceptions, and both must be stated in the report:
+
+   - **The trivial-fix allowlist**: dead-link fixes and folding orphans into the index — **fixable on the side in any round**,
+     just list them in the commit message. Reason: both categories have full mechanical verification (re-running the scripts tells you instantly), so there's no
      risk of "change it halfway and leave a contradiction" — the rule blocking them would just push a zero-risk fix to next round for no reason.
+     (Typo-level consistency fixes are no longer on this allowlist: consistency is judge-only and the loop does not touch judge deductions at all — see step 3's boundary below.)
    - **Small-corpus mode**: when `inventory.totals.tokens_est` < 10,000 or `totals.files` < 5,
-     multiple dimensions per round are allowed; note in the report "small-corpus mode: fixing N dimensions this round." Reason: dream-calm-true has only two
-     documents, and one-dimension-per-round there is pure round overhead — its own scorecard notes that "the two install methods could be unified,
-     but fixing it would violate one-dimension-per-round," pushing out a two-line, zero-risk fix for no reason.
+     multiple signals per round are allowed; note in the report "small-corpus mode: fixing N signals this round." Reason: dream-calm-true has only two
+     documents, and one-signal-per-round there is pure round overhead — its own scorecard notes that "the two install methods could be unified,
+     but fixing it would violate one-signal-per-round," pushing out a two-line, zero-risk fix for no reason.
 
-   Neither exception exempts step 4's verification: if any dimension drops, revert regardless.
-   When **consistency** is picked, break it down one level further: fix only one category of deduction per round, ordered `[Contradiction]` → `[Duplication]` → `[Placement]`
-   (contradictions feed the agent wrong facts and do the most damage; duplication is a breeding ground for contradictions; placement is only about retrieval efficiency).
-   Moving information's placement can touch code comments/specs, which is riskier than changing docs — it goes last, and that round must not also fix another category.
-3. **Fix**: generate and execute focused changes for the dimension's deductions, one at a time:
+   Neither exception exempts step 4's verification — it applies in full, exactly as step 4 states it.
+3. **Fix**: generate and execute focused changes for the picked signal's deductions, one at a time:
    - Mechanical fixes go straight through: dead-link repair, folding orphans into the index, date backfilling — always use
      the real date from `git log -1 --format=%as -- <file>`, **fabricating a date is forbidden**.
    - Semantic fixes go through too, but must be listed in the commit message: merging redundant documents, rewriting a narrative to
      refer to the code instead, deleting files, writing missing documents.
    - **How to fix economy**: the only two mechanically viable paths are "move the entry file's content out and leave only a pointer" and "move WIP/
      historical baggage out of the corpus" (`exclude` or delete the file). The former is a move, not a cut — **the content must land inside `docs_dirs`
-     and be reachable from the index**, otherwise completeness and linkage will drop together and the verification step will block it.
+     and be reachable from the index**, otherwise the `undocumented_dirs` and `orphan_ratio` rows will worsen and the verification step will block it.
      **Deleting content that's still correct and still needed, just to lower the cost, is forbidden**; when "delete it" really is the only way left to bring the cost down,
      call it a plateau and hand the trade-off to the user — don't decide yourself which document to cut.
      If `entry_files`'s configuration itself is wrong (it lists a file that never enters the agent's context, or omits one that's required reading) → fix `.docgrad.yml`
      and say so explicitly in the commit message; this counts as a config fix, not score-farming. When a listed file is actually **conditionally** loaded,
-     move it to `docs_files` instead (still in the corpus, doesn't count toward fixed cost) — **don't** just delete it, since deleting it would also drop completeness.
+     move it to `docs_files` instead (still in the corpus, doesn't count toward fixed cost) — **don't** just delete it, since deleting it would also move `undocumented_dirs`.
      - **Forbidden: raising economy by moving directories from `exclude` into `out_of_scope`.** Both fields take files out of
        the corpus, but only `exclude` is charged to the pollution surface, so re-labelling a directory drops the ratio — and
-       possibly lifts the ★3 cap — **without one byte of documentation changing**. That is re-labelling, not improvement, and
+       possibly moves the `pollution` verdict off `WATCH` — **without one byte of documentation changing**. That is re-labelling, not improvement, and
        it is the one edit that turns `out_of_scope` into a switch for zeroing your own pollution surface. The field exists to
        let a *human* answer a question about their own repo at `init` time ("is this junk, or is it real documentation graded
        elsewhere?" — see [init.md](init.md) questionnaire item 5); it is not a lever for the loop. If a round genuinely
        believes a directory is misfiled, write it into the report as a recommendation for the user, and leave the config
        alone. The edit is visible either way: it moves `corpus_hash`, so `report` draws a comparability break across it.
-   - **The boundary for placement fixes**: only touch files within docs scope (entry file ↔ docs, docs ↔ docs moves go ahead as normal).
-     Suggestions to move information into code comments or other source files are **never executed automatically** — that's outside the branch discipline of
-     "only commit docs changes," and none of the five scripts verify code comments, so there'd be no way to confirm the change didn't break anything.
-     Write these deductions into this round's report as a "recommend human handling" list and note them; if consistency then goes two rounds with no progress because of this,
-     call it a **design ceiling**, not a plateau.
-4. **Verify**: rerun the scripts and re-score the affected dimensions. Success = the target dimension goes up and no other dimension drops.
-   Any dimension dropping → revert the change that caused the drop, and note it.
+   - **Never auto-edit outside docs scope.** Only files within docs scope are touched directly (entry file ↔ docs, docs ↔
+     docs moves go ahead as normal). Suggestions to move information into code comments, other source files, or CI config
+     are **never executed automatically** — that's outside the branch discipline of "only commit docs changes," and none
+     of the four scripts verify code comments, so there'd be no way to confirm the change didn't break anything. Write
+     these into the round's report as a "recommend human handling" list (alongside any judge deductions, when `--judge`
+     ran — both lists land in the scorecard's "Suggested next steps", see [judge.md](judge.md) step 9) and note them; when a suggestion is outside docgrad's remit entirely rather than merely outside
+     docs scope, it goes into `.docgrad/out-of-scope.jsonl` instead (see [Exit for findings outside docgrad's remit](#exit-for-findings-outside-docgrads-remit)).
+4. **Verify**: rerun the four scripts and re-evaluate the affected rows. Success = the picked row's `verdict` improves
+   (`FAIL`→`WATCH`/`OK`, or `WATCH`→`OK`), **or** its value moves toward its OK line without a verdict change being
+   possible this round — report that case as partial. Failure/revert = **any** row gets worse, the picked row
+   included: a `meets_target` that moves `true`→`false`, a `verdict` that worsens (`OK`→`WATCH`/`FAIL`,
+   `WATCH`→`FAIL`), or — for the picked row — a value that moves away from its OK line even with no verdict change
+   (`entry_cost` growing while still `FAIL`) → revert the change that caused it, and note it. **Judge stars, on a
+   round that ran `--judge`, never gate verification** — a judge deduction rising or falling decides nothing about
+   whether this round's fix stands; only the measure rows do.
+   **Unchanged** — the picked row's verdict and value are both exactly as before, and no other row worsened → keep
+   the change (it broke nothing), record the round as **no improvement**, and count it toward the plateau rule below.
+   A picked row that moved away from its OK line is never this case; it is a revert.
 5. **Record and commit**:
    - Append one line to `.docgrad/history.jsonl` (create it if it doesn't exist), in **schema 2**:
 
      ```json
-     {"schema": 2, "round": 3, "date": "YYYY-MM-DD", "dimension": "<what this round worked on: a measure id or a judged dimension>", "docgrad": {"version": "<copy from inventory.mjs docgrad block>", "measure_hash": "<copy from inventory.mjs docgrad block>", "judge_hash": "<copy from inventory.mjs docgrad block>", "corpus_hash": "<copy from inventory.mjs docgrad block>"}, "measure": {"dead_link_ratio": {"value": 0, "numerator": 0, "denominator": 176, "verdict": "OK"}, "…": "one entry per `measure` item the four scripts printed this round"}, "judge": {"incomparable": true, "stars": {"<dimension rated this round>": 4}, "sample": {"claims_drawn": 8, "claims_total": 68}}, "coverage": {"claims_verified": 23, "claims_total": 68}, "notes": "…"}
+     {"schema": 2, "round": 3, "date": "YYYY-MM-DD", "dimension": "<the measure id this round picked, with or without --judge>", "docgrad": {"version": "<copy from inventory.mjs docgrad block>", "measure_hash": "<copy from inventory.mjs docgrad block>", "judge_hash": "<copy from inventory.mjs docgrad block>", "corpus_hash": "<copy from inventory.mjs docgrad block>"}, "measure": {"dead_link_ratio": {"value": 0, "numerator": 0, "denominator": 176, "verdict": "OK", "accept": "OK", "meets_target": true}, "…": "one entry per `measure` item the four scripts printed this round"}, "judge": {"incomparable": true, "stars": {"<dimension rated this round>": 4}, "sample": {"claims_drawn": 8, "claims_total": 68}}, "coverage": {"claims_verified": 23, "claims_total": 68}, "notes": "…"}
      ```
 
      **`docgrad` is copied whole from `inventory.mjs`'s output `docgrad` block.** Do not rename, drop, or fill in keys
      yourself — if a key is missing from the output, that is a bug to report, not to paper over.
 
-     **`measure`** has one entry per item of each of the four scripts' `measure` array: `value` and `verdict`, with
-     `numerator` and `denominator` where the item carries them. A `null` verdict is recorded as `null`.
+     **`measure`** has one entry per item of each of the four scripts' `measure` array: `value`, `verdict`, `accept`
+     and `meets_target`, with `numerator` and `denominator` where the item carries them. A `null` `verdict` is recorded
+     as `null`, and its `meets_target` is `null` too (see step 2 above).
 
-     **`judge.stars`** holds whatever judge.md step 9 rated this round, keyed by dimension. The key set is deliberately
-     not enumerated here, because it shrinks when E2b-2 lands. A dimension judged **not measurable** (see the
-     design-ceiling section below — currently only correctness, when the corpus holds no verifiable claims) is recorded
-     as `null`, never as a number. `report` must render it as `n/a` and must not include it in any average; a guessed
-     star would be indistinguishable from a measured one a few rounds later. `incomparable: true` is always present:
-     judge stars are never averaged across rounds.
+     **`judge`** is present every round, `--judge` or not — the schema-2 shape must not depend on whether this round
+     rated anything. **On a round without `--judge`, write `{"incomparable": true, "stars": {}, "sample": null}`** and
+     `coverage` (the sibling key below) as `null`. **On a round with `--judge`**, `judge.stars` holds whatever
+     judge.md step 9 rated this round, keyed by dimension — `completeness`, `correctness`, `consistency` — and
+     `coverage` is populated exactly as it always was. A dimension judge reports **not measurable** (zero verifiable
+     claims in the corpus — see [judge.md](judge.md) §3. Correctness (claim ledger)) is recorded as `null`, never as a
+     number: `report` must render it as `n/a` and must not include it in any average; a guessed star would be
+     indistinguishable from a measured one a few rounds later. `incomparable: true` is always present: judge stars are
+     never averaged across rounds.
 
      **Write the whole `docgrad` object every round, even when nothing moved**: `report` can only spot a change by
      comparing a row with the previous valid schema-2 row, so a round that omits a field leaves the break undetectable. `corpus_hash` is `null`
@@ -119,7 +153,7 @@
      **In a legacy row (no `schema`), a missing field is read as unknown and draws no break.** For a schema-2 row, a
      missing `docgrad` field is instead a spec violation that `report` prints (see SKILL.md's `report` row) — it is
      never read as unknown.
-   - Append the claims verified this round to `.docgrad/ledger.jsonl` (create it if it doesn't exist). **Cumulative, append-only, never rewritten** —
+   - Append the claims verified this round to `.docgrad/ledger.jsonl` (create it if it doesn't exist, and only when this round ran `--judge`). **Cumulative, append-only, never rewritten** —
      when re-verifying an old entry, append a new line (with the new `round`) rather than editing the old line, so you can still see when a given claim broke and when it got fixed:
 
      ```json
@@ -159,11 +193,19 @@
      a decay. Measured case: the identical claim over unmodified code was `pass` in round 9 and `fail` in round 12,
      because the two verifiers drew the generalisation-versus-list boundary differently — and nothing in the ledger or the
      scorecard recorded that this had happened. When the borderline counts differ materially, say so in the round's notes
-     instead of reporting the delta as a documentation outcome; `loop` uses this dimension's pass rate to decide whether to
-     keep working on it, so an unstable verdict makes the stopping point unstable too.
-   - Overwrite `.docgrad/scorecard-latest.md` (the full scorecard text from judge.md step 9).
+     instead of reporting the delta as a documentation outcome. **This pass rate is report-only**: it never gates or
+     stops `improve`/`loop`, which read `meets_target` on the four scripts' `measure` rows only (step 2 above) — an
+     unstable verdict here is a finding for the report, not an input to the loop.
+   - **Overwrite `.docgrad/scorecard-latest.md` every round, `--judge` or not.**
+     - With `--judge`: the full scorecard text from [judge.md](judge.md) step 9, unchanged.
+     - Without `--judge`: the same template minus its judged parts. Keep the `## Measure` block, the
+       `## Token economy (report-only)` block (including its `### Traceability` subsection), the
+       `## Outside docgrad's remit` block, and `## Suggested next steps` — limited to this round's unmet `measure` rows,
+       since there are no judge deductions to add. In place of the `| Dimension | Rating | Main deductions |` table,
+       print the literal line **"judge not run this round — no judged-dimension table"**. No star is ever written by a
+       round that didn't run `--judge`.
    - **Before committing the scorecard, check `inventory.untracked.count`.** Non-zero means the pollution surface — and
-     therefore the economy rating — was measured against files that exist only on this machine, so the numbers you are about
+     therefore the `pollution` / `entry_cost` verdicts — were measured against files that exist only on this machine, so the numbers you are about
      to commit are ones nobody else can reproduce (measured: ratio 0.1066 in a working checkout against 0.0517 in a clean
      worktree of the same commit, with the `pollution_max: 0.1` downgrade threshold between them). Either stash the
      untracked files and re-run, or set `exclude_untracked: true`, or commit as-is and **write the count and token total
@@ -173,46 +215,52 @@
      below is fixed; only the prose is translated:
 
      ```
-     docs(docgrad): round N convergence — <dimension> ★x→★y
+     docs(docgrad): round N convergence — <signal> <old verdict>→<new verdict>
 
      Semantic changes:
      - merged a.md into b.md (overlapping topic)
      - …(omit this block when there are none)
 
-     scorecard: completeness★x correctness★x freshness★x linkage★x consistency★x economy★x
-     ledger: cumulative coverage m/N (a newly verified this round, b re-verified)
+     measure: dead_link_ratio OK, orphan_ratio WATCH, …(one entry per row not meeting target this round, or "all rows meet target")
+     ledger: cumulative coverage m/N (a newly verified this round, b re-verified)   # omit this line entirely on a round without --judge
      ```
 
-## Dimension cap: the design ceiling
+## Rows outside the working set
 
-When a dimension's next star anchor falls inside a Blocker no-go zone → that dimension is judged "converged within docgrad's scope (capped at ★x)": it's no longer eligible for dimension selection, it counts as targets-met when checking whether targets are met, and it gets called out with its reason in the final report and graduation recommendation. **This does not stop the loop** — it just removes that dimension from the working set.
+Two kinds of `measure` row never enter selection, for different reasons. Being outside the working set removes a row
+from selection only (step 2 above); whether the loop stops is decided solely by
+[Stop conditions](#stop-conditions-loop-any-one-of-them-ends-it) below.
 
-There are currently three cases. The first two share a cause — both ★5 anchors require a mechanical
-gate, and Blocker #3 explicitly says not to touch the target repo's CI — and both only get hit when
-that dimension's target is set to 5, so the default target ★4 is unaffected:
+- **`meets_target: null` rows.** Not measured this round: a scoped run, `src_dirs` unset, an empty corpus, no key
+  document surviving the date-signal filter, and so on. Name each one in the report along with its `note`.
+- **A row whose only fix is outside docgrad's remit.** The fix needs CI, source code, or a product decision this tool
+  cannot make on its own (see [Exit for findings outside docgrad's remit](#exit-for-findings-outside-docgrads-remit)).
+  Excluded from the working set — the loop never tries to fix it directly — and the report must say why; how it counts
+  toward stopping is in the stop conditions below.
 
-- **Freshness ★5**: requires "a mechanical gate enforcing update-alongside-change in the same MR" → capped at ★4 within the loop.
-- **Economy ★5**: requires "a mechanical gate enforcing the entry file's token budget" → capped at ★4 within the loop.
-
-The third has a different cause but the same handling — the dimension cannot be *measured*, so there
-is no star to raise:
-
-- **Correctness, not measurable**: the round's verified set is empty because the corpus contains no
-  verifiable claims at all (`claims_total: 0`, no ledger entries). Every correctness anchor is
-  phrased as a pass rate, and a pass rate over zero claims is undefined, so the dimension is reported
-  as `n/a (not measurable)` rather than rated — see [judge.md](judge.md) §3. Correctness (claim ledger).
-  It counts as met for the targets check and leaves the working set, exactly like the two above.
-  **Unlike them, this one is fixable — just not by the correctness dimension.** The report must say
-  so: the corpus needs claims anchored to real code coordinates before correctness can be measured,
-  which is work the completeness and placement dimensions own.
-
-**The difference from plateau**: plateau = fixable, but these two rounds produced no gains, and there's still a chance on the next run; design ceiling = unreachable by design,
-no number of further rounds will move it. Judging it as plateau would mislead the report into telling the user "try running a few more rounds," so check for the ceiling before checking for plateau.
+**This is not a "design ceiling."** That language belonged to two star anchors (freshness's and economy's top anchor)
+that [rubric.md](rubric.md) retired along with the rest of the linkage/freshness/economy star anchors — there is no
+longer a star for anything to be permanently capped below. Correctness's not-measurable case (zero verifiable claims) is
+likewise no longer a rule this loop enforces: it is judge's own finding, reported only when a round runs `--judge`
+(see [judge.md](judge.md) §3. Correctness (claim ledger)), and the loop never selects on a judge star in the first
+place, so there is nothing for that finding to be excluded from here.
 
 ## Stop conditions (loop; any one of them ends it)
 
-- ✅ **Targets met**: every dimension is either "≥ the target in `.docgrad.yml`" or "already judged to have hit the design ceiling" → final report + graduation recommendation (see below).
-- ⏸ **Plateau**: two consecutive rounds where no dimension's score improves at all (dimensions already at the ceiling don't count) → a plateau report: which dimension is stuck on which deductions, and
+This section is the **only** definition of when `loop` stops; every other file links here instead of restating it.
+
+- ✅ **Targets met**: at least one `measure` row has a non-null `meets_target`, and every such row reads `true`. A null
+  row counts neither way; a row excluded as outside docgrad's remit always counts as unmet, so graduation is withheld
+  while any such row remains. **If every row is null, targets are not met** — see "Nothing measured" → final report +
+  graduation recommendation (see below).
+- ⏸ **Nothing measured**: every `measure` row's `meets_target` is `null` → stop with a report that this round measured
+  nothing (name each row's `note`); this is never "targets met" and never leads to graduation.
+- ⏸ **Outside docgrad's remit**: the working set is otherwise empty, but some row is unmet only because its fix is
+  outside docgrad's remit → **stop immediately**: run no round, commit nothing, write no history row. Emit this
+  round's own "outside docgrad's remit" stop report naming every such row, and append each one to
+  `.docgrad/out-of-scope.jsonl` (`kind` per the existing vocabulary — see [Exit for findings outside docgrad's remit](#exit-for-findings-outside-docgrads-remit) — skip an entry if an identical `status: "open"` one already exists). This is not a plateau: a plateau is defined only over a non-empty working set, and this working set is empty.
+- ⏸ **Plateau, defined only over a non-empty working set**: two consecutive rounds where no working-set row improves at
+  all (verdict, or value toward the OK line; a round step 4 records as **no improvement** counts) → a plateau report: which row is stuck on which deductions, and
   why docgrad can't fix it (e.g., needs domain knowledge to be written in, needs a human to decide a trade-off).
 - ⏸ **Needs human decision**: two documents are mutually exclusive and the code can't arbitrate, or the fix involves a product decision → list the options
   (A/B, with each one's consequences and a recommendation), pause and wait for the user's decision before continuing.
@@ -281,10 +329,6 @@ Do two things at graduation:
    > Dead links and formatting can also be handled with more mature off-the-shelf tools instead (lychee or markdown-link-check, markdownlint,
    > Vale). docgrad's scripts add differentiated value in orphans/reachability and entry-file token budget — these two are
    > measurements specific to "documentation as agent context" that a typical docs linter doesn't do.
-
-When a dimension is capped by the design ceiling, this section must call it out: the only way for that dimension to gain another star is through this gate
-(freshness ★5 = "docs updated in the same MR as the code"; economy ★5 = "entry-file token budget"),
-and it must state the current cap.
 
 ## Exit for findings outside docgrad's remit
 

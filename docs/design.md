@@ -1,7 +1,7 @@
 # docgrad — design of a documentation audit and convergence skill
 
 > **Status:** implemented (finalized 2026-07-12, v0.1.0 completed)
-> **Last updated:** 2026-09-13
+> **Last updated:** 2026-09-17
 
 ## Contents
 
@@ -20,7 +20,7 @@
 
 ## Origin
 
-Between 2026-07-10 and 07-11, two real documentation systems went through multiple rounds of scoring from an "agentic development" perspective (completeness / correctness / freshness / linkage / consistency / token economy), and one of them actually ran the full loop of "score -> improvement suggestions -> reorganize -> rescore and beat the previous score." This skill distills that hands-on methodology into a **generic, installable, iterative** tool: after installing it, run `init` on any repo to specify the doc folders and basic rules, then `loop` edits the docs round by round until every metric reaches its target star rating (default 4, can be lowered to 3 per dimension).
+Between 2026-07-10 and 07-11, two real documentation systems went through multiple rounds of scoring from an "agentic development" perspective (completeness / correctness / freshness / linkage / consistency / token economy), and one of them actually ran the full loop of "score -> improvement suggestions -> reorganize -> rescore and beat the previous score." This skill distills that hands-on methodology into a **generic, installable, iterative** tool: after installing it, run `init` on any repo to specify the doc folders and basic rules, then `loop` edits the docs round by round until every `measure` signal meets its target (default OK, per-signal `WATCH` opt-in; since v2.0.0 the judged dimensions have no target and are never what the loop stops on).
 
 An ecosystem survey (2026-07-12) confirmed no existing skill covers this: the closest, `ln-21-documentation-auditor` (levnikolaevich/claude-code-skills, 515 stars), is solid on the correctness claim ledger and git-blame freshness but does not touch token economy or retrieval discipline; `agnix` (432 rules) only lints config files like CLAUDE.md/AGENTS.md and does not score the docs system as a whole. The gap = **token economy for the whole docs system, index/retrieval discipline, and downgrading prose rules to mechanical gates** — exactly this skill's differentiated value.
 
@@ -32,7 +32,7 @@ An ecosystem survey (2026-07-12) confirmed no existing skill covers this: the cl
 - **Generality**: zero repo assumptions. Structure (doc folders, index, entry files, freshness convention) is entirely detected by `init` and confirmed via questionnaire, then written to the config file; every subsequent round reads that config file.
 - **Preconditions**: the documentation must be a **local markdown file tree**, and the target repo's root must be writable for `.docgrad.yml` (Blocker #1). git is not a hard requirement (the one exception is opt-in: `exclude_untracked: true` cannot tell tracked from untracked files without git, so the scripts abort instead of measuring a different corpus in silence) — without git, freshness degrades to claimed-only (when `skills/docgrad/scripts/freshness.mjs › gitDate()` can't get a value, it falls back to trusting only the document's self-declared date), coverage drift can't be measured, and `retrieval.mjs`'s `churn_commits` / `index_hotness` are both null but nothing crashes; everything else still runs. **Not supported**: remote doc sources like wiki/Confluence — the files aren't on a tree, all five scripts depend on local paths, and there is nowhere to put the config file either.
 - **The rubric can be cited standalone**: the three judged-dimension anchors in `skills/docgrad/reference/rubric.md` don't themselves depend on the scripts, and can be taken standalone to manually score non-repo doc sources — but that's "borrowing the anchors," not the docgrad process: no mechanical signal, not reproducible, and it shouldn't land in the scorecard/history either.
-- **The capability ceiling must be stated explicitly**: the star ratings blocked by the blocker no-go zone (currently: freshness ★5 requires a CI gate, and loop doesn't touch CI) are determined explicitly by the design ceiling rule in `improve.md`, not worked around ad hoc by whichever model is running that round — otherwise a report would misrepresent "unreachable by design" as "these two rounds didn't fix it."
+- **Rows the loop cannot pick must be stated explicitly**: since v2.0.0 `improve`/`loop` select only `measure` rows with `meets_target: false` (never a judge star); a row that is `null` (not measured this round) or whose only fix is outside docgrad's remit (needs CI, source code, or a product decision) is excluded from the working set by an explicit rule in `improve.md`, not worked around ad hoc by whichever model is running that round — otherwise a report would misrepresent "outside this loop's remit" as "these two rounds didn't fix it." (Before v2.0.0 this was the "design ceiling" rule for two ★5 star anchors that CI-touching Blocker #3 put out of reach; those two anchors are retired, see [skills/docgrad/reference/rubric.md](../skills/docgrad/reference/rubric.md) §Version history.)
 - **User decisions (finalized 2026-07-12)**: released as an independent git repo (this repo); impeccable-style "init once, then converge incrementally"; five dimensions given star ratings plus token economy reported but not rated (**changed to six dimensions starting v1.0.0, with token economy's fixed cost and pollution surface promoted to rated dimensions**, see next section); loop commits every round and only stops when targets are met; scoring = a mix of built-in mechanical scripts and LLM judgment.
 
 ## Repo layout (same skeleton as impeccable)
@@ -50,7 +50,7 @@ docgrad/
 │   └── workflows/docgrad.md
 ├── plugin.json           # Antigravity manifest
 ├── skills/docgrad/       # the skill payload — everything an agent loads at runtime lives here
-│   ├── SKILL.md          # routing: init · audit · improve · loop · report
+│   ├── SKILL.md          # routing: init · measure · judge · audit · improve · loop · report
 │   ├── reference/
 │   │   ├── init.md       # scan + questionnaire -> writes the target repo's .docgrad.yml
 │   │   ├── rubric.md     # star anchors for the three judged dimensions (key to scoring stability, see below)
@@ -101,8 +101,10 @@ Skill name = skill directory name = `docgrad` (invoked as `/docgrad` once instal
 | Command | Description |
 |---|---|
 | `/docgrad init` | one-time setup: scan candidate structure -> questionnaire confirmation -> write `.docgrad.yml` into the target repo's version control |
-| `/docgrad audit` | one full scoring pass, produces a scorecard report (does not change any file) |
-| `/docgrad improve` | run one round of convergence (pick the lowest-scoring dimension -> fix -> rescore -> commit), stop when done |
+| `/docgrad measure` | run the four mechanical scripts, produces `OK`/`WATCH`/`FAIL` verdict lines (does not change any file, no rubric.md needed) |
+| `/docgrad judge` | rate completeness / correctness / consistency against `rubric.md` (needs this round's `measure` output; does not change any file) |
+| `/docgrad audit` | **deprecated alias**: runs `measure`; runs `judge` too only with `--judge` (report-only either way, as it always was) |
+| `/docgrad improve` | run one round of convergence (pick a `measure` row not meeting its target -> fix -> re-measure -> commit), stop when done; `--judge` optionally also rates the round |
 | `/docgrad loop` | repeat improve until a stop condition (see below) |
 | `/docgrad report` | just reprint the latest scorecard + the score trend across rounds |
 
@@ -110,7 +112,7 @@ With no arguments, print the command table (same as impeccable's routing rule 1)
 
 ## `init` and `.docgrad.yml`
 
-`init` automatically scans: candidate docs directories (`docs/`, `doc/`, `documentation/`), always-loaded entry files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`, …), root-level single-file document candidates (`PRODUCT.md`, `DESIGN.md`, …), index file candidates (`docs/README.md`, `docs/index.md`), and directories that should be excluded (`archive/`, `node_modules/`, generated files, gitignored WIP). The scan results are confirmed item by item via a questionnaire, including target star ratings. It writes:
+`init` automatically scans: candidate docs directories (`docs/`, `doc/`, `documentation/`), always-loaded entry files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`, …), root-level single-file document candidates (`PRODUCT.md`, `DESIGN.md`, …), index file candidates (`docs/README.md`, `docs/index.md`), and directories that should be excluded (`archive/`, `node_modules/`, generated files, gitignored WIP). The scan results are confirmed item by item via a questionnaire, including which `measure` signals may settle at `WATCH`. It writes:
 
 ```yaml
 # .docgrad.yml — docgrad config (checked into version control, shared by the team)
@@ -125,12 +127,7 @@ src_dirs: [src/]                  # code roots: coverage drift, retrieval, and t
 freshness:
   convention: frontmatter          # frontmatter | heading-line | none; comma-separated multiple values allowed (for repos mixing conventions)
   field: last_updated              # or the pattern of the "Last updated:" line
-targets:                           # target star rating per dimension (loop stop condition)
-  completeness: 4
-  correctness: 4
-  freshness: 4
-  linkage: 4
-  consistency: 4
+targets:                           # per-measure-signal accept, default OK everywhere (loop stop condition); e.g. `entry_cost: WATCH`
 correctness_sample: 8              # number of claims drawn new each round (re-verification is a separate budget, see skills/docgrad/reference/judge.md step 3)
 claim_candidates_cap: 60           # how many ranked claim candidates inventory.mjs emits; coverage can only grow as far as this window, and claim_population reports when it is truncated
 scenario: "add a typical new feature to <some module>"  # LLM simulation fallback when there are no scenarios
@@ -172,11 +169,11 @@ One authority per topic: every key fact is spelled out in exactly one place, the
 
 The authoritative operating procedure is in [skills/docgrad/reference/improve.md](../skills/docgrad/reference/improve.md); this section is a design explanation. Each round (= one run of `improve`):
 
-1. Run the five scripts + LLM-judged dimensions -> scorecard.
-2. Pick the **lowest-scoring dimension** (ties go to whichever comes first in the rubric table order), and generate a batch of focused fixes from that dimension's deduction points (each round fixes only one dimension, to avoid half-finished changes across everything that leave contradictions — convergence is not a rewrite).
+1. Run the four scripts (always); run `judge.md` too only when the round is passed `--judge` -> scorecard.
+2. Pick a **`measure` row not meeting its target** (`meets_target: false`; every FAIL before any unaccepted WATCH, then a fixed tie-break order — see [improve.md](../skills/docgrad/reference/improve.md) step 2), and generate a batch of focused fixes from that row's deductions (each round fixes only one signal, to avoid half-finished changes across everything that leave contradictions — convergence is not a rewrite). A judge star, when `--judge` ran, is never what gets picked.
 3. Mechanical fixes (dead links, date backfill using the real date from `git log -1 --format=%as` rather than making one up, adding orphans into the index) are done directly; semantic changes (merging redundant documents, rewriting narrative into refer-to-code, deleting files) are also done, but are explicitly listed in the commit message.
-4. Rerun the measurements to confirm that dimension's score went up and no other dimension went down.
-5. Commit on a dedicated branch (`docgrad/converge`), with the commit message including a summary of this round's scorecard; state is written to `.docgrad/` (one line appended to history, and ledger accumulates by appending).
+4. Rerun the four scripts and keep or revert the change — the verify-and-revert rule is defined only in [improve.md](../skills/docgrad/reference/improve.md) step 4 and is not restated here.
+5. Commit on a dedicated branch (`docgrad/converge`), with the commit message including a summary of this round's `measure` rows not meeting target; state is written to `.docgrad/` (one line appended to history, and ledger accumulates by appending only when `--judge` ran).
 
 **`.docgrad/` is version-controlled, deliberately.** It holds state, not scratch: `history.jsonl` is the baseline the next
 round compares its `docgrad` fingerprints against, `ledger.jsonl` is the cumulative coverage the sampling rule draws
@@ -188,10 +185,7 @@ local files without saying so, because the pollution surface and the economy ver
 
 **Why scores need to be reproducible (v1.1.0, issue #12)**: in the 2026-07-13 oikos production run, re-verifying consistency the same day after closing out dropped it from ★4 to ★2 — not because the ruler changed, but because **sampling wasn't constrained**: four rounds of sampling never hit the one balance sign that was the opposite of what the code said. The fix is not to write the anchors in more detail (finer anchors still can't control "which items get sampled"), but to take sampling itself back out of the LLM's hands: the population and draw order are mechanically produced by `inventory.mjs` (stable ordering), verification results accumulate in `.docgrad/ledger.jsonl`, and the next round re-verifies old entries before sampling new ones. The report gives both the pass rate and the cumulative coverage rate — **a star rating alone doesn't reveal how large a sample it's built on**. This matches Anthropic's skill-authoring principle: operations that must be consistent should have their degrees of freedom reduced, not get more explanatory text.
 
-**Stop conditions** (stops as soon as any one holds):
-- ✅ All dimensions ≥ the `.docgrad.yml` targets -> closing report + graduation recommendation.
-- ⏸ Two consecutive rounds with no improvement in any dimension's score -> plateau report (explains where it's stuck and why the skill can't fix it further).
-- ⏸ Hitting a semantic contradiction that needs human decision (two documents mutually exclusive and code can't arbitrate, or the fix involves a product decision) -> lists the arbitration options and pauses.
+**Stop conditions**: `loop` ends on targets met, nothing measured, an unmet row outside docgrad's remit, a plateau, or a decision only a human can make. What each of those means is defined only in [improve.md](../skills/docgrad/reference/improve.md) §Stop conditions and is not restated here, so the two files cannot drift apart.
 
 Branch isolation lets the user review everything in a batch before merging; committing every round guarantees the work can be resumed after interruption and can be rolled back.
 

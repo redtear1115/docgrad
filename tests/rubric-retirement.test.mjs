@@ -72,7 +72,7 @@ test('judge.md: step 9\'s first table has exactly Completeness, Correctness, Con
   const measureIdx = body.indexOf('## Measure');
   assert.notEqual(measureIdx, -1, 'a ## Measure block must precede the Dimension table');
 
-  const tableHeaderIdx = body.indexOf('| Dimension | Rating | Target | Main deductions |');
+  const tableHeaderIdx = body.indexOf('| Dimension | Rating | Main deductions |');
   assert.notEqual(tableHeaderIdx, -1, 'the Dimension table must exist');
   assert.ok(measureIdx < tableHeaderIdx, 'the Measure block must come before the Dimension table');
 

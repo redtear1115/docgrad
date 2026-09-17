@@ -229,21 +229,22 @@ zero new draws, so the sampling stopped expanding exactly when the documentation
 > for a library repo whose documentation describes an API rather than file paths. A pass rate over zero claims is undefined, so every ★1–★5
 > anchor here is inapplicable; picking one anyway is how four independent runs on the same fixture produced ★3, ★3, ★1 and ★2. In that case:
 > - Write `n/a` in the rating column, with `(not measurable — 0 verifiable claims in the corpus)` as the deduction text. **Do not** give a star:
->   not ★1 (nothing was found wrong), not ★3, not the target value.
-> - Treat it like a design ceiling for the targets check: the dimension counts as met and is excluded from "pick the lowest dimension"
->   (see [improve.md](improve.md) §Dimension cap: the design ceiling).
+>   not ★1 (nothing was found wrong), not ★3, not any value.
+> - **This has no target and never enters the loop's working set** — correctness is a judged dimension, it was never a `measure` row, and
+>   `improve`/`loop` select only from `measure` rows with `meets_target: false` (see [improve.md](improve.md) §Rows outside the working set).
+>   There is nothing here for the loop to exclude, because it was never a candidate in the first place.
 > - **The report must state the finding**, because it is itself the thing worth acting on: the corpus contains no claim carrying a code
 >   coordinate, so nothing in it can be mechanically checked against the code and correctness can never be measured until that changes.
->   Put the recommendation — anchor claims to real paths/symbols so they become verifiable — under "Suggested next steps" even though the
->   dimension carries no star.
+>   Put the recommendation — anchor claims to real paths/symbols so they become verifiable — under "Suggested next steps", after any
+>   unmet `measure` rows, even though the dimension carries no star.
 >
 > A corpus with claims but an unlucky round is *not* this case: if `claims_total > 0` the verified set cannot be empty, so the rating
 > proceeds normally. That holds even when the emitted window is exhausted and there is nothing left to *draw* — a window can only be
 > exhausted by a ledger that filled it, and those entries are re-verified by steps 1 and 2. "Nothing to draw" and "nothing verified"
 > are different conditions; only the second one reaches this blockquote.
 
-> **audit writes nothing to disk**: this process **reads** the ledger but never writes it. The ledger is only written by `improve`/`loop`
-> (see [improve.md](improve.md) step 5) — consistent with the ironclad rule that "audit is pure report".
+> **measure/judge write nothing to disk**: this process **reads** the ledger but never writes it. The ledger is only written by `improve`/`loop`
+> (see [improve.md](improve.md) step 5) — consistent with the ironclad rule that "measure and judge are pure report" (`audit` included, since it is only their alias).
 
 ### 6. Consistency (across documents and carriers)
 
@@ -265,8 +266,10 @@ Read [placement.md](placement.md) first — the rules for judging placement and 
 
 ## Measure
 One line per `measure` item — number first, then verdict and line (id, value with
-numerator/denominator when it is a ratio, verdict, line); see [measure.md](measure.md) §Verdict
-lines for the full table and the degenerate cases. This block **must** also carry:
+numerator/denominator when it is a ratio, verdict, line, **`accept` and `meets_target`**); see
+[measure.md](measure.md) §Verdict lines and §Targets for the full table and the degenerate cases.
+**An accepted WATCH (`accept: "WATCH"`, `meets_target: true`) must still be printed** — it is a real,
+disclosed relaxation of the default, not a way for a row to quietly disappear from the page. This block **must** also carry:
 - the freshness `date_concentration` line (report-only, see measure.md step 4/5);
 - the economy lines: fixed cost, pollution, `out_of_scope` count/tokens and untracked count (see
   measure.md step 7);
@@ -275,11 +278,11 @@ lines for the full table and the degenerate cases. This block **must** also carr
   with one graded at the defaults — the reader cannot infer that from a verdict alone, and
   `measure_hash` only tells them the ruler changed, not what it changed to.
 
-| Dimension | Rating | Target | Main deductions |
-|---|---|---|---|
-| Completeness | ★x | ★y | … |
-| Correctness | ★x | ★y | …(pass rate n/N, **N borderline**, cumulative coverage m/total = x%, docgrad-authored share x%; `n/a` when the corpus has 0 verifiable claims; add "API matching disabled — `src_dirs` unset" when `claim_population.api_matching` says so) |
-| Consistency | ★x | ★y | …(deductions tagged `[contradiction]`/`[duplication]`/`[placement]`) |
+| Dimension | Rating | Main deductions |
+|---|---|---|
+| Completeness | ★x | … |
+| Correctness | ★x | …(pass rate n/N, **N borderline**, cumulative coverage m/total = x%, docgrad-authored share x%; `n/a` when the corpus has 0 verifiable claims; add "API matching disabled — `src_dirs` unset" when `claim_population.api_matching` says so) |
+| Consistency | ★x | …(deductions tagged `[contradiction]`/`[duplication]`/`[placement]`) |
 
 ## Token economy (report-only)
 - Fixed cost: ~N tokens (entry_files: …) — already counted in economy
@@ -311,16 +314,28 @@ When the target repo has `.docgrad/out-of-scope.jsonl`, list all `status: open` 
 (see [improve.md](improve.md) §Exit for findings outside docgrad's remit); omit this section entirely if the file doesn't exist.
 
 ## Suggested next steps
-Lowest-scoring dimension = <dimension> (ties broken by rubric order). Deductions:
+**Measure rows not meeting target first** — this is what `improve`/`loop` will actually pick, in
+[improve.md](improve.md) step 2's pick order (every FAIL before any unaccepted WATCH, then the fixed tie-break):
 1. …
 2. …
-(to start converging, run /docgrad improve or /docgrad loop)
+**Then judge deductions, as recommendations only** — the loop never fixes these, they need a human or `--judge` review:
+1. …
+2. …
+(to start converging, run /docgrad improve or /docgrad loop; add --judge to also rate this round)
 ```
 
 ## Scoped audit (limited scope / single dimension)
 
+Covers `measure <scope>`, `judge <scope>` / `judge --dim <dimension>`, and their `audit <scope>` / `audit --dim <dimension>` alias
+equivalents — all route here.
+
 **Trigger**: the user's input carries a scope (directory, glob, or a topic description like "infra-related docs") or a dimension
 (`--dim consistency`, "just score completeness").
+
+**`--dim` on the alias implies `--judge`.** A dimension (completeness/correctness/consistency) can only be judged — there is no
+`measure`-side concept of "just this dimension." So `audit --dim <d>` runs `measure` (in full, unscoped by `--dim`) plus
+`judge --dim <d>`, exactly as if both flags had been passed explicitly. It stays report-only, same as every other scoped or
+alias form: no write to `.docgrad/scorecard-latest.md` or `.docgrad/history.jsonl`.
 
 **Scope translation**: translate a topic description into a concrete glob first (use the inventory's file list to pick out relevant files), and
 **list the actual `--include` value used** in the report header — the user needs to see what you interpreted "infra-related" as. If you can't translate it, ask; don't guess.

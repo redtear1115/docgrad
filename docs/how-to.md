@@ -1,6 +1,6 @@
 # docgrad how-to — common development tasks
 
-> **Last updated:** 2026-09-13
+> **Last updated:** 2026-09-17
 
 ## Fewer permission prompts when running the scripts (optional, user-configured)
 
@@ -18,8 +18,16 @@ Use the absolute path from the line that actually runs after `/docgrad` is trigg
 ## Add a scoring dimension
 
 1. **Anchors first**: judged dimension: full ★1–★5 anchors + measurement method in [skills/docgrad/reference/rubric.md](../skills/docgrad/reference/rubric.md); measure signal: a `MEASURE_BANDS` row (`skills/docgrad/scripts/lib.mjs`) + a [measure.md](../skills/docgrad/reference/measure.md) §Verdict lines entry. Anchor changes = a breaking change, see the next section.
-2. Update the rubric's "mechanical signal -> dimension map" map; dimension order (the tie-break basis) follows the rubric map's order.
-3. Add the new dimension key to `targets` in `.docgrad.yml`; sync `skills/docgrad/scripts/lib.mjs › DEFAULTS.targets` (the field list is authoritative in code, not repeated here).
+2. Update the rubric's "mechanical signal -> dimension map" map. Tie-break order is different for the two halves now:
+   a new **measure** signal must be added to [improve.md](../skills/docgrad/reference/improve.md) step 2's pick
+   order to get a considered position, or it is simply picked last (after every listed id, in `lib.mjs › MEASURE_BANDS`
+   order) — nothing else needs to change for it to be pickable. A new **judged** dimension's tie-break position still
+   comes from `rubric.md` §Scoring principles.
+3. A new measure signal is automatically a valid `targets` key — `.docgrad.yml`'s `targets` names any `MEASURE_BANDS`
+   id, so adding a `MEASURE_BANDS` row is what makes it configurable; there is nothing to sync in
+   `skills/docgrad/scripts/lib.mjs › DEFAULTS.targets`, which is `{}` (no dimension defaults itself into `targets`,
+   see `normalizeTargets()`). A new judged dimension has no `targets` key at all — judged dimensions no longer have one (1.x configs named them with star values; see
+   [measure.md](../skills/docgrad/reference/measure.md) §Targets for how those keys are ignored with a warning).
 4. Add the scoring steps for that dimension to [skills/docgrad/reference/judge.md](../skills/docgrad/reference/judge.md); add a row to the scorecard template.
 5. If a new mechanical signal is needed: add `skills/docgrad/scripts/<name>.mjs` (contract in [design.md](design.md) §Scripts contract — zero dependencies, JSON->stdout, errors->stderr with a non-zero exit code, shared flags always go through `skills/docgrad/scripts/lib.mjs › parseArgs()`), and add a corresponding `*.test.mjs` in `tests/`.
 
@@ -47,7 +55,7 @@ claude plugin eval . --runs 5 --scaffold --allow-tools Bash --keep-temp
 
 Three of those flags are not optional for this plugin:
 
-- **`--allow-tools Bash`** — docgrad's six dimensions are computed by five Node scripts, and the
+- **`--allow-tools Bash`** — docgrad's measure signals are computed by Node scripts, and the
   harness removes ungranted tools from the session entirely. A case's own `allowed_tools` cannot
   grant `Bash`; only this flag can. Without it the audit is structurally impossible, not merely
   worse.

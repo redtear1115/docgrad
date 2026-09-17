@@ -145,10 +145,12 @@ than leaving each round to re-derive them.
 > no outstanding `fail`/`stale`, no `pass` entries in the ledger, and `claims_total: 0` — the pass
 > rate is undefined and **none of the ★1–★5 anchors above apply**. Report the dimension as `n/a`
 > (not measurable) rather than guessing a star; four independent runs on the same library-repo
-> fixture, each reasoning defensibly, produced ★3, ★3, ★1 and ★2. A not-measurable correctness is
-> treated exactly like a design ceiling: excluded from the targets check, excluded from the loop's
-> dimension picking, and named in the report — the corpus having no claim that carries a code
-> coordinate is itself the finding worth acting on (see [judge.md](judge.md) step 3). The rated
+> fixture, each reasoning defensibly, produced ★3, ★3, ★1 and ★2. A not-measurable correctness has
+> no target and is never in the loop's working set — correctness is a judged dimension, it was never
+> a `measure` row `improve`/`loop` could have picked in the first place (see
+> [improve.md](improve.md) §Rows outside the working set) — and it is named in the report: the
+> corpus having no claim that carries a code coordinate is itself the finding worth acting on (see
+> [judge.md](judge.md) step 3). The rated
 > value recorded in `history.jsonl` is `null`, not a number, so `report` never averages a guess.
 > This adds a case the anchors did not cover; it **changes none of the ★1–★5 thresholds**
 > (see [§Version history](#version-history-and-comparability-notes)).
@@ -412,7 +414,7 @@ anchors (see its entry).
   **improve/loop is not runnable until E2c; do not release without E2c.** This slice retires the
   anchors judge/measure read from; the convergence flow (`improve.md`) still reasons about six rated
   dimensions and is updated in a later epoch of this release. This is a named intermediate state, not
-  something this slice fixes.
+  something this slice fixes. (Resolved in E2c-2, see below.)
 - **v2.0.0 (E4b) — `rubric_hash` folded into `judge_hash`** (**not an anchor change**): no ★1–★5
   threshold moved and no default changed. This waited on E2b-2: before it, `rubric.md` still carried
   a measure threshold, so editing it could move a judge fingerprint for a measure-side reason, and
@@ -437,6 +439,50 @@ anchors (see its entry).
     E2b-2: CONTRIBUTING.md rule 1 does not forbid a hash moving in the same release as the coverage
     change it reveals, because 2.0.0 is a major release and every 1.x → 2.0 pair of rounds is already
     treated as a break regardless of which hash shows it.
+- **v2.0.0 (E2c-2) — `improve`/`loop` become runnable again, and `judge.md` step 9 drops the Target
+  column** (**not an anchor change**): no ★1–★5 threshold moved and no default changed. This resolves
+  the E2b-2 entry above's "improve/loop is not runnable until E2c; do not release without E2c":
+  `improve.md` now reasons only about `measure` rows' `verdict`/`accept`/`meets_target` (added in
+  E2c-1) for selection, verification, stop conditions and graduation — never about a star rating.
+  SKILL.md gains `measure` and `judge` as separate commands and keeps `audit` as a documented
+  deprecated alias (runs `measure`; runs `judge` too only with `--judge`); `improve`/`loop` run
+  `judge.md` only when passed `--judge`.
+  - **This file's own change**: §Correctness's not-measurable case (above) no longer says "design
+    ceiling" or "the loop's dimension picking" — there is no `measure` row for a judged dimension to
+    begin with, so there is nothing here for the loop to exclude. It now points at
+    [improve.md](improve.md) §Rows outside the working set instead.
+  - **`judge.md` changes, all judge-side procedure, no anchor**: step 9's Dimension table drops the
+    `Target` column (`| Dimension | Rating | Main deductions |`, still exactly the three rows
+    Completeness/Correctness/Consistency, pinned by `tests/rubric-retirement.test.mjs`) — a judged
+    dimension has never had a `measure`-style target, and the column was carried over from
+    `audit.md` unexamined. The Measure block line spec now names `accept`/`meets_target` and requires
+    printing an accepted WATCH. "Suggested next steps" lists unmet `measure` rows first (the loop's
+    own pick, see [improve.md](improve.md) step 2), then judge deductions as recommendations
+    only — judge never decides what the loop fixes next. The empty-sample blockquote drops "treat it
+    like a design ceiling … excluded from pick the lowest dimension" for the same "never a candidate"
+    wording as this file's own change above. The "audit writes nothing" note is now "measure/judge
+    write nothing", with `audit` named as their alias. The scoped-audit section now names
+    `judge <scope>` / `measure <scope>` alongside the historical `audit <scope>` spelling.
+  - **`audit.md` becomes a documented deprecated alias**: `measure`, plus `judge` only with
+    `--judge`; report-only either way, exactly as `audit` always was. It stays outside
+    `lib.mjs › JUDGE_FILES` — a router with no rules of its own does not move a rules fingerprint.
+  - **The fingerprint moves:**
+    - **`judge_hash` moves**: a real content change in `judge.md` (the Dimension table header, the
+      Measure block spec, the reordered "Suggested next steps", the reworded empty-sample
+      blockquote, the "audit writes nothing" → "measure/judge write nothing" note, the scoped-audit
+      section wording) plus this file's own two changes above and this §Version history entry, which
+      changes `rubric.md` a second time in the same edit. Old → new value: see CHANGELOG's
+      `v2.0.0 epoch 2c-2` section.
+    - **`measure_hash` is unmoved, `cc49bc6f`.** `measure.md` and `lib.mjs › MEASURE_BANDS` are
+      untouched this slice.
+    - **`corpus_hash` is unmoved, `71d1ce84`.** `.docgrad.yml` is untouched.
+  - **The rule-1 waiver extends to this move too**, for the same reason as every 2.0.0 fingerprint
+    move recorded above: CONTRIBUTING.md rule 1 does not forbid a hash moving in the same release as
+    the rule change it reveals, because 2.0.0 is a major release and every 1.x → 2.0 pair of rounds is
+    already treated as a break regardless of which hash shows it.
+  - **improve/loop is runnable as of this entry.** The E2b-2 entry's "do not release without E2c"
+    condition is satisfied: `improve.md` no longer reasons about six rated dimensions anywhere in its
+    selection, verification, stop-condition or graduation text.
 - **v1.8.0 — the rules for applying the anchors are fingerprinted, and the sampling window counts what it can draw**
   (issues #56, #54, #57) (**not an anchor change**): no ★1–★5 threshold moved and every shipped default is unchanged.
   - **New `judgement_hash`**, covering `audit.md` and `placement.md` — the files that decide *how* the anchors are applied

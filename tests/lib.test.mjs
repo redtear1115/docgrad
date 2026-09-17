@@ -1275,6 +1275,14 @@ test('loadLedgerRows: error text names the flag it was called for, and loadLedge
 // v2 form (a bare `targets:`, no config *values* change — this hash has never read `targets`) and
 // `reference/measure.md` grows a new §Targets section and §Version history entry, both
 // `measure_hash` inputs. `judge_hash` and `corpus_hash` are unaffected.
+// **E2c-2 moves `judge_hash` again**: `improve`/`loop` become runnable (they now reason only about
+// `measure` rows' `verdict`/`accept`/`meets_target`, never a star), so `judge.md` step 9 drops the
+// Target column, reorders "Suggested next steps," and rewords the empty-sample blockquote and the
+// "audit writes nothing" note; `rubric.md`'s own correctness not-measurable note drops its "design
+// ceiling"/"loop's dimension picking" wording and gains this epoch's §Version history entry (which
+// itself moves `rubric.md`, and therefore `judge_hash`, a second time in the same edit).
+// `measure.md`/`MEASURE_BANDS` and `.docgrad.yml` are untouched, so `measure_hash` and `corpus_hash`
+// are unaffected.
 // The literals below were pinned rather than recomputed because a hash that quietly changed would
 // otherwise look exactly like one that did not.
 test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes stay independent', () => {
@@ -1284,7 +1292,7 @@ test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes st
 
   assert.deepEqual(Object.keys(meta), ['version', 'measure_hash', 'judge_hash', 'corpus_hash']);
   assert.equal(meta.measure_hash, 'cc49bc6f', 'measure_hash after E2c-1 (was 38724510 through E4b)');
-  assert.equal(meta.judge_hash, '6c0f1ed0', 'judge_hash after E4b (was e8881920 through E2b-2), unchanged by E2c-1');
+  assert.equal(meta.judge_hash, 'd2c22f68', 'judge_hash after E2c-2 (was 6c0f1ed0 through E2c-1)');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
   // change; a placement.md edit is a judge-side one; neither may disturb the other, or #82's
