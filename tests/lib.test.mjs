@@ -1283,6 +1283,11 @@ test('loadLedgerRows: error text names the flag it was called for, and loadLedge
 // itself moves `rubric.md`, and therefore `judge_hash`, a second time in the same edit).
 // `measure.md`/`MEASURE_BANDS` and `.docgrad.yml` are untouched, so `measure_hash` and `corpus_hash`
 // are unaffected.
+// **E4c moves `measure_hash` again**: the graduation gate template gains a `max_pollution_ratio`
+// threshold, and `reference/measure.md` §8b and §Version history describe it — a `measure_hash`
+// input. `skills/docgrad/templates/docs-gate.mjs` and `graduation-README.md` (the produced gate
+// itself) are not `measure_hash` inputs, so editing them alone would not move it; this test's value
+// moved because measure.md did. `judge_hash` and `corpus_hash` are unaffected.
 // The literals below were pinned rather than recomputed because a hash that quietly changed would
 // otherwise look exactly like one that did not.
 test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes stay independent', () => {
@@ -1291,7 +1296,7 @@ test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes st
   const meta = docgradMeta(skillRoot, config);
 
   assert.deepEqual(Object.keys(meta), ['version', 'measure_hash', 'judge_hash', 'corpus_hash']);
-  assert.equal(meta.measure_hash, 'cc49bc6f', 'measure_hash after E2c-1 (was 38724510 through E4b)');
+  assert.equal(meta.measure_hash, 'dd15ca3f', 'measure_hash after E4c (was cc49bc6f through #102)');
   assert.equal(meta.judge_hash, 'd2c22f68', 'judge_hash after E2c-2 (was 6c0f1ed0 through E2c-1)');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler

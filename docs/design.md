@@ -191,7 +191,7 @@ Branch isolation lets the user review everything in a batch before merging; comm
 
 ## Graduation (fixed closing section; artifacts produced, not installed)
 
-Once targets are met, it recommends distilling the mechanizable rules into the repo's own CI gate (dead links / orphans / freshness / entry-file budget — `docs-gate.mjs`'s CI mode), and explains that docgrad's five scripts can be adapted and moved over directly. docgrad only scores and edits content, it **never touches the target repo's CI configuration**.
+Once targets are met, it recommends distilling the mechanizable rules into the repo's own CI gate (dead links / orphans / freshness / entry-file budget / pollution ratio — `docs-gate.mjs`'s CI mode), and explains that docgrad's five scripts can be adapted and moved over directly. docgrad only scores and edits content, it **never touches the target repo's CI configuration**.
 
 ## Scripts contract
 

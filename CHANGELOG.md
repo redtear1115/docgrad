@@ -377,6 +377,46 @@ No script, output or fingerprint changes; `improve.md` is in no fingerprint.
   allow-listed until E5 (#83) rewrites it as a link. Known limit: the check still only recognises listed phrasings
   (see #102).
 
+### v2.0.0 epoch 4c — the graduation gate asserts pollution (closes #82)
+
+`skills/docgrad/templates/docs-gate.mjs` gains a sixth threshold, `max_pollution_ratio` (default `0.1`, matching
+`economy.pollution_max`), checked with `<=` against `inventory.pollution.ratio`. The gate never passes `--include`,
+so that ratio is a number and never null. If a docgrad install reports `inventory.pollution.ratio` as anything else
+(too old, or a shape change), the gate exits 2 (environment problem) rather than guessing.
+
+- **One pin rule.** At graduation, `max_pollution_ratio` is pinned to that round's `inventory.pollution.ratio` —
+  exactly the same "current values become the thresholds" rule `improve.md` §Graduation already applies to the
+  other five, and never to `economy.pollution_max`. This keeps the gate green on day one even for a repo that
+  graduated with `targets: pollution: WATCH` (a ratio at or above `pollution_max`). `improve.md` §Graduation and
+  `graduation-README.md`'s pinned-thresholds table both name this one rule; neither restates it differently.
+  `economy.pollution_max` stays the separate, config-side WATCH boundary the scripts evaluate every round — the
+  gate's threshold and that boundary can differ, on purpose, once a repo pins its own.
+- **The ratio can expire in either direction.** Unlike the four absolute numbers, and like
+  `min_freshness_coverage`, `max_pollution_ratio` can go red on its own as the corpus changes shape — but where
+  freshness coverage only falls as the corpus grows, pollution can move either way: a new junk file matched by
+  `exclude` (tracked or not) raises it, a new clean doc lowers it. `graduation-README.md` says so.
+  `docs-gate.mjs` also gains one comment line: CI runs on a clean checkout and measures the clean corpus, but a
+  local run with untracked files may read a different `pollution.ratio` (`inventory.mjs`'s `pollution.note`
+  already says this; the gate just doesn't hide it).
+- **Backward compat for gates already committed.** A gate produced before this key existed (docgrad ≤ 2.0.0-pre)
+  has no `max_pollution_ratio`. `measure.md` §8b item 3 treats a missing key as "not declared by this gate" and
+  reports it once — *"this gate predates the pollution threshold"* — never as fail-closed (the fail-closed rule
+  stays about the `THRESHOLDS` block's shape, not which keys a given gate declares). Item 4's "logic differs from
+  the template" note gains the same allowance: an older gate is *expected* to differ once the template's checks
+  grow, and the remedy is regenerating it, not treating the difference as a defect.
+- **`measure_hash` moves, from `cc49bc6f` to `dd15ca3f`.** `reference/measure.md` §8b and §Version history are the
+  only `measure_hash` inputs this slice touches; the produced template (`docs-gate.mjs`) and its README are not
+  inputs, so shipping them alone would not have moved it. `judge_hash` (`d2c22f68`) and `corpus_hash` (`71d1ce84`)
+  are unaffected — no judge-side file changed and no corpus-selecting config field moved.
+- New `tests/docs-gate.test.mjs` runs the template against temp repos: pass at defaults, exit 1 naming pollution
+  when it is pushed over threshold, exit 2 when `inventory.pollution.ratio` is absent from a stubbed docgrad
+  install, and exit 0 for a fixture whose ratio exceeds the shipped default but whose `THRESHOLDS` is pinned to its
+  own current ratio (a graduated-with-WATCH repo). A test also asserts the template's `THRESHOLDS` block is still a
+  plain list of `key: <number>` lines — the shape `measure.md` §8b's fail-closed parser depends on.
+- `docs/design.md` and `improve.md`'s attached graduation-report passage now list pollution among what the gate
+  blocks. Non-goals for this slice: `README.md`/`README.zh-TW.md` (E5, #83), `judge.md`/`rubric.md`
+  (`judge_hash` does not move), `lib.mjs › MEASURE_BANDS`, and any script output shape.
+
 ## 1.9.2 — 2026-09-16
 
 Four measurement fixes and one documentation entry. No ★1–★5 anchor text changed and no default

@@ -328,7 +328,9 @@ Do two things at graduation:
 
 1. **Produce it, but don't install it**. Copy the two files from `$SKILL_DIR/templates/` into the target repo's
    `.docgrad/graduation/`, and tune `THRESHOLDS` to the repo's actual current state (the current values become the thresholds,
-   so the gate is green from day one and can only be tightened afterward):
+   so the gate is green from day one and can only be tightened afterward) — including `max_pollution_ratio`, which is
+   pinned to this round's `inventory.pollution.ratio` and never to `economy.pollution_max` (the same single pin rule as
+   every other threshold in this block, kept green on day one even for a repo graduating with `targets: pollution: WATCH`):
 
    ```bash
    mkdir -p .docgrad/graduation
@@ -354,7 +356,7 @@ Do two things at graduation:
    > `.docgrad/graduation/docs-gate.mjs` and `docs-gate.yml` have been produced, **not installed**.
    > To enable: put the `.mjs` in `.github/scripts/` and the `.yml` in `.github/workflows/`;
    > both already have their thresholds set to this repo's current state. The gate only blocks dead links/broken anchors/orphans/freshness coverage/
-   > entry-file token budget — how strict to be is the team's call, docgrad doesn't decide that for you.
+   > entry-file token budget/pollution ratio — how strict to be is the team's call, docgrad doesn't decide that for you.
    >
    > Dead links and formatting can also be handled with more mature off-the-shelf tools instead (lychee or markdown-link-check, markdownlint,
    > Vale). docgrad's scripts add differentiated value in orphans/reachability and entry-file token budget — these two are
