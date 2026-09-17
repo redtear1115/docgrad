@@ -20,6 +20,8 @@ on:
       - 'CONTRIBUTING.md'
       - 'INTEROP.md'
       - '.docgrad.yml'
+      - '.github/scripts/docs-gate.mjs'   # changing the gate itself should run it
+      - '.github/workflows/docs-gate.yml'
 
 jobs:
   docs-gate:
