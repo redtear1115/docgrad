@@ -2,7 +2,7 @@
 
 > **Last updated:** 2026-09-17
 
-`improve` = run one round and stop; `loop` = run repeatedly until a stop condition. The process is exactly the same.
+`improve` = run at most one round and stop (a pre-round stop condition can mean it runs none — see [Stop conditions](#stop-conditions-loop-any-one-of-them-ends-it)); `loop` = run repeatedly until a stop condition. The process is exactly the same.
 
 ## Preconditions (blockers)
 
@@ -74,7 +74,7 @@
      historical baggage out of the corpus" (`exclude` or delete the file). The former is a move, not a cut — **the content must land inside `docs_dirs`
      and be reachable from the index**, otherwise the `undocumented_dirs` and `orphan_ratio` rows will worsen and the verification step will block it.
      **Deleting content that's still correct and still needed, just to lower the cost, is forbidden**; when "delete it" really is the only way left to bring the cost down,
-     call it a plateau and hand the trade-off to the user — don't decide yourself which document to cut.
+     hand the trade-off to the user as a [Needs human decision](#stop-conditions-loop-any-one-of-them-ends-it) case — don't decide yourself which document to cut.
      If `entry_files`'s configuration itself is wrong (it lists a file that never enters the agent's context, or omits one that's required reading) → fix `.docgrad.yml`
      and say so explicitly in the commit message; this counts as a config fix, not score-farming. When a listed file is actually **conditionally** loaded,
      move it to `docs_files` instead (still in the corpus, doesn't count toward fixed cost) — **don't** just delete it, since deleting it would also move `undocumented_dirs`.
@@ -94,16 +94,23 @@
      ran — both lists land in the scorecard's "Suggested next steps", see [judge.md](judge.md) step 9) and note them; when a suggestion is outside docgrad's remit entirely rather than merely outside
      docs scope, it goes into `.docgrad/out-of-scope.jsonl` instead (see [Exit for findings outside docgrad's remit](#exit-for-findings-outside-docgrads-remit)).
 4. **Verify**: rerun the four scripts and re-evaluate the affected rows. Success = the picked row's `verdict` improves
-   (`FAIL`→`WATCH`/`OK`, or `WATCH`→`OK`), **or** its value moves toward its OK line without a verdict change being
-   possible this round — report that case as partial. Failure/revert = **any** row gets worse, the picked row
+   (`FAIL`→`WATCH`/`OK`, or `WATCH`→`OK`) — keep the change. **Partial success** = the picked row's `verdict` does not
+   improve, but its value still moves toward its OK line — keep the change and report it as partial; any such move
+   counts, whether or not a verdict change was possible this round. Failure/revert = **any** row gets worse, the picked row
    included: a `meets_target` that moves `true`→`false`, a `verdict` that worsens (`OK`→`WATCH`/`FAIL`,
    `WATCH`→`FAIL`), or — for the picked row — a value that moves away from its OK line even with no verdict change
-   (`entry_cost` growing while still `FAIL`) → revert the change that caused it, and note it. **Judge stars, on a
+   (`entry_cost` growing while still `FAIL`) → revert the change that caused it, and note it. **This holds even when
+   the picked row itself got better**: if the picked row improves (verdict or value toward its OK line) but any other
+   row worsens, the worsening wins — revert, don't keep the picked row's gain. **Judge stars, on a
    round that ran `--judge`, never gate verification** — a judge deduction rising or falling decides nothing about
    whether this round's fix stands; only the measure rows do.
    **Unchanged** — the picked row's verdict and value are both exactly as before, and no other row worsened → keep
-   the change (it broke nothing), record the round as **no improvement**, and count it toward the plateau rule below.
+   the change (it broke nothing) and record the round as **no improvement** on the picked row.
    A picked row that moved away from its OK line is never this case; it is a revert.
+   **This paragraph does not decide whether the round counts toward the plateau stop condition** — see
+   [§Stop conditions](#stop-conditions-loop-any-one-of-them-ends-it): plateau is a working-set-wide condition, not a
+   per-picked-row one, so a round where only the picked row made no progress does not, by itself, make it a plateau
+   round.
 5. **Record and commit**:
    - Append one line to `.docgrad/history.jsonl` (create it if it doesn't exist), in **schema 2**:
 
@@ -249,10 +256,22 @@ place, so there is nothing for that finding to be excluded from here.
 
 This section is the **only** definition of when `loop` stops; every other file links here instead of restating it.
 
+**When each one is checked**: "Targets met", "Nothing measured" and "Outside docgrad's remit" are all checked
+**between step 1 and step 2** — against the fresh `measure` output step 1 just produced, before anything is picked or
+changed — so a round that would have nothing left to do goes no further than step 1: no pick, no fix, no step 5, no
+history row; that is what "runs no round" means below. Such a stop commits nothing, with one exception: the
+**Targets met** stop's graduation output — see [Graduation](#graduation-do-it-when-targets-are-met-do-not-just-recommend-it).
+"Plateau" is checked **after step 5 has written that round's history row and commit** (the round that triggers it is
+still recorded), since it compares this round's outcome against the previous one. Only changes the round **kept**
+count as improvement: a change step 4 reverted contributes none, while a side fix or small-corpus fix that stayed
+still counts. "Needs human decision" is checked **whenever it
+arises**, which can be mid-round (during step 3 or step 4), not only at a round boundary.
+
 - ✅ **Targets met**: at least one `measure` row has a non-null `meets_target`, and every such row reads `true`. A null
   row counts neither way; a row excluded as outside docgrad's remit always counts as unmet, so graduation is withheld
-  while any such row remains. **If every row is null, targets are not met** — see "Nothing measured" → final report +
-  graduation recommendation (see below).
+  while any such row remains. Targets met → final report + graduation recommendation (see
+  [Graduation](#graduation-do-it-when-targets-are-met-do-not-just-recommend-it) below). **If every row is null, targets are not met**
+  — that is the "Nothing measured" case below, not this one.
 - ⏸ **Nothing measured**: every `measure` row's `meets_target` is `null` → stop with a report that this round measured
   nothing (name each row's `note`); this is never "targets met" and never leads to graduation.
 - ⏸ **Outside docgrad's remit**: the working set is otherwise empty, but some row is unmet only because its fix is
@@ -260,12 +279,20 @@ This section is the **only** definition of when `loop` stops; every other file l
   round's own "outside docgrad's remit" stop report naming every such row, and append each one to
   `.docgrad/out-of-scope.jsonl` (`kind` per the existing vocabulary — see [Exit for findings outside docgrad's remit](#exit-for-findings-outside-docgrads-remit) — skip an entry if an identical `status: "open"` one already exists). This is not a plateau: a plateau is defined only over a non-empty working set, and this working set is empty.
 - ⏸ **Plateau, defined only over a non-empty working set**: two consecutive rounds where no working-set row improves at
-  all (verdict, or value toward the OK line; a round step 4 records as **no improvement** counts) → a plateau report: which row is stuck on which deductions, and
-  why docgrad can't fix it (e.g., needs domain knowledge to be written in, needs a human to decide a trade-off).
+  all (verdict, or value toward the OK line) → a plateau report: which row is stuck on which deductions, and
+  why docgrad can't fix it (e.g., needs domain knowledge to be written in, needs a human to decide a trade-off). This
+  is a working-set-wide condition, not a per-picked-row one: a round where the picked row was unchanged (step 4's
+  "Unchanged" case) but some **other** working-set row improved does **not** count toward plateau — only a round
+  where **every** working-set row failed to improve counts.
 - ⏸ **Needs human decision**: two documents are mutually exclusive and the code can't arbitrate, or the fix involves a product decision → list the options
   (A/B, with each one's consequences and a recommendation), pause and wait for the user's decision before continuing.
 
-`improve` just stops once its one round finishes, outputting this round's scorecard and a diff summary.
+A single `improve` invocation runs the same before-round checks as `loop`: if the fresh measure output already shows
+targets met, shows nothing measured (every row null), or shows only remit-excluded rows unmet, `improve` likewise
+runs no round — it writes no history row and emits that stop condition's report instead of a round output, exactly as
+`loop` would for that round. It commits nothing, except that a Targets met stop carries out
+[Graduation](#graduation-do-it-when-targets-are-met-do-not-just-recommend-it), which writes and commits its own files. Otherwise `improve` runs its one round and stops once step 5
+finishes, outputting that round's scorecard and a diff summary.
 
 ## Graduation (do it when targets are met, do not just recommend it)
 
@@ -315,7 +342,10 @@ Do two things at graduation:
 
    **Never write into `.github/`**, and never modify any existing CI configuration.
 
-   **Commit the two produced files** along with the round's other `.docgrad/` state. They are a deliverable, not a
+   **Commit the two produced files, the README, and a fresh `.docgrad/scorecard-latest.md`** — graduation happens at
+   a stop where no round ran, so step 5 did not overwrite the scorecard; write it here from this final measure output
+   (the step 5 template), so `report` reprints the graduating state rather than the last round's. No history row is
+   written for it. They are a deliverable, not a
    by-product: the team copies them into `.github/` by hand, and if they are not in version control the only way to get
    them back is to run another convergence round to graduation.
 
