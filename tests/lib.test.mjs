@@ -1288,6 +1288,12 @@ test('loadLedgerRows: error text names the flag it was called for, and loadLedge
 // input. `skills/docgrad/templates/docs-gate.mjs` and `graduation-README.md` (the produced gate
 // itself) are not `measure_hash` inputs, so editing them alone would not move it; this test's value
 // moved because measure.md did. `judge_hash` and `corpus_hash` are unaffected.
+// **E3 moves `judge_hash` again**: `judge.md` step 9's scorecard template gains the `## Judge — not
+// comparable across rounds` heading (sample line + no-overall sentence) above the Dimension table,
+// a title-line `@ <short-sha>`, a §Scoped audit update naming the same heading, and a new §Known
+// instability section (#69/#70) — all judge-side content, a `judge_hash` input.
+// `reference/measure.md`/`MEASURE_BANDS` and `.docgrad.yml` are untouched, so `measure_hash` and
+// `corpus_hash` are unaffected.
 // The literals below were pinned rather than recomputed because a hash that quietly changed would
 // otherwise look exactly like one that did not.
 test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes stay independent', () => {
@@ -1297,7 +1303,7 @@ test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes st
 
   assert.deepEqual(Object.keys(meta), ['version', 'measure_hash', 'judge_hash', 'corpus_hash']);
   assert.equal(meta.measure_hash, 'dd15ca3f', 'measure_hash after E4c (was cc49bc6f through #102)');
-  assert.equal(meta.judge_hash, 'd2c22f68', 'judge_hash after E2c-2 (was 6c0f1ed0 through E2c-1)');
+  assert.equal(meta.judge_hash, '9c31f7e3', 'judge_hash after E3 (was d2c22f68 through E4c)');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
   // change; a placement.md edit is a judge-side one; neither may disturb the other, or #82's

@@ -483,6 +483,28 @@ anchors (see its entry).
   - **improve/loop is runnable as of this entry.** The E2b-2 entry's "do not release without E2c"
     condition is satisfied: `improve.md` no longer reasons about six rated dimensions anywhere in its
     selection, verification, stop-condition or graduation text.
+- **v2.0.0 (E3) — the scorecard prints a Measure block and a separate, explicitly incomparable Judge
+  block** (**not an anchor change**): no ★1–★5 threshold moved and no default changed, in this file or
+  anywhere else. `judge.md` step 9's scorecard template gains a `## Judge — not comparable across
+  rounds` heading between the `## Measure` block and the (unchanged, three-row) Dimension table, a
+  `judge_hash · correctness sample` line, and the exact sentence "Stars are model judgement: never
+  compared with another round, never averaged or summed, and never combined into an overall rating."
+  §Scoped audit and the no-`--judge` scorecard variant in [improve.md](improve.md) both keep the same
+  heading. A new §Known instability section in `judge.md` discloses the measured reasons stars are not
+  comparable across rounds: completeness split ★1/★2 across 5 runs on one fixture because the ★1/★2
+  boundary has no criterion for "documents exist but are hollow" (#70), and the eval harness's judges split
+  0/3–3/3 over runs whose docgrad stars were identical (#69) — neither is fixed here, both are disclosed.
+  - **`judge_hash` moves.** `judge.md` is edited (all of the above), and this entry adds lines to
+    `rubric.md`, which moves the hash a second time in the same edit — the same pattern as the E2a,
+    E4b and E2c-2 entries above. The new value cannot be quoted here for the same reason it couldn't
+    there — this file is one of its own inputs now — see the CHANGELOG's `v2.0.0 epoch 3` section for
+    the recorded old → new value.
+  - **`measure_hash` and `corpus_hash` are unmoved.** No `measure.md`, `MEASURE_BANDS`, or config
+    value changed.
+  - **The rule-1 waiver extends to this move too**, for the same reason as every 2.0.0 fingerprint move
+    recorded above: CONTRIBUTING.md rule 1 does not forbid a hash moving in the same release as the
+    change it reveals, because 2.0.0 is a major release and every 1.x → 2.0 pair of rounds is already
+    treated as a break regardless of which hash shows it.
 - **v1.8.0 — the rules for applying the anchors are fingerprinted, and the sampling window counts what it can draw**
   (issues #56, #54, #57) (**not an anchor change**): no ★1–★5 threshold moved and every shipped default is unchanged.
   - **New `judgement_hash`**, covering `audit.md` and `placement.md` — the files that decide *how* the anchors are applied

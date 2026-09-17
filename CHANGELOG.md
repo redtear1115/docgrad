@@ -417,6 +417,56 @@ so that ratio is a number and never null. If a docgrad install reports `inventor
   blocks. Non-goals for this slice: `README.md`/`README.zh-TW.md` (E5, #83), `judge.md`/`rubric.md`
   (`judge_hash` does not move), `lib.mjs › MEASURE_BANDS`, and any script output shape.
 
+### v2.0.0 epoch 3 — the scorecard prints a Measure block and a separate, explicitly incomparable Judge block (closes #81)
+
+`judge.md` step 9's scorecard template splits its two layers visually as well as fingerprint-wise: `## Measure`
+(number + OK/WATCH/FAIL, unchanged) is followed by a new `## Judge — not comparable across rounds` heading, and
+only then the existing three-row `| Dimension | Rating | Main deductions |` table. No table column, row, or
+verdict computation changed — this is a formatting and disclosure slice, not a re-scoring.
+
+- **Title line gains `@ <short-sha>`**: `# docgrad scorecard — <repo> @ <short-sha> · <YYYY-MM-DD>`, and the
+  scoped-report header gains the same. The `## Measure` block's first line is now
+  `measure_hash <h> · corpus_hash <h>`, copied from the scripts' own `docgrad` block, so a reader can see which
+  ruler produced the numbers without cross-referencing `history.jsonl`.
+- **New `## Judge — not comparable across rounds` heading**, printed before the Dimension table (full, scoped, and
+  `--dim` reports alike). Under it: a `judge_hash <h> · correctness sample: <n>/<claims_total> claims` line (with
+  scoped / `--dim` non-correctness / zero-verifiable-claims variants), then the exact sentence *"Stars are model
+  judgement: never compared with another round, never averaged or summed, and never combined into an overall
+  rating."* The Measure block also gains a line pointing `improve`/`loop`'s stop conditions at
+  [improve.md](skills/docgrad/reference/improve.md) §Stop conditions, stating plainly that judge stars are not an
+  input — a link, not a restated rule (`tests/single-source-rules.test.mjs` stays green).
+- **`improve.md`'s no-`--judge` scorecard variant** keeps the `## Judge — not comparable across rounds` heading;
+  under it, the existing literal line **"judge not run this round — no judged-dimension table"** replaces the
+  sample line, the no-overall sentence, and the table — unchanged text, new home.
+- **New §Known instability** in `judge.md`, just before step 9. From `--runs 5` (2026-09-16, #68): completeness
+  split ★1/★2 across five runs on the `linkage-known` fixture because the ★1/★2 boundary has no criterion for
+  "documents exist but are hollow" (#70) — a docgrad star that is not stable; and the eval harness's own
+  judges split 0/3–3/3 on `planted-contradiction` while docgrad's pinned stars were identical in all five runs
+  (#69) — so a star cannot be checked by another model's vote either. Both are disclosed, not fixed, in 2.0.0.
+- **Scoped runs without judge** (`measure <scope>`, `audit <scope>` without `--judge`) keep the Judge heading
+  with the "judge not run this round" line, same as `improve` without `--judge`.
+- **Breaking for anything that parses `.docgrad/scorecard-latest.md`'s headings**: a script or downstream tool
+  that greps for the old, heading-less `| Dimension | Rating | Main deductions |` table immediately under
+  `## Measure` now finds a `## Judge — not comparable across rounds` heading in between, and the title line's
+  shape changed (`@ <short-sha>` inserted before the date). `report`'s reprint of an old `scorecard-latest.md`
+  file is unaffected — it reprints stored text verbatim, it does not re-parse the old shape into the new one.
+- **`judge_hash` moves, from `d2c22f68` to `9c31f7e3`.** All of the above is judge-side content in `judge.md`
+  (`lib.mjs › JUDGE_FILES`): the step 9 template, the §Scoped audit update, and the new §Known instability
+  section — plus this slice's own `rubric.md` §Version history entry, which moves the hash a second time in the
+  same edit (the same pattern as the E2a, E4b and E2c-2 entries: the value could not be quoted inside that entry
+  itself). `measure_hash` (`dd15ca3f`) and `corpus_hash` (`71d1ce84`) are unaffected — no `measure.md`,
+  `MEASURE_BANDS`, or config value changed.
+- Tests: `tests/lib.test.mjs` pins the new `judge_hash`; `tests/rubric-retirement.test.mjs` asserts the template's
+  block order (`## Measure` → `## Judge — not comparable across rounds` → the Dimension table), the exact
+  no-overall sentence, narrow negatives (no `| Overall` row, no "overall rating/score/stars:" phrasing, no
+  fractional star), that §Scoped audit names the new heading, and that `improve.md`'s no-judge variant names it
+  too.
+- Non-goals for this slice: `measure.md`/`lib.mjs` (measure-side, untouched — `measure_hash` does not move),
+  `SKILL.md`'s report row (already states the two-layer split correctly), `README.md`/`README.zh-TW.md` and
+  `evals/`/`case-studies/` (E5, #83), and fixing #69/#70 themselves — this slice discloses them, it does not
+  resolve them. This repo's own `.docgrad/scorecard-latest.md` is left as-is, a record of a past round under the
+  old layout; `report` reprints it verbatim regardless.
+
 ## 1.9.2 — 2026-09-16
 
 Four measurement fixes and one documentation entry. No ★1–★5 anchor text changed and no default

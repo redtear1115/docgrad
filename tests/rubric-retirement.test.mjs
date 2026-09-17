@@ -91,6 +91,52 @@ test('judge.md: step 9\'s first table has exactly Completeness, Correctness, Con
   assert.deepEqual(dimensionNames, ['Completeness', 'Correctness', 'Consistency']);
 });
 
+test('judge.md: step 9\'s template orders ## Measure, then ## Judge — not comparable across rounds, then the Dimension table (#81/E3)', () => {
+  const raw = fs.readFileSync(JUDGE, 'utf8');
+  const step9Idx = raw.indexOf('### 9. Emit the scorecard');
+  assert.notEqual(step9Idx, -1, 'step 9 must exist');
+  const body = raw.slice(step9Idx);
+
+  const measureIdx = body.indexOf('## Measure');
+  const judgeHeadingIdx = body.indexOf('## Judge — not comparable across rounds');
+  const tableHeaderIdx = body.indexOf('| Dimension | Rating | Main deductions |');
+  assert.notEqual(measureIdx, -1, 'a ## Measure block must exist');
+  assert.notEqual(judgeHeadingIdx, -1, 'a ## Judge — not comparable across rounds heading must exist');
+  assert.notEqual(tableHeaderIdx, -1, 'the Dimension table must exist');
+  assert.ok(measureIdx < judgeHeadingIdx, '## Measure must come before the ## Judge heading');
+  assert.ok(judgeHeadingIdx < tableHeaderIdx, 'the ## Judge heading must come before the Dimension table');
+
+  // The exact no-overall sentence must appear inside the template, between the heading and the table.
+  const between = body.slice(judgeHeadingIdx, tableHeaderIdx);
+  assert.match(
+    between,
+    /Stars are model judgement: never compared with another round, never averaged or summed, and\s*\n?\s*never\s*\n?\s*combined into an overall rating\./,
+    'the exact no-overall sentence must appear between the ## Judge heading and the Dimension table'
+  );
+
+  // Narrow negatives: no overall row, no "overall rating/score/stars:" phrasing, no fractional star.
+  assert.ok(!/^\|\s*overall\b/im.test(body), 'no table row starting with | Overall');
+  assert.ok(!/overall (?:rating|score|stars?)\s*[:|]/i.test(body), 'no "overall rating/score/stars:" phrasing');
+  assert.ok(!/★\s*\d\.\d/.test(body), 'no fractional star');
+});
+
+test('judge.md §Scoped audit names the ## Judge — not comparable across rounds heading (#81/E3)', () => {
+  const raw = fs.readFileSync(JUDGE, 'utf8');
+  const scopedIdx = raw.indexOf('## Scoped audit');
+  assert.notEqual(scopedIdx, -1, '§Scoped audit must exist');
+  const body = raw.slice(scopedIdx);
+  assert.ok(body.includes('## Judge — not comparable across rounds'), '§Scoped audit must name the heading');
+});
+
+test('improve.md\'s no-judge scorecard variant names the ## Judge — not comparable across rounds heading (#81/E3)', () => {
+  const IMPROVE = fileURLToPath(new URL('../skills/docgrad/reference/improve.md', import.meta.url));
+  const raw = fs.readFileSync(IMPROVE, 'utf8');
+  assert.ok(
+    raw.includes('## Judge — not comparable across rounds'),
+    'improve.md\'s no-judge scorecard variant must name the heading'
+  );
+});
+
 test('judge.md has no "### 4." or "### 7." heading; measure.md has both', () => {
   const judgeLines = readLines(JUDGE);
   assert.ok(!judgeLines.some((l) => /^### 4\./.test(l)), 'judge.md must not have a ### 4. heading');

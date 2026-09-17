@@ -206,9 +206,10 @@
    - **Overwrite `.docgrad/scorecard-latest.md` every round, `--judge` or not.**
      - With `--judge`: the full scorecard text from [judge.md](judge.md) step 9, unchanged.
      - Without `--judge`: the same template minus its judged parts. Keep the `## Measure` block, the
-       `## Token economy (report-only)` block (including its `### Traceability` subsection), the
-       `## Outside docgrad's remit` block, and `## Suggested next steps` — limited to this round's unmet `measure` rows,
-       since there are no judge deductions to add. In place of the `| Dimension | Rating | Main deductions |` table,
+       `## Judge — not comparable across rounds` heading, the `## Token economy (report-only)` block (including its
+       `### Traceability` subsection), the `## Outside docgrad's remit` block, and `## Suggested next steps` — limited
+       to this round's unmet `measure` rows, since there are no judge deductions to add. Under the `## Judge` heading,
+       in place of the sample line, the no-overall sentence, and the `| Dimension | Rating | Main deductions |` table,
        print the literal line **"judge not run this round — no judged-dimension table"**. No star is ever written by a
        round that didn't run `--judge`.
    - **Before committing the scorecard, check `inventory.untracked.count`.** Non-zero means the pollution surface — and
