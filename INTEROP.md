@@ -103,7 +103,7 @@ matches.
 
 **Where it runs.** A round is `1 Score → 2 Pick → 3 Fix → 4 Verify → 5 Record/commit`. The style pass
 goes in at **3b**, with its own measure → run → re-measure → accept-or-revert loop, before step 5
-writes the ledger. Step 4's rule is "any other `measure` row's `meets_target` moves `true`→`false`, or its verdict worsens, revert the change that caused it" (see [improve.md](skills/docgrad/reference/improve.md) §Steps in each round, step 4), and that
+writes the ledger. Step 4's rule is "**any** row gets worse, the picked row included — a `meets_target` that moves `true`→`false`, a `verdict` that worsens, or a picked row whose value moves away from its OK line — revert the change that caused it" (see [improve.md](skills/docgrad/reference/improve.md) §Steps in each round, step 4), and that
 stays executable only while the style pass is a separately revertible diff.
 
 **The interlock.** `claim_hash` is a digest of the claim's normalized text, and `lib.mjs` states the
