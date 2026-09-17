@@ -1,6 +1,6 @@
 # init — one-time setup
 
-> **Last updated:** 2026-09-15
+> **Last updated:** 2026-09-17
 
 Purpose: scan the target repo → confirm via questionnaire → write `.docgrad.yml` into the target repo's root (under version control, shared by the team).
 When `.docgrad.yml` already exists, rerunning init = rescan, using the existing config as the questionnaire's defaults.
@@ -93,9 +93,12 @@ When `.docgrad.yml` already exists, rerunning init = rescan, using the existing 
    never split on commas. A quoted list item may contain a comma; YAML quote escaping (`''` inside a single-quoted item) is not
    supported by the config parser. Conventions are still tried in the order `convention` lists them; within one convention, the first
    line in document order that names any listed keyword *and* carries a date wins
-8. `targets`: default all 4 (six dimensions), ask "which dimensions are you willing to lower to 3?" (multi-select).
-   If economy is hard to hit because the repo's entry file is inherently large, prefer lowering the target over changing
-   `economy.entry_cost_tiers`. Both are legitimate; they say different things. Lowering the target says "this repo accepts
+8. `targets`: default OK everywhere — ask which `measure` signals may settle at `WATCH` (multi-select over the
+   `MEASURE_BANDS` ids: `dead_link_ratio`, `orphan_ratio`, `reachable_ratio`, `index_present`, `date_coverage`,
+   `key_doc_age`, `date_drift`, `entry_cost`, `pollution`, `undocumented_dirs`, `drifted_dirs`). `FAIL` can never be
+   accepted, for any signal.
+   If `entry_cost` is hard to hit because the repo's entry file is inherently large, prefer accepting `WATCH` on it over changing
+   `economy.entry_cost_tiers`. Both are legitimate; they say different things. Accepting `WATCH` says "this repo settles for
    WATCH on entry_cost"; raising the tiers says "this repo's OK line is looser than docgrad's", and every later reader
    has to know that to read the score. Since v1.7.0 the change is at least **visible**: the thresholds are reported on
    every run (`inventory.economy_thresholds.customised`) and folded into `measure_hash`, so `report` draws a
@@ -157,14 +160,9 @@ coverage:
   drift_after_days: 30   # how many days doc can lag behind code before it counts as drift (default 30)
   min_commits: 3         # how many code commits in that period before it counts as drift (default 3)
 targets:
-  completeness: 4
-  correctness: 4
-  freshness: 4
-  linkage: 4
-  consistency: 4
-  economy: 4
+  # entry_cost: WATCH   # example: accept WATCH for this signal instead of requiring OK (default OK for every signal; FAIL is never accepted; see measure.md §Targets)
 economy:
-  entry_cost_tiers: [20000, 10000, 5000, 3000]   # entry_cost: OK ≤ [2], FAIL > [1]; [0] and [3] feed only legacy fields until E2c
+  entry_cost_tiers: [20000, 10000, 5000, 3000]   # entry_cost: OK ≤ [2], FAIL > [1]; [0] and [3] are not read by any verdict (kept so a 1.x config still loads)
   pollution_max: 0.1                              # pollution is WATCH at or above this
 correctness_sample: 8
 claim_candidates_cap: 60   # how many ranked claim candidates inventory.mjs emits; without --exclude-ledger (#54) this is the ceiling cumulative coverage can reach. Leave at 60 until claim_population.truncated is true and the ledger has nearly filled the window
@@ -196,4 +194,4 @@ tree." See [design.md](../../../docs/design.md) §Positioning and boundaries for
 - Print a summary of what was written (one line per field).
 - Suggest the user commit `.docgrad.yml` to version control; with their consent, commit it on their behalf
   (message: `chore: docgrad init — doc scoring config`).
-- Prompt the next step: run `/docgrad audit` to see the first scorecard.
+- Prompt the next step: run `/docgrad measure` to see the first scorecard (add `/docgrad judge` for the three star-rated dimensions).

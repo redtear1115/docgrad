@@ -182,7 +182,7 @@ which is an existing, unchanged judge rule (see [placement.md](skills/docgrad/re
   disclosure: every 1.x → 2.0 pair of rounds is treated as a break regardless of which hash reveals
   it, because 2.0.0 is a major release.
 
-**improve/loop is not runnable until E2c; do not release without E2c.** This epoch retires the
+**improve/loop is not runnable until E2c; do not release without E2c.** — resolved in epoch 2c-2. This epoch retires the
 anchors judge/measure read from; `improve.md`'s convergence flow still reasons about six rated
 dimensions and is updated in a later epoch of this release. This is a named intermediate state, not
 something this epoch fixes.
@@ -252,9 +252,93 @@ fires); `links.mjs`, `freshness.mjs` and `coverage.mjs` append the same clause t
   a corpus field.
 - **Root `.docgrad.yml` and the `basic` / `root-index` test fixtures convert to v2 form** (a bare
   `targets:`, since none of them accepts a `WATCH`); the evals fixtures' `targets: {}` is unchanged.
-- **improve/loop is not runnable until E2c-2.** This slice supplies the data (`targets`,
+- **improve/loop is not runnable until E2c-2.** — resolved in epoch 2c-2. This slice supplies the data (`targets`,
   `meets_target`) that E2c-2's loop prose reads; the loop, the `measure`/`judge` commands and the
   `audit` alias are the next slice, shipping in the same 2.0.0 release.
+
+### v2.0.0 epoch 2c-2 — `improve`/`loop` run again; `measure`/`judge` become commands; `audit` becomes a deprecated alias
+
+This closes out the "improve/loop is not runnable until E2c(-2)" intermediate state named in epochs 2b-2 and 2c-1
+(#79, #80). `improve.md` now reasons entirely about the four scripts' `measure` rows — `verdict` / `accept` /
+`meets_target`, added in E2b-1/E2c-1 — for selecting what to fix, verifying a fix held, deciding when to stop, and
+recommending graduation. It never again reasons about a star rating anywhere in that flow.
+
+- **Working set = `measure` rows with `meets_target: false`.** Pick order: every `FAIL` before any unaccepted
+  `WATCH`; within the same verdict, a fixed tie-break — `undocumented_dirs`, `drifted_dirs`, `date_coverage`,
+  `key_doc_age`, `date_drift`, `index_present`, `dead_link_ratio`, `orphan_ratio`, `reachable_ratio`, `entry_cost`,
+  `pollution` (the 1.x rubric tie-break completeness → freshness → linkage → economy, with the judged dimensions
+  removed). A signal not on this list is picked last, in `lib.mjs › MEASURE_BANDS` order — no list edit is required
+  to make a new signal pickable. One signal per round, same exceptions as before (trivial-fix allowlist, small-corpus
+  mode) minus typo-level consistency, which drops off the allowlist because consistency is judge-only now and the
+  loop never touches a judge deduction directly.
+- **Two kinds of row never enter the working set**, and neither is called a "design ceiling" any more (that language
+  belonged to the freshness/economy ★5 anchors this release already retired): a `meets_target: null` row (not
+  measured this round — named in the report with its `note`, counts neither for nor against "targets met"), and a
+  row whose only fix is outside docgrad's remit (needs CI, source code, or a product decision) — excluded from
+  the working set but **always counted as unmet**, so graduation is withheld while one is open.
+- **New stop condition: "outside docgrad's remit."** When the working set is otherwise empty but such a row remains
+  unmet, the loop stops immediately — no round runs, nothing is committed, no history row is written — with its own
+  stop report naming the rows, each appended to `.docgrad/out-of-scope.jsonl` (skipped if an identical open entry
+  already exists). Plateau is now defined only over a non-empty working set, so it can no longer fire on this
+  situation by mistake.
+- **`--judge` becomes a per-round flag on `improve`/`loop`.** A round without it runs only the four scripts;
+  `judge.md` runs only when the flag is passed. The history row's `judge` object is always written, `{"incomparable":
+  true, "stars": {}, "sample": null}` without `--judge`, exactly as before with it; `coverage` is `null` without
+  `--judge`. `.docgrad/scorecard-latest.md` is still overwritten every round: without `--judge` it keeps the Measure
+  block, the Token economy block (with Traceability), Outside docgrad's remit, and Suggested next steps (limited to
+  unmet `measure` rows), and prints the literal line "judge not run this round — no judged-dimension table" in place
+  of the Dimension table. No star is ever written by a round that skipped `--judge`.
+- **Commit message**: `docs(docgrad): round N convergence — <signal> <old verdict>→<new verdict>`, with a `measure:`
+  body line listing rows not meeting target (or "all rows meet target") and a `ledger:` line only when `--judge` ran.
+- **SKILL.md gains `measure` and `judge` as first-class commands** (D1/D80): `measure` runs the four scripts only,
+  needs no rubric.md; `judge` reads rubric.md and rates the three LLM-judged dimensions, needs this round's `measure`
+  output. **`audit` becomes a documented deprecated alias**: it runs `measure`; it runs `judge` too only with
+  `--judge`. This was always report-only and still is — nothing about "audit writes nothing" changed, only which of
+  the two passes run by default. The frontmatter `description` and `argument-hint` are reworded to match (no more
+  "six-dimension star rating … until target ratings are met"); the `report` row is untouched, byte for byte.
+  `/docgrad` with no argument now also prints a one-paragraph statement of the two layers.
+- **`judge.md` step 9's Dimension table drops the `Target` column** (`| Dimension | Rating | Main deductions |`, still
+  exactly Completeness/Correctness/Consistency, pinned by `tests/rubric-retirement.test.mjs`) — a judged dimension
+  never had a `measure`-style target, and the column was carried over from `audit.md` unexamined. The Measure block
+  line spec now names `accept`/`meets_target` and requires printing an accepted `WATCH`. "Suggested next steps" now
+  lists unmet `measure` rows first (the loop's own pick), then judge deductions as recommendations only. The
+  empty-sample blockquote drops "treat it like a design ceiling … excluded from pick the lowest dimension" for
+  "never a candidate in the first place" — correctness's `n/a` case was never a `measure` row for the loop to
+  exclude. The "audit writes nothing" note is now "measure/judge write nothing," naming `audit` as their alias. The
+  scoped-audit section now names `judge <scope>` / `measure <scope>` alongside the historical `audit <scope>`
+  spelling.
+- **`rubric.md`'s own correctness not-measurable note** (§Correctness) drops the same "design ceiling … loop's
+  dimension picking" wording for "no target, never in the loop's working set," and gets this epoch's own
+  §Version history entry (which also annotates the E2b-2 entry's "improve/loop is not runnable until E2c" as
+  resolved here).
+- **`init.md` questionnaire item 8** now asks which `measure` signals may settle at `WATCH` (default `OK`
+  everywhere, `FAIL` never accepted) instead of "which dimensions to lower to 3"; the shipped `.docgrad.yml` template's
+  `targets:` block becomes bare with a commented `entry_cost: WATCH` example; the `economy.entry_cost_tiers` comment
+  now says tiers `[0]` and `[3]` are "not read by any verdict (kept so a 1.x config still loads)," matching
+  `lib.mjs`; the wrap-up step points at `/docgrad measure` (and `/docgrad judge`) instead of `/docgrad audit`.
+- **`docs/design.md` and `docs/how-to.md`** get the command table, the `targets:` example, the "How loop works" steps
+  and stop conditions, and the "add a scoring dimension" tie-break/`targets` guidance updated to the same vocabulary;
+  the 1.x history narrative paragraphs are untouched. **`.agents/workflows/docgrad.md`**'s command list gains
+  `measure`/`judge`, and its no-argument default becomes `measure` (was `audit`).
+- **The fingerprint moves:**
+  - **`judge_hash` moves, from `6c0f1ed0` to `c7514849`.** A real content change in `judge.md` (the
+    Dimension table header, the Measure block spec, the reordered "Suggested next steps," the reworded empty-sample
+    blockquote, the "audit writes nothing" → "measure/judge write nothing" note, the scoped-audit section wording)
+    plus `rubric.md`'s own two changes (§Correctness's wording, and this section's own §Version history entry, which
+    changes `rubric.md` a second time in the same edit).
+  - **`measure_hash` is unchanged, `cc49bc6f`.** `measure.md` and `lib.mjs › MEASURE_BANDS` are untouched this slice
+    (deliberately — see the Non-goals below).
+  - **`corpus_hash` is unchanged, `71d1ce84`.** `.docgrad.yml` is untouched.
+  - **The 2.0.0 rule-1 waiver (recorded above, epoch 2a) also covers this move**, with the same disclosure: every
+    1.x → 2.0 pair of rounds is treated as a break regardless of which hash reveals it, because 2.0.0 is a major
+    release.
+- **Breaking**: `audit` no longer rates by default — a script or habit that ran `audit` expecting a star rating in
+  the scorecard must now pass `--judge` explicitly.
+- **Not in this slice (Non-goals, disclosed)**: `reference/measure.md` (its own line 6, "read rubric.md before
+  scoring," is a noted follow-up, not fixed here — measure needs no rubric.md, so that line is already stale but
+  moving `measure_hash` for it belongs to its own slice); `evals/`, `templates/`, `SKILL.md`'s `report` row,
+  `case-studies/**`, `README*` (still say "six dimensions," disclosed since E5, #83); the E4 graduation gate
+  (#82/#88/#90); E3's scorecard two-block layout (#81/#87).
 
 ## 1.9.2 — 2026-09-16
 
