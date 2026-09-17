@@ -30,17 +30,20 @@ case first.
 Two layers, testing different things:
 
 ```bash
-node --test tests/*.test.mjs      # script behaviour (193 tests)
-claude plugin eval . --runs 5     # star-rating stability
+node --test tests/*.test.mjs      # script behaviour (336 tests)
+claude plugin eval . --runs 5     # measure reproducibility + judge star-rating stability
 ```
 
 `tests/` pins the scripts' JSON output. `evals/` pins something the unit tests cannot reach: whether
-an agent using the skill produces the *same star rating* twice. After oikos graduated on 2026-07-13,
-a same-day re-verification found consistency had gone ★4→★2 and not one unit test went red — the
-scripts were not what was broken. See [evals/README.md](evals/README.md).
+`measure`'s numbers, and `judge`'s star rating, land the same way twice. After oikos graduated on
+2026-07-13 (1.x), a same-day re-verification found consistency had gone ★4→★2 and not one unit test
+went red — the scripts were not what was broken. See [evals/README.md](evals/README.md).
 
-`--runs 5` matters. **The distribution of ratings is itself the metric**: ★2/★2/★3 across three runs
-means discretion remains at that point. Track it as a defect rather than taking the mode.
+`--runs 5` matters for `judge`. **The distribution of star ratings is itself the metric**: ★2/★2/★3
+across three runs means discretion remains at that point — tracked as a defect (#69), not folded into
+a green suite. `measure`'s output is expected to be identical across runs; see
+[judge.md §Known instability](skills/docgrad/reference/judge.md#known-instability) for what is and
+isn't stable today.
 
 ## Three tiers of change
 

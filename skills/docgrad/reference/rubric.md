@@ -483,6 +483,20 @@ anchors (see its entry).
   - **improve/loop is runnable as of this entry.** The E2b-2 entry's "do not release without E2c"
     condition is satisfied: `improve.md` no longer reasons about six rated dimensions anywhere in its
     selection, verification, stop-condition or graduation text.
+- **v2.0.0 (E5a) — `placement.md` names `judge`, not the retired `audit` router** (**not an anchor
+  change**): no ★1–★5 threshold moved and no default changed. `reference/placement.md` §How to write
+  the deduction said findings are "consumed by audit's consistency dimension"; `audit.md` no longer
+  does any consistency judging of its own — it is a thin router, and `judge.md` is what actually
+  rates consistency — so the sentence now says "consumed by judge's consistency dimension." Wording
+  only; no rule, threshold or procedure changed.
+  - **`judge_hash` moves.** `placement.md` is in `lib.mjs › JUDGE_FILES`; the new value is recorded
+    as a literal in `tests/lib.test.mjs` and disclosed in the CHANGELOG's `v2.0.0 epoch 5a` section
+    (not quoted here — this file is one of its own inputs).
+  - **`measure_hash` and `corpus_hash` are unmoved.** No `measure.md`, `MEASURE_BANDS`, or config
+    value changed.
+  - **The rule-1 waiver extends to this move too**, same reasoning as every other 2.0.0 fingerprint
+    move recorded above: 2.0.0 is a major release, and every 1.x → 2.0 pair of rounds is already
+    treated as a break regardless of which hash shows it.
 - **v2.0.0 (E3) — the scorecard prints a Measure block and a separate, explicitly incomparable Judge
   block** (**not an anchor change**): no ★1–★5 threshold moved and no default changed, in this file or
   anywhere else. `judge.md` step 9's scorecard template gains a `## Judge — not comparable across

@@ -63,7 +63,7 @@ When it goes red, decide which happened:
   deliberately, and record why. Lowering it to make a red light go away converts the gate into
   decoration.
 
-`docgrad audit` and `docgrad report` evaluate these thresholds against current measurements on every
+`docgrad measure` and `docgrad report` evaluate these thresholds against current measurements on every
 run and tell you the verdict. They **do not execute this file** — running a script committed into
 the repo being graded is not something a docs scorer should do. Treat their verdict as a reading of
 what this gate declares, and this file as the thing CI actually runs once you install it.

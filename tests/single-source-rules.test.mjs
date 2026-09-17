@@ -67,11 +67,6 @@ const ALLOWED = [
     text: '"improve verifies that no other dimension drops" clause',
     why: 'names a retired 1.x clause as retired; it states no current rule',
   },
-  {
-    file: 'README.md',
-    text: 'two rounds with zero progress',
-    why: '1.x wording, rewritten to a link in E5 (#83)',
-  },
 ];
 
 function trackedMarkdown() {

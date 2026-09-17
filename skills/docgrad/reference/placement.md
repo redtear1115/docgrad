@@ -101,7 +101,7 @@ agent can't reach, move it in before you even talk about scoring**
 
 ## How to write the deduction
 
-Findings are always sorted into two categories, consumed by audit's consistency dimension and by improve:
+Findings are always sorted into two categories, consumed by judge's consistency dimension and by improve:
 
 - **placement**: the information is in a single location, but the wrong one (judged against the three axes). The most
   common case: the spec has a conclusion but no rationale, and the rationale is still sitting in some closed issue (rule 4).
