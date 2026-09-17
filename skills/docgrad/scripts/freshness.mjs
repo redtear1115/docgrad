@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { loadConfig, collectFiles, parseArgs, fail, docgradMeta, evaluateMeasure, extractClaimedDate, parseFreshnessConventions } from './lib.mjs';
+import { loadConfig, collectFiles, parseArgs, fail, docgradMeta, evaluateMeasure, legacyTargetsNote, extractClaimedDate, parseFreshnessConventions } from './lib.mjs';
 
 const MISMATCH_TOLERANCE_DAYS = 7;
 
@@ -74,7 +74,7 @@ try {
     : null;
   // Named, like the other three scripts' combinedNoteText — the shape a fourth shared flag
   // should extend rather than re-invent (docs/how-to.md §Extend the measurement scripts).
-  const combinedNoteText = [excludeLedgerNoteText, locateLedgerNoteText].filter(Boolean).join('; ') || null;
+  const combinedNoteText = [excludeLedgerNoteText, locateLedgerNoteText, legacyTargetsNote(config)].filter(Boolean).join('; ') || null;
 
   const results = included.map((rel) => {
     const claimed = extractClaimedDate(fs.readFileSync(path.join(root, rel), 'utf8'), config.freshness);

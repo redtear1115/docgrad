@@ -213,6 +213,49 @@ epoch (E2c) — #82 can be closed once that lands.
   disclosure: every 1.x → 2.0 pair of rounds is treated as a break regardless of which hash reveals
   it, because 2.0.0 is a major release.
 
+### v2.0.0 epoch 2c-1 — `targets` names measure signals, `accept`/`meets_target` are added, the 1.x economy star fields retire
+
+`targets` held a star (1–5) per 1.x dimension in 1.x. Since judge and measure split, a judged
+dimension has no target any more: `targets` now names a `measure` signal id (`entry_cost`,
+`dead_link_ratio`, …) and accepts exactly `OK` (the default, for every signal) or `WATCH`, in block
+form —
+
+```yaml
+targets:
+  entry_cost: WATCH
+```
+
+— validated at `loadConfig` time: an unknown id, a 1.x dimension name with a non-numeric value,
+`FAIL`, a number or any other spelling is a config error naming the correct form. A config still
+carrying a 1.x star-valued key (`completeness: 4`, …) is not rejected: the key is dropped and a
+warning is appended to the run's
+`note` (a new top-level `note` on `inventory.mjs`, which had none before, present only when this
+fires); `links.mjs`, `freshness.mjs` and `coverage.mjs` append the same clause to their existing
+`note`. `retrieval.mjs` emits no `measure` array and gets no warning. See
+[measure.md](skills/docgrad/reference/measure.md) §Targets for the full semantics.
+
+- **Every `measure` row gains `accept` and `meets_target`, right after `verdict`.** `accept` is the
+  verdict this repo's config allows that signal to settle at. `meets_target` is `true` when `verdict`
+  is `OK`, `true` when `verdict` is `WATCH` and `accept` is `WATCH`, `false` otherwise, and `null`
+  exactly when `verdict` is `null`. `FAIL` never meets a target, even an accepted `WATCH`.
+- **Breaking: the three 1.x economy star fields are removed from `inventory.economy_thresholds`** —
+  `cost_allows_star`, `star_5_cost_met` and `pollution_caps_at` are gone. `entry_cost_tiers`,
+  `pollution_max`, `customised`, `entry_cost_tokens_est` and `pollution_ratio` are unchanged. Anything
+  still reading the three removed keys breaks.
+- **`targets` is still not a `measure_hash` input**, unchanged from 1.x: it decides when a repo is
+  satisfied, not how it is measured. `tests/lib.test.mjs` pins this both for `corpus_hash` (as
+  before) and for `measure_hash` (new).
+- **`measure_hash` moves, from `38724510` to `cc49bc6f`.** `reference/measure.md` grows a new
+  §Targets section and its own §Version history section (with one entry, v2.0.0 E2c-1) — both
+  `measure_hash` inputs. **`judge_hash` is unchanged, `6c0f1ed0`.** `corpus_hash` is unchanged,
+  `71d1ce84`: `.docgrad.yml`'s `targets` block converts to v2 form (a bare `targets:`), which is not
+  a corpus field.
+- **Root `.docgrad.yml` and the `basic` / `root-index` test fixtures convert to v2 form** (a bare
+  `targets:`, since none of them accepts a `WATCH`); the evals fixtures' `targets: {}` is unchanged.
+- **improve/loop is not runnable until E2c-2.** This slice supplies the data (`targets`,
+  `meets_target`) that E2c-2's loop prose reads; the loop, the `measure`/`judge` commands and the
+  `audit` alias are the next slice, shipping in the same 2.0.0 release.
+
 ## 1.9.2 — 2026-09-16
 
 Four measurement fixes and one documentation entry. No ★1–★5 anchor text changed and no default

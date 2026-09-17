@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  loadConfig, collectFiles, parseArgs, fail, docgradMeta, evaluateMeasure,
+  loadConfig, collectFiles, parseArgs, fail, docgradMeta, evaluateMeasure, legacyTargetsNote,
   extractHeadings, extractLinks, githubSlug, CJK_RE, pathInsideRoot, resolveLinkTarget,
 } from './lib.mjs';
 
@@ -172,7 +172,7 @@ try {
   const scopeNoteText = scoped
     ? 'scope-limited: orphans/reachable ratio not computed (reachability is a full-index concept), only dead links and bad anchors are counted'
     : null;
-  const combinedNoteText = [scopeNoteText, excludeLedgerNoteText, locateLedgerNoteText].filter(Boolean).join('; ') || null;
+  const combinedNoteText = [scopeNoteText, excludeLedgerNoteText, locateLedgerNoteText, legacyTargetsNote(config)].filter(Boolean).join('; ') || null;
 
   const roots = [config.index_file, ...config.entry_files].filter((p) => p && includedSet.has(p));
   const reachable = new Set(roots);

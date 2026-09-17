@@ -292,3 +292,50 @@ test('links: #L39-L86 is a line-range fragment, not a bad anchor — but a misty
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// --- v2.0.0 E2c-1: targets / accept / meets_target / legacy-target note ------------------------
+
+test('links: measure — every row carries accept and meets_target, and legacy targets are absent by default', () => {
+  const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', FIXTURE], { encoding: 'utf8' }));
+  for (const row of out.measure) {
+    assert.ok('accept' in row, `${row.id} is missing accept`);
+    assert.ok('meets_target' in row, `${row.id} is missing meets_target`);
+  }
+  assert.equal(out.note, undefined, 'no legacy targets in this config, no note');
+});
+
+test('links: a block-form entry_cost target has no bearing here, but a WATCH-accepted dead_link_ratio meets its target while default OK does not', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-links-target-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'docs'));
+    fs.writeFileSync(path.join(tmp, 'docs/README.md'), '# Index\n\n[dead](missing.md)\n');
+    fs.writeFileSync(
+      path.join(tmp, '.docgrad.yml'),
+      'docs_dirs: [docs/]\nentry_files: []\nindex_file: docs/README.md\ntargets:\n  dead_link_ratio: WATCH\n'
+    );
+    const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' }));
+    const byId = Object.fromEntries(out.measure.map((m) => [m.id, m]));
+    assert.equal(byId.dead_link_ratio.verdict, 'FAIL', 'one dead link over one total is >2%');
+    assert.equal(byId.dead_link_ratio.accept, 'WATCH');
+    assert.equal(byId.dead_link_ratio.meets_target, false, 'FAIL never meets a target, even an accepted WATCH');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('links: legacy star target keys produce the shared warning clause in note, dropped from targets', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-links-legacy-'));
+  try {
+    fs.cpSync(FIXTURE, tmp, { recursive: true });
+    fs.writeFileSync(
+      path.join(tmp, '.docgrad.yml'),
+      'docs_dirs: [docs/]\nentry_files: [CLAUDE.md]\nindex_file: docs/README.md\nexclude: [docs/archive/]\n' +
+        'freshness:\n  convention: heading-line\n  field: "Last updated:"\ntargets:\n  linkage: 4\n'
+    );
+    const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' }));
+    assert.match(out.note, /targets: ignored legacy star targets linkage/);
+    assert.match(out.note, /measure\.md §Targets/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});

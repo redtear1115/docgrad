@@ -9,6 +9,7 @@ This process **does not modify any file** and writes no state — pure report. R
 
 - [Step 1. Run the mechanical scripts](#1-run-the-mechanical-scripts)
 - [Verdict lines](#verdict-lines)
+- [Targets](#targets)
 - [Freshness notes](#freshness-notes)
 - [Linkage notes](#linkage-notes)
 - [Economy notes](#economy-notes)
@@ -17,6 +18,7 @@ This process **does not modify any file** and writes no state — pure report. R
 - [Step 8. Token economy report](#8-token-economy-report)
 - [Token economy signals](#token-economy-signals)
 - [Step 8b. The graduation gate, if the repo has one](#8b-the-graduation-gate-if-the-repo-has-one)
+- [Version history](#version-history)
 
 For a scoped run: see [judge.md](judge.md) §Scoped audit.
 
@@ -100,8 +102,43 @@ The eleven rows, across four scripts, each citing the rubric.md anchor its OK/FA
 `lib.mjs › measureHash()` covers `economy.entry_cost_tiers` / `economy.pollution_max` /
 `freshness.stale_after_days` (as before), plus the band table above (`lib.mjs › MEASURE_BANDS`,
 unresolved) and this section's file, `reference/measure.md` — moving a threshold, or editing this
-prose, moves it. See [rubric.md](rubric.md) §Version history for the recorded old → new value and
-[CONTRIBUTING.md](../../../CONTRIBUTING.md) for the fingerprint discipline this falls under.
+prose, moves it. See this file's own §Version history below for the recorded old → new value and
+[CONTRIBUTING.md](../../../CONTRIBUTING.md) for the fingerprint discipline this falls under
+(rubric.md §Version history is where a move was recorded before this file carried its own).
+
+## Targets
+
+Every `measure` row also carries `accept` and `meets_target`, right after `verdict`. `accept` is the
+verdict this repo's config allows that signal to settle at — `"OK"` by default, for every signal.
+A repo may accept `"WATCH"` for a specific signal by naming it under `targets` in `.docgrad.yml`,
+block form:
+
+```yaml
+targets:
+  entry_cost: WATCH
+```
+
+`meets_target` is `true` when `verdict` is `"OK"` (OK always meets its target, whatever `accept`
+says), `true` when `verdict` is `"WATCH"` **and** `accept` is `"WATCH"` for that signal, and `false`
+otherwise. `FAIL` never meets a target, even when `accept` is `"WATCH"` — accepting WATCH widens
+what a repo may settle at, it never excuses a FAIL. `meets_target` is `null` exactly when `verdict`
+is `null` (no number was measured, so there is nothing to judge).
+
+A `targets` key must name a `measure` signal id (`entry_cost`, `dead_link_ratio`, …) with a value of
+exactly `OK` or `WATCH`; anything else — a 1.x dimension name with a non-numeric value, an unknown
+id, `FAIL`, a number, a different spelling — is a config error at load time, not a silently ignored
+setting. Configs written before v2.0.0 named one of the six 1.x star-rated dimensions
+(`completeness`, `correctness`, `freshness`, `linkage`, `consistency`, `economy`) with a star value
+(`completeness: 4`); those keys are **ignored with a warning** rather than rejected, so an old config
+still loads. The warning lands in the same `note` field each script already reports on (a new
+top-level `note` on `inventory.mjs`, which has no other top-level `note`, present only when this
+fires) and names the dropped keys.
+
+`targets` is **not** a `measure_hash` input, same as in 1.x when it held star values instead: it
+decides when a repo is *satisfied*, not *how it is measured*, and two rounds measured the same way
+are comparable whether or not either one's targets changed. Whatever `accept` a repo has set to
+`WATCH` must still be printed wherever verdicts are reported — an accepted WATCH is a real,
+disclosed relaxation of the default, not a way to make a row quietly disappear from the page.
 
 ## Freshness notes
 
@@ -142,11 +179,10 @@ loading `entry_files`, with symlink aliases de-duplicated); **pollution surface*
 `inventory.pollution.ratio`. Both are fully mechanical, neither passes through LLM judgement.
 
 **Read the boundaries off the run, not off the band table above.** `inventory.economy_thresholds`
-carries the values this round actually used — `entry_cost_tiers`, `pollution_max`. `cost_allows_star`,
-`star_5_cost_met` and `pollution_caps_at` are legacy fields, still emitted until E2c; never read a
-verdict from them. The shipped tiers are `[20000, 10000, 5000, 3000]` and `pollution_max: 0.1`; a
-repo may set its own in `.docgrad.yml`, and then the shipped numbers are not the ones it was graded
-by.
+carries the values this round actually used — `entry_cost_tiers`, `pollution_max`. (The 1.x star
+fields were removed in v2.0.0.) The shipped tiers are `[20000, 10000, 5000, 3000]` and
+`pollution_max: 0.1`; a repo may set its own in `.docgrad.yml`, and then the shipped numbers are not
+the ones it was graded by.
 
 **`customised: true` is a reporting obligation, not a violation.** A repo is allowed to choose its
 own thresholds. But a verdict produced under custom thresholds is not comparable with one produced
@@ -436,3 +472,42 @@ evaluate it, never shell out to it.
 
 No gate file → say nothing. An absent gate is the normal state for a repo that has not graduated,
 and reporting its absence every round would be noise.
+
+## Version history
+
+Comparability notes for a measure-side change — the counterpart to [rubric.md](rubric.md) §Version
+history, which covers judge-side moves. This section exists because a measure-only note written into
+rubric.md would move `judge_hash` for a change judge never saw; see rubric.md §Version history's
+E4b entry for why `judge_hash` now folds rubric.md in.
+
+<details>
+<summary>Expand</summary>
+
+- **v2.0.0 (E2c-1) — `targets` names measure signals instead of 1.x star-rated dimensions,
+  `accept` / `meets_target` are added to every verdict row, and the three 1.x economy star fields
+  are removed**:
+  - **`targets` semantics.** In 1.x, `targets` held a star (1–5) per 1.x dimension and fed the
+    judge. Since judge and measure split (E1/E2a), a judged dimension has no target: `targets` now
+    names a `measure` signal id and accepts exactly `OK` (the default, for every signal) or `WATCH`,
+    written in block form — `targets:\n  entry_cost: WATCH`. `FAIL` can never be accepted. A config
+    still carrying a 1.x star-valued key is not rejected: the key is dropped and a warning names it
+    (see §Targets above), so an old `.docgrad.yml` keeps loading.
+  - **`accept` / `meets_target`.** Every `measure` row now carries `accept` (the verdict this repo's
+    config allows that signal to settle at) and `meets_target` (`true`/`false`, or `null` alongside a
+    `null` verdict) — see §Targets above for the full semantics. These are new fields on an existing
+    row shape; no existing field changed meaning.
+  - **The three 1.x economy star fields are removed.** `inventory.economy_thresholds` no longer
+    reports `cost_allows_star`, `star_5_cost_met` or `pollution_caps_at` — arithmetic over the
+    retired ★1–★5 economy anchor, kept one epoch past E2b-2's rating retirement and now gone. This
+    is a breaking output change for anything still reading those three keys; `entry_cost_tiers`,
+    `pollution_max`, `customised`, `entry_cost_tokens_est` and `pollution_ratio` are unchanged.
+  - **`measure_hash` moves, because this file changed** (this section, and §Targets above, are both
+    `measure_hash` inputs). The old → new value is recorded in CHANGELOG.md, not here — quoting the
+    new value in the file whose content produces it would be circular. `judge_hash` and `corpus_hash`
+    are unchanged by this entry.
+  - **Verdict lines are unchanged.** No `MEASURE_BANDS` threshold moved and no row's `OK`/`WATCH`/
+    `FAIL` line changed; §Verdict lines above still describes them exactly.
+  - **`targets` is still not a `measure_hash` input**, exactly as when it held star values: it decides
+    when a repo is satisfied, not how it is measured.
+
+</details>

@@ -117,7 +117,8 @@ break, with no error to notice.
 
 - `node --test tests/*.test.mjs` green
 - New script output fields have a test, and the JSON contract in `SKILL.md` §Scripts still holds
-- If a fingerprint moved: a comparability entry in `rubric.md` §Version history, plus CHANGELOG
+- If a fingerprint moved: a comparability entry in the §Version history of the file whose
+  fingerprint moved (`rubric.md` for `judge_hash`, `measure.md` for `measure_hash`), plus CHANGELOG
 - `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` agree on `version`
 - Issue first for anything beyond a typo. The issues in this repo carry the reasoning — see #54 or
   #56 for the shape: state the problem, show the measurement, leave the undecided directions visible.

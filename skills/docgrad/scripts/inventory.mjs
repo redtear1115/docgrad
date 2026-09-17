@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   loadConfig, collectFiles, estimateTokens, parseArgs, fail,
-  extractCodeRefs, extractApiRefs, extractClaimLines, rankClaimCandidates, docgradMeta, evaluateMeasure,
+  extractCodeRefs, extractApiRefs, extractClaimLines, rankClaimCandidates, docgradMeta, evaluateMeasure, legacyTargetsNote,
   gitTrackedFiles, gitUnavailableNote, matchesPathPrefix,
   buildSrcSymbolIndex, gitAddCommitSubjects, isDocgradAuthored, AUTHORSHIP_UNAVAILABLE_NOTE,
   MAX_SRC_SYMBOL_FILE_BYTES, SHIPPED_TIERS, SHIPPED_POLLUTION_MAX, loadLedgerClaimHashes, loadLedgerRows, locateLedgerClaims,
@@ -347,10 +347,6 @@ try {
   // while the identically-named config fields were read by nothing at all (#50). Editing them
   // changed no outcome, and init.md warned against editing them for a reason that did not exist.
   // They are read here now, so the rubric can cite one source instead of keeping a second copy.
-  //
-  // The legacy star fields below are arithmetic kept until E2c; verdicts are in `measure`.
-  // `cost_allows_star` is the ceiling the fixed cost alone permits; the retired ★5 anchor
-  // additionally required a mechanical gate, which no script can observe.
   const tiers = config.economy.entry_cost_tiers;
   const pollutionMax = config.economy.pollution_max;
   const cost = entryCost.tokens_est;
@@ -360,11 +356,8 @@ try {
     customised: JSON.stringify([tiers, pollutionMax]) !== JSON.stringify([SHIPPED_TIERS, SHIPPED_POLLUTION_MAX]),
     entry_cost_tokens_est: cost,
     pollution_ratio: pollutionRatio,
-    cost_allows_star: cost > tiers[0] ? 1 : cost > tiers[1] ? 2 : cost > tiers[2] ? 3 : 4,
-    star_5_cost_met: cost <= tiers[3],
-    pollution_caps_at: pollutionRatio >= pollutionMax ? 3 : null,
     note:
-      'legacy star fields, retired in E2c; verdicts are in `measure`. cost_allows_star is the ceiling the fixed cost alone permits and the retired ★5 anchor also required a mechanical gate. When customised is true these are not the shipped defaults, so this repo\'s measure verdicts are not comparable with one graded at the defaults.',
+      'When customised is true these are not the shipped defaults, so this repo\'s measure verdicts are not comparable with one graded at the defaults.',
   };
 
   const scoped = include.length > 0;
@@ -384,6 +377,11 @@ try {
         // The band-table verdicts (E2b-1), right after docgrad so all four scripts that emit one
         // stay comparable field by field.
         measure: measureRows,
+        // inventory.mjs has no top-level `note` elsewhere (its notes live under pollution,
+        // out_of_scope, economy_thresholds and claim_population) — this one exists only when
+        // legacy target keys were dropped from the loaded config, same clause as the other three
+        // scripts' shared `note`.
+        ...(legacyTargetsNote(config) ? { note: legacyTargetsNote(config) } : {}),
         files,
         totals: {
           files: files.length,

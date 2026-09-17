@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { loadConfig, collectFiles, parseArgs, fail, docgradMeta, evaluateMeasure, resolveInRoot } from './lib.mjs';
+import { loadConfig, collectFiles, parseArgs, fail, docgradMeta, evaluateMeasure, legacyTargetsNote, resolveInRoot } from './lib.mjs';
 
 const SKIP_DIRS = new Set(['node_modules', '.git']);
 
@@ -85,7 +85,7 @@ try {
   const excludeLedgerNoteText = excludeLedger
     ? '--exclude-ledger is a no-op for this script: only inventory.mjs draws claim candidates from a claim ledger, and coverage drift has nothing to do with it'
     : null;
-  const combinedNoteText = [scopeNoteText, excludeLedgerNoteText, locateLedgerNoteText].filter(Boolean).join('; ') || null;
+  const combinedNoteText = [scopeNoteText, excludeLedgerNoteText, locateLedgerNoteText, legacyTargetsNote(config)].filter(Boolean).join('; ') || null;
   // Key order follows inventory.mjs — scope, then docgrad, then everything else — so a reader
   // comparing two scripts' JSON finds the same fingerprint in the same place.
   //
@@ -109,7 +109,7 @@ try {
           measure: unsetMeasure,
           src_dirs: [],
           areas: [],
-          note: [scopeNoteText, excludeLedgerNoteText, locateLedgerNoteText, 'src_dirs is unset, coverage drift cannot be measured']
+          note: [scopeNoteText, excludeLedgerNoteText, locateLedgerNoteText, legacyTargetsNote(config), 'src_dirs is unset, coverage drift cannot be measured']
             .filter(Boolean)
             .join('; '),
         },

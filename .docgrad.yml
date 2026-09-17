@@ -22,12 +22,7 @@ freshness:
   convention: heading-line
   field: "Last updated:"
 targets:
-  completeness: 4
-  correctness: 4
-  freshness: 4
-  linkage: 4
-  consistency: 4
-  economy: 4
+#   entry_cost: WATCH
 correctness_sample: 8
 scenario: "add a new scoring dimension to docgrad"
 language: en

@@ -824,8 +824,10 @@ test('inventory: economy_thresholds reports the shipped values and the arithmeti
   assert.equal(e.customised, false, 'a config that never mentions economy: is not customised');
   assert.equal(e.entry_cost_tokens_est, out.entry_cost.tokens_est, 'must cite the same number the entry_cost verdict is measured on');
   assert.equal(e.pollution_ratio, out.pollution.ratio);
-  assert.equal(e.cost_allows_star, 4);
-  assert.equal(e.pollution_caps_at, null);
+  // v2.0.0 E2c-1: the 1.x star fields are gone; verdicts live in `measure`.
+  assert.equal(e.cost_allows_star, undefined);
+  assert.equal(e.star_5_cost_met, undefined);
+  assert.equal(e.pollution_caps_at, undefined);
   assert.match(out.docgrad.measure_hash, /^[0-9a-f]{8}$/);
 });
 
@@ -841,15 +843,15 @@ test('inventory: custom thresholds are honoured, flagged, and move measure_hash 
     write('');
     const shipped = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' }));
     assert.equal(shipped.economy_thresholds.customised, false);
-    assert.equal(shipped.economy_thresholds.cost_allows_star, 4);
+    assert.equal(shipped.economy_thresholds.cost_allows_star, undefined, 'v2.0.0 E2c-1: legacy star field removed');
 
     // Tiers tight enough that the same entry file now lands in the worst band: the config decides
     // the boundary, which before v1.7.0 it demonstrably did not.
     write('economy:\n  entry_cost_tiers: [50, 40, 30, 20]\n');
     const tight = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' }));
     assert.equal(tight.economy_thresholds.customised, true);
-    assert.equal(tight.economy_thresholds.cost_allows_star, 1, 'the same file, a different ruler');
-    assert.equal(tight.economy_thresholds.star_5_cost_met, false);
+    assert.equal(tight.economy_thresholds.cost_allows_star, undefined, 'v2.0.0 E2c-1: legacy star field removed');
+    assert.equal(tight.economy_thresholds.star_5_cost_met, undefined, 'v2.0.0 E2c-1: legacy star field removed');
     assert.notEqual(tight.docgrad.measure_hash, shipped.docgrad.measure_hash);
     assert.equal(tight.entry_cost.tokens_est, shipped.entry_cost.tokens_est, 'the measurement itself must not move');
 
@@ -1192,6 +1194,37 @@ test('inventory: a scoped --locate-ledger run names scope narrowing as a cause o
     const full = runInventory(tmp, '--locate-ledger', ledgerPath);
     assert.equal(full.locate_ledger.located, hashes.length);
     assert.equal(full.locate_ledger.note.length, 0);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// --- v2.0.0 E2c-1: targets / accept / meets_target / legacy-target note ------------------------
+
+test('inventory: measure — every row carries accept and meets_target, and the top-level note is absent by default', () => {
+  const out = runInventory(FIXTURE);
+  for (const row of out.measure) {
+    assert.ok('accept' in row, `${row.id} is missing accept`);
+    assert.ok('meets_target' in row, `${row.id} is missing meets_target`);
+  }
+  assert.equal(out.note, undefined, 'no legacy targets in this config, no top-level note');
+});
+
+test('inventory: legacy star target keys produce a new top-level note right after measure, dropped from targets', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-inv-legacy-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'docs'));
+    fs.writeFileSync(path.join(tmp, 'docs/README.md'), '# index\n\nsome prose.\n');
+    fs.writeFileSync(
+      path.join(tmp, '.docgrad.yml'),
+      'docs_dirs: [docs/]\nindex_file: docs/README.md\ntargets:\n  completeness: 4\n  correctness: 3\n'
+    );
+    const out = runInventory(tmp);
+    assert.match(out.note, /targets: ignored legacy star targets completeness, correctness/);
+    assert.match(out.note, /measure\.md §Targets/);
+    // Right after `measure`, same position rule as the other three scripts' shared `note`.
+    const keys = Object.keys(out);
+    assert.equal(keys[keys.indexOf('measure') + 1], 'note');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

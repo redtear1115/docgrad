@@ -141,7 +141,8 @@ const DEFAULTS = {
   // falls back to field when unset (compatibility with older configs).
   freshness: { convention: 'none', field: null, heading_field: null, stale_after_days: 60 },
   coverage: { drift_after_days: 30, min_commits: 3 },
-  targets: { completeness: 4, correctness: 4, freshness: 4, linkage: 4, consistency: 4, economy: 4 },
+  // v2: a measure signal id -> "OK" (the default for every signal) or "WATCH". See normalizeTargets.
+  targets: {},
   // Thresholds for the economy anchors (added in v1.0.0, actually read since v1.7.0 — until then
   // they were inert and reference/rubric.md retyped the numbers in prose, so editing them changed
   // nothing while init.md warned that it changed everything). inventory.mjs reads them now and the
@@ -351,17 +352,83 @@ function validateFreshnessFields(freshness, configFile) {
   }
 }
 
+// --- targets (v2) -----------------------------------------------------------------
+//
+// v1's `targets` held a star (1–5) per 1.x dimension (completeness, correctness, freshness,
+// linkage, consistency, economy) and fed the judge's rating. v2 splits judge from measure (#79/#80):
+// three of those names (completeness, correctness, consistency) are judged and have no target any
+// more; the other three (freshness, linkage, economy) are now measure signals, named by their
+// `MEASURE_BANDS` id instead. Only two verdicts are ever acceptable for a signal: `OK` (the default
+// for every signal) or `WATCH`. `FAIL` can never be a target — see `meets_target` in `evaluateMeasure`.
+//
+// A v1 config's six star keys are recognized and dropped rather than rejected outright, so an old
+// `.docgrad.yml` still loads; `legacy_targets` carries the dropped key names back to the caller so
+// the four measure scripts can each surface one warning (#83).
+
+const LEGACY_TARGET_DIMENSIONS = new Set(['completeness', 'correctness', 'freshness', 'linkage', 'consistency', 'economy']);
+
+// parseYamlSubset has no flow-map support (see the parser comment above), so `targets: {}` parses
+// to the *string* `"{}"`, not an object — accepted here as another spelling of "no targets", the
+// same as a bare `targets:` (which does parse to `{}`) and the absent key. This keeps the evals
+// fixtures and any config still carrying an empty `targets: {}` loading unchanged.
+export function normalizeTargets(parsedTargets, configFile) {
+  const empty = { targets: {}, legacy_targets: [] };
+  // Absent key, `null`/`~`, a bare `targets:` (parses to `{}`) and the string `"{}"` (what
+  // `targets: {}` parses to — the parser has no flow-map support, see above) all mean "no targets".
+  if (parsedTargets === undefined || parsedTargets === null || parsedTargets === '{}') return empty;
+  const isPlainObject = typeof parsedTargets === 'object' && !Array.isArray(parsedTargets);
+  if (!isPlainObject) {
+    throw new Error(
+      `${configFile}: targets must be a map of measure signal to OK/WATCH, but got ${describeValue(parsedTargets)}. ` +
+        `Write it in block form:\ntargets:\n  entry_cost: WATCH`
+    );
+  }
+  if (Object.keys(parsedTargets).length === 0) return empty;
+  const targets = {};
+  const legacy_targets = [];
+  for (const [key, value] of Object.entries(parsedTargets)) {
+    if (LEGACY_TARGET_DIMENSIONS.has(key)) {
+      if (typeof value === 'number') {
+        legacy_targets.push(key);
+        continue; // dropped, not carried into `targets`
+      }
+      throw new Error(
+        `${configFile}: targets.${key} must be a number in v1 configs, but got ${describeValue(value)}. ` +
+          `1.x dimension names are not v2 targets: completeness, correctness and consistency are judged ` +
+          `and have no targets; freshness, linkage and economy are now measure signals, so name the signal ` +
+          `id instead (e.g. \`key_doc_age\`, \`dead_link_ratio\`, \`entry_cost\`). Block form: ` +
+          `targets:\n  entry_cost: WATCH`
+      );
+    }
+    if (MEASURE_BANDS.some((r) => r.id === key)) {
+      if (value === 'OK' || value === 'WATCH') {
+        targets[key] = value;
+        continue;
+      }
+      throw new Error(
+        `${configFile}: targets.${key} must be "OK" or "WATCH", but got ${describeValue(value)}.` +
+          (value === 'FAIL' ? ' FAIL can never be accepted as a target.' : '')
+      );
+    }
+    const validIds = MEASURE_BANDS.map((r) => r.id).join(', ');
+    throw new Error(`${configFile}: targets.${key} is not a measure signal. Valid ids: ${validIds}.`);
+  }
+  return { targets, legacy_targets };
+}
+
 export function loadConfig(rootDir, configFile = path.join(rootDir, CONFIG_FILENAME)) {
   if (!fs.existsSync(configFile)) {
     throw new Error(`Could not find ${configFile} (root: ${rootDir}). Run /docgrad init first.`);
   }
   const parsed = parseYamlSubset(fs.readFileSync(configFile, 'utf8'));
+  const { targets, legacy_targets } = normalizeTargets(parsed.targets, configFile);
   const config = {
     ...DEFAULTS,
     ...parsed,
     freshness: { ...DEFAULTS.freshness, ...(parsed.freshness ?? {}) },
     coverage: { ...DEFAULTS.coverage, ...(parsed.coverage ?? {}) },
-    targets: { ...DEFAULTS.targets, ...(parsed.targets ?? {}) },
+    targets,
+    legacy_targets,
     rules: { ...DEFAULTS.rules, ...(parsed.rules ?? {}) },
     // economy was the only nested map without this, so `economy: { pollution_max: 0.2 }` used to
     // leave entry_cost_tiers undefined rather than at its default. Nothing noticed because nothing
@@ -377,6 +444,17 @@ export function loadConfig(rootDir, configFile = path.join(rootDir, CONFIG_FILEN
     throw new Error(`freshness.field must be set when freshness.convention is ${config.freshness.convention}`);
   }
   return config;
+}
+
+// The one clause the four measure scripts (links, freshness, coverage, inventory — retrieval.mjs
+// emits no `measure` array and gets no warning) append to their shared `note` field when the loaded
+// config carried legacy (v1 star-valued) target keys. Scripts report errors on stderr but have no
+// separate warning channel, so this reuses `note` the same way each script already combines its own
+// note fragments. Returns null when there is nothing to say, so a caller can splice it in unconditionally.
+export function legacyTargetsNote(config) {
+  const keys = config?.legacy_targets ?? [];
+  if (keys.length === 0) return null;
+  return `targets: ignored legacy star targets ${keys.join(', ')} — v2 targets name measure signals (see measure.md §Targets)`;
 }
 
 // --- CLI shared -------------------------------------------------------------------
@@ -1608,8 +1686,23 @@ export function evaluateMeasure(id, input, config, { scoped = false } = {}) {
     ...(input.denominator !== undefined ? { denominator: input.denominator } : {}),
   };
 
+  // accept: the verdict this repo's config allows this signal to settle at (default OK, per-signal
+  // WATCH opt-in — see normalizeTargets). meets_target is null exactly when verdict is null (no
+  // number to judge), otherwise OK always meets its target and WATCH meets it only when accepted;
+  // FAIL never meets a target, regardless of `accept`.
+  const accept = config?.targets?.[id] ?? 'OK';
+
   if (value === null) {
-    return { ...base, verdict: null, line: null, source: row.source, ...(note ? { note } : {}), ...(input.extra ?? {}) };
+    return {
+      ...base,
+      verdict: null,
+      accept,
+      meets_target: null,
+      line: null,
+      source: row.source,
+      ...(note ? { note } : {}),
+      ...(input.extra ?? {}),
+    };
   }
 
   const okAlsoHolds = (row.ok_also ?? []).every((cond) => cmpOp(cond.op, input.extra?.[cond.input], cond.value));
@@ -1623,9 +1716,13 @@ export function evaluateMeasure(id, input, config, { scoped = false } = {}) {
     verdict = 'WATCH';
   }
 
+  const meets_target = verdict === 'OK' || (verdict === 'WATCH' && accept === 'WATCH');
+
   return {
     ...base,
     verdict,
+    accept,
+    meets_target,
     line: buildMeasureLine(verdict, row, config),
     source: row.source,
     ...(note ? { note } : {}),
