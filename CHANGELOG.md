@@ -3,7 +3,74 @@
 Version authority is `version` in [.claude-plugin/plugin.json](.claude-plugin/plugin.json); this file records changes per version.
 For version-number semantics (semver, docgrad-specific) see [docs/how-to.md](docs/how-to.md) §Cut a release.
 
-## Unreleased
+## 2.0.0 — 2026-09-17
+
+**docgrad now grades in two layers, and only one of them decides anything.**
+
+- **`measure`** — the scripts' numbers, each with an `OK` / `WATCH` / `FAIL` verdict: dead links,
+  orphans, reachability, date coverage and drift, key-document age, entry-file token cost, pollution,
+  undocumented and drifted areas. Reproducible on an unchanged tree, carries per-signal targets, and is
+  the only thing `improve` / `loop` select, verify and stop on, and the only thing the graduation gate
+  checks.
+- **`judge`** — the model's ★1–★5 for completeness, correctness and consistency. **Stars are not
+  reproducible, never gate CI or the loop, are never compared across rounds, and are never combined into
+  an overall score.**
+
+1.x put both on one scorecard, one history and one set of targets. The measured case for splitting
+them: across `--runs 5`, the script outputs never moved while model judgement did — a consistency
+rating that dropped ★4→★2 on re-verification with every unit test green, completeness splitting ★1/★2
+on one unchanged fixture (#70). The epoch sections below carry the detail; **[UPGRADING.md](UPGRADING.md)
+is the short version for anyone upgrading.**
+
+### Breaking
+
+- **`audit` no longer rates by default.** It is a deprecated alias for `measure`; stars need
+  `judge` (or `audit --judge`). New commands: `measure`, `judge`.
+  → [UPGRADING §1](UPGRADING.md#1-commands-audit--measure--judge----judge)
+- **`.docgrad.yml` `targets` names measure signals** (`entry_cost: WATCH`), accepting only `OK` or `WATCH`,
+  block form only. 1.x star values (`completeness: 4`) are ignored with a `note`; other shapes are errors.
+  → [UPGRADING §2](UPGRADING.md#2-docgradyml-targets-star-values-are-ignored-not-honoured)
+- **Linkage, freshness and economy are no longer rated.** Their ★ anchors are retired (kept in
+  `rubric.md` §Version history for reading 1.x rows); the same boundaries now live as measure verdict lines.
+- **Script output:** every script except `retrieval.mjs` emits a `measure` array (`verdict`, `accept`,
+  `meets_target`); `inventory.economy_thresholds` loses `cost_allows_star`, `star_5_cost_met` and
+  `pollution_caps_at`. → [UPGRADING §3](UPGRADING.md#3-script-output-measure-arrays-and-three-retired-fields-gone)
+- **Fingerprints are renamed and regrouped:** `thresholds_hash` → `measure_hash` (now also covering the
+  verdict bands and `measure.md`), `judgement_hash` → `judge_hash`, and `rubric_hash` is folded into
+  `judge_hash`. → [UPGRADING §4](UPGRADING.md#4-fingerprints-renamed-so-every-1x--20-comparison-breaks)
+- **`history.jsonl` rows are schema 2** (`docgrad` block, `measure` object, `judge` marked incomparable);
+  `report` shows 1.x rows as a separate block and rewrites nothing.
+  → [UPGRADING §5](UPGRADING.md#5-historyjsonl-schema-2-legacy-rows-kept-separate)
+- **`scorecard-latest.md` has new headings** — a `## Measure` block and a `## Judge — not comparable
+  across rounds` block — so anything parsing the old layout must change.
+  → [UPGRADING §6](UPGRADING.md#6-scorecard-measure-and-judge-blocks-never-an-overall-score)
+- **The graduation gate template gains `max_pollution_ratio`.** Committed gates keep working and are
+  reported as predating the threshold; regenerate to pick it up.
+  → [UPGRADING §7](UPGRADING.md#7-graduation-gate-a-new-pollution-threshold-old-gates-predate-it)
+
+### Restart from a baseline
+
+**No 1.x round is comparable with a 2.0 round**, by design: every fingerprint either changed name or
+changed what it covers, and three of the six 1.x dimensions stopped being rated. On every repo already
+onboarded, run `measure` once to take a 2.0 baseline (and `judge` if you want stars), and let `loop`
+converge from there. Existing `.docgrad/history.jsonl` rows stay where they are and are reported as 1.x
+history; regenerate any committed graduation gate. → [UPGRADING §8](UPGRADING.md#8-what-to-do)
+
+### Fingerprints at this release
+
+`measure_hash dd15ca3f` · `judge_hash 41cb532f` — both moved several times inside 2.0.0, as each epoch below
+records; CONTRIBUTING's rule 1 was waived for this release and disclosed there. `corpus_hash` is derived
+from a repo's own config and is not moved by any code change in this release.
+
+### Known, not fixed
+
+- Judge-layer instability: completeness moves one step on unchanged fixtures (#70); the eval harness's own
+  judges disagree over identical docgrad stars (#69). Disclosed in
+  [judge.md §Known instability](skills/docgrad/reference/judge.md#known-instability).
+- Deferred: line-range fragment validation (#85), ledger row spec check (#67), claim ranking past ~98
+  candidates (#60) → 2.0.1; the sepia style pass (#63, #64) → 2.1.0, waiting on a sepia release after
+  v0.10.0.
+
 
 ### v2.0.0 epoch 1 — the fingerprints speak in two layers
 
