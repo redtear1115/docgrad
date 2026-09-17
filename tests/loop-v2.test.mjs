@@ -46,10 +46,10 @@ test('improve.md: contains "meets_target" (A3/A8/A10)', () => {
   assert.ok(text.includes('meets_target'), 'improve.md must reason about meets_target');
 });
 
-test('improve.md: contains the D10 "outside docgrad\'s remit" stop condition (A8)', () => {
+test('improve.md: contains the "outside docgrad\'s remit" stop condition (A8)', () => {
   const text = read(IMPROVE);
   assert.match(text, /outside docgrad's remit/i);
-  assert.match(text, /stop immediately/i, 'the D10 stop must say the loop stops immediately, not just "excluded"');
+  assert.match(text, /stop immediately/i, 'the remit stop must say the loop stops immediately, not just "excluded"');
 });
 
 test('improve.md: plateau is defined only over a non-empty working set (A8)', () => {
@@ -82,7 +82,7 @@ test('SKILL.md: frontmatter description no longer promises "target ratings" (A4)
   assert.ok(!/target ratings/i.test(text), 'SKILL.md must not promise "target ratings" any more');
 });
 
-test('SKILL.md: `report` row is byte-identical to origin/main (A4)', () => {
+test('SKILL.md: `report` row keeps its pre-E2c-2 opening and closing text (A4)', () => {
   const text = read(SKILL);
   const reportLine = text.split('\n').find((l) => l.startsWith('| `report` |'));
   assert.ok(reportLine, 'the `report` row must exist');
@@ -123,3 +123,15 @@ function walk(dir, onFile) {
     else onFile(full);
   }
 }
+
+test('improve.md: an all-null round is never "targets met", and a neutral round counts toward plateau (A3)', () => {
+  const text = read(IMPROVE);
+  assert.match(text, /If every row\s+is null, targets are not met/);
+  assert.match(text, /\*\*Nothing measured\*\*/);
+  assert.match(text, /record the round as \*\*no improvement\*\*/);
+});
+
+test('history example: `dimension` names only a measure id (A3)', () => {
+  const text = read(IMPROVE);
+  assert.ok(!/"dimension": "[^"]*judged dimension/.test(text), 'dimension must not allow a judged dimension');
+});

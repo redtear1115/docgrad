@@ -290,7 +290,11 @@ recommending graduation. It never again reasons about a star rating anywhere in 
   of the Dimension table. No star is ever written by a round that skipped `--judge`.
 - **Commit message**: `docs(docgrad): round N convergence — <signal> <old verdict>→<new verdict>`, with a `measure:`
   body line listing rows not meeting target (or "all rows meet target") and a `ledger:` line only when `--judge` ran.
-- **SKILL.md gains `measure` and `judge` as first-class commands** (D1/D80): `measure` runs the four scripts only,
+- **Edge cases the loop now names**: a round where every row's `meets_target` is `null` stops as "nothing measured"
+  (never targets met, never graduation); a fix that neither improves the picked row nor worsens another is kept and
+  counts toward plateau; the history row's `dimension` is always the picked measure id; `audit --dim <dimension>`
+  implies `--judge`, since a dimension can only be judged.
+- **SKILL.md gains `measure` and `judge` as first-class commands** (#80): `measure` runs the four scripts only,
   needs no rubric.md; `judge` reads rubric.md and rates the three LLM-judged dimensions, needs this round's `measure`
   output. **`audit` becomes a documented deprecated alias**: it runs `measure`; it runs `judge` too only with
   `--judge`. This was always report-only and still is — nothing about "audit writes nothing" changed, only which of
@@ -321,7 +325,7 @@ recommending graduation. It never again reasons about a star rating anywhere in 
   the 1.x history narrative paragraphs are untouched. **`.agents/workflows/docgrad.md`**'s command list gains
   `measure`/`judge`, and its no-argument default becomes `measure` (was `audit`).
 - **The fingerprint moves:**
-  - **`judge_hash` moves, from `6c0f1ed0` to `c7514849`.** A real content change in `judge.md` (the
+  - **`judge_hash` moves, from `6c0f1ed0` to `d2c22f68`.** A real content change in `judge.md` (the
     Dimension table header, the Measure block spec, the reordered "Suggested next steps," the reworded empty-sample
     blockquote, the "audit writes nothing" → "measure/judge write nothing" note, the scoped-audit section wording)
     plus `rubric.md`'s own two changes (§Correctness's wording, and this section's own §Version history entry, which
@@ -337,7 +341,7 @@ recommending graduation. It never again reasons about a star rating anywhere in 
 - **Not in this slice (Non-goals, disclosed)**: `reference/measure.md` (its own line 6, "read rubric.md before
   scoring," is a noted follow-up, not fixed here — measure needs no rubric.md, so that line is already stale but
   moving `measure_hash` for it belongs to its own slice); `evals/`, `templates/`, `SKILL.md`'s `report` row,
-  `case-studies/**`, `README*` (still say "six dimensions," disclosed since E5, #83); the E4 graduation gate
+  `case-studies/**`, `README*` (still say "six dimensions," left for E5, #83); the E4 graduation gate
   (#82/#88/#90); E3's scorecard two-block layout (#81/#87).
 
 ## 1.9.2 — 2026-09-16

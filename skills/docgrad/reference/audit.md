@@ -5,7 +5,7 @@
 Precondition (blocker): the target repo root must have `.docgrad.yml`; if not → stop, point to `/docgrad init`.
 This process **does not modify any file** and writes no state — pure report, exactly as it always was.
 
-**`audit` is a deprecated alias, kept for 1.x muscle memory (D1).** It runs [measure.md](measure.md); it runs
+**`audit` is a deprecated alias, kept for 1.x muscle memory.** It runs [measure.md](measure.md); it runs
 [judge.md](judge.md) too **only when passed `--judge`** — plain `audit` (no flag) rates nothing and prints no star.
 This is a routing default, not a new report-only rule: `audit` never wrote to `.docgrad/` before this alias existed
 either, so nothing about "pure report" changed, only which of the two passes run by default.
@@ -16,5 +16,7 @@ member of `lib.mjs › JUDGE_FILES` — a thin router with no rules of its own d
 editing this file never moves `judge_hash`.
 
 For a scoped audit (`audit <scope>` — limited scope / single dimension), see [judge.md](judge.md) §Scoped audit; the
-same `--judge` default applies there too. Prefer `measure` / `judge` directly for new usage (see
-[SKILL.md](../SKILL.md)'s routing table) — `audit` exists so a 1.x habit still works, not as the recommended spelling.
+same `--judge` default applies there too, with one exception: **`audit --dim <dimension>` implies `--judge`**, since a
+dimension can only be judged — it behaves as `measure` (unscoped) plus `judge --dim <dimension>`. Prefer `measure` /
+`judge` directly for new usage (see [SKILL.md](../SKILL.md)'s routing table) — `audit` exists so a 1.x habit still
+works, not as the recommended spelling.

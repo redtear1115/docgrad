@@ -315,7 +315,7 @@ When the target repo has `.docgrad/out-of-scope.jsonl`, list all `status: open` 
 
 ## Suggested next steps
 **Measure rows not meeting target first** — this is what `improve`/`loop` will actually pick, in
-`improve.md` §Working set's order (every FAIL before any unaccepted WATCH, then the fixed tie-break):
+[improve.md](improve.md) step 2's pick order (every FAIL before any unaccepted WATCH, then the fixed tie-break):
 1. …
 2. …
 **Then judge deductions, as recommendations only** — the loop never fixes these, they need a human or `--judge` review:
@@ -326,10 +326,16 @@ When the target repo has `.docgrad/out-of-scope.jsonl`, list all `status: open` 
 
 ## Scoped audit (limited scope / single dimension)
 
-Covers `measure <scope>`, `judge <scope>` / `judge --dim <dimension>`, and their `audit <scope>` alias equivalents — all four route here.
+Covers `measure <scope>`, `judge <scope>` / `judge --dim <dimension>`, and their `audit <scope>` / `audit --dim <dimension>` alias
+equivalents — all route here.
 
 **Trigger**: the user's input carries a scope (directory, glob, or a topic description like "infra-related docs") or a dimension
 (`--dim consistency`, "just score completeness").
+
+**`--dim` on the alias implies `--judge`.** A dimension (completeness/correctness/consistency) can only be judged — there is no
+`measure`-side concept of "just this dimension." So `audit --dim <d>` runs `measure` (in full, unscoped by `--dim`) plus
+`judge --dim <d>`, exactly as if both flags had been passed explicitly. It stays report-only, same as every other scoped or
+alias form: no write to `.docgrad/scorecard-latest.md` or `.docgrad/history.jsonl`.
 
 **Scope translation**: translate a topic description into a concrete glob first (use the inventory's file list to pick out relevant files), and
 **list the actual `--include` value used** in the report header — the user needs to see what you interpreted "infra-related" as. If you can't translate it, ask; don't guess.

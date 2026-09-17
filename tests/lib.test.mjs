@@ -1292,7 +1292,7 @@ test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes st
 
   assert.deepEqual(Object.keys(meta), ['version', 'measure_hash', 'judge_hash', 'corpus_hash']);
   assert.equal(meta.measure_hash, 'cc49bc6f', 'measure_hash after E2c-1 (was 38724510 through E4b)');
-  assert.equal(meta.judge_hash, 'c7514849', 'judge_hash after E2c-2 (was 6c0f1ed0 through E2c-1)');
+  assert.equal(meta.judge_hash, 'd2c22f68', 'judge_hash after E2c-2 (was 6c0f1ed0 through E2c-1)');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
   // change; a placement.md edit is a judge-side one; neither may disturb the other, or #82's

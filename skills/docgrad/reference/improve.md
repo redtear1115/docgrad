@@ -38,7 +38,8 @@
    (see [measure.md](measure.md) §Targets for `verdict` / `accept` / `meets_target`). Two kinds of row never enter it:
    - **`meets_target: null`** — not measured this round (a scoped run, `src_dirs` unset, an empty corpus, no key
      document with a date signal, …). Name these in the report with their `note`. Targets are met exactly when *every*
-     row whose `meets_target` is non-null reads `true`; a null row counts neither for nor against that.
+     row whose `meets_target` is non-null reads `true`; a null row counts neither for nor against that. **If every row
+     is null, targets are not met** — nothing was measured, so there is nothing to have met; see the stop conditions.
    - **A row whose only fix is outside docgrad's remit** — the fix needs CI, source code, or a product decision this
      tool cannot make on its own (see [Exit for findings outside docgrad's remit](#exit-for-findings-outside-docgrads-remit)
      below). This row is excluded from the working set — the loop never tries to fix it directly — but it **counts as
@@ -91,7 +92,7 @@
      are **never executed automatically** — that's outside the branch discipline of "only commit docs changes," and none
      of the four scripts verify code comments, so there'd be no way to confirm the change didn't break anything. Write
      these into the round's report as a "recommend human handling" list (alongside any judge deductions, when `--judge`
-     ran — see step 5) and note them; when a suggestion is outside docgrad's remit entirely rather than merely outside
+     ran — both lists land in the scorecard's "Suggested next steps", see [judge.md](judge.md) step 9) and note them; when a suggestion is outside docgrad's remit entirely rather than merely outside
      docs scope, it goes into `.docgrad/out-of-scope.jsonl` instead (see [Exit for findings outside docgrad's remit](#exit-for-findings-outside-docgrads-remit)).
 4. **Verify**: rerun the four scripts and re-evaluate the affected rows. Success = the picked row's `verdict` improves
    (`FAIL`→`WATCH`/`OK`, or `WATCH`→`OK`), **or** its value moves toward its OK line without a verdict change being
@@ -99,11 +100,13 @@
    `true`→`false`, or its `verdict` worsens (`OK`→`WATCH`/`FAIL`, `WATCH`→`FAIL`) → revert the change that caused it,
    and note it. **Judge stars, on a round that ran `--judge`, never gate verification** — a judge deduction rising or
    falling decides nothing about whether this round's fix stands; only the measure rows do.
+   **Neither** — the picked row neither improved nor moved toward its OK line, and no other row worsened → keep the
+   change (it broke nothing), record the round as **no improvement**, and count it toward the plateau rule below.
 5. **Record and commit**:
    - Append one line to `.docgrad/history.jsonl` (create it if it doesn't exist), in **schema 2**:
 
      ```json
-     {"schema": 2, "round": 3, "date": "YYYY-MM-DD", "dimension": "<what this round worked on: a measure id, or a judged dimension when --judge also ran>", "docgrad": {"version": "<copy from inventory.mjs docgrad block>", "measure_hash": "<copy from inventory.mjs docgrad block>", "judge_hash": "<copy from inventory.mjs docgrad block>", "corpus_hash": "<copy from inventory.mjs docgrad block>"}, "measure": {"dead_link_ratio": {"value": 0, "numerator": 0, "denominator": 176, "verdict": "OK", "accept": "OK", "meets_target": true}, "…": "one entry per `measure` item the four scripts printed this round"}, "judge": {"incomparable": true, "stars": {"<dimension rated this round>": 4}, "sample": {"claims_drawn": 8, "claims_total": 68}}, "coverage": {"claims_verified": 23, "claims_total": 68}, "notes": "…"}
+     {"schema": 2, "round": 3, "date": "YYYY-MM-DD", "dimension": "<the measure id this round picked, with or without --judge>", "docgrad": {"version": "<copy from inventory.mjs docgrad block>", "measure_hash": "<copy from inventory.mjs docgrad block>", "judge_hash": "<copy from inventory.mjs docgrad block>", "corpus_hash": "<copy from inventory.mjs docgrad block>"}, "measure": {"dead_link_ratio": {"value": 0, "numerator": 0, "denominator": 176, "verdict": "OK", "accept": "OK", "meets_target": true}, "…": "one entry per `measure` item the four scripts printed this round"}, "judge": {"incomparable": true, "stars": {"<dimension rated this round>": 4}, "sample": {"claims_drawn": 8, "claims_total": 68}}, "coverage": {"claims_verified": 23, "claims_total": 68}, "notes": "…"}
      ```
 
      **`docgrad` is copied whole from `inventory.mjs`'s output `docgrad` block.** Do not rename, drop, or fill in keys
@@ -246,9 +249,11 @@ empty instead.
 
 ## Stop conditions (loop; any one of them ends it)
 
-- ✅ **Targets met**: every `measure` row with a non-null `meets_target` reads `true` (a null row counts neither way,
+- ✅ **Targets met**: at least one `measure` row has a non-null `meets_target`, and every such row reads `true` (a null row counts neither way,
   a row excluded as outside docgrad's remit always counts as unmet — see above) → final report + graduation
   recommendation (see below).
+- ⏸ **Nothing measured**: every `measure` row's `meets_target` is `null` → stop with a report that this round measured
+  nothing (name each row's `note`); this is never "targets met" and never leads to graduation.
 - ⏸ **Outside docgrad's remit**: the working set is otherwise empty, but some row is unmet only because its fix is
   outside docgrad's remit → **stop immediately**: run no round, commit nothing, write no history row. Emit this
   round's own "outside docgrad's remit" stop report naming every such row, and append each one to

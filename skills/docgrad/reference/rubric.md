@@ -457,7 +457,7 @@ anchors (see its entry).
     dimension has never had a `measure`-style target, and the column was carried over from
     `audit.md` unexamined. The Measure block line spec now names `accept`/`meets_target` and requires
     printing an accepted WATCH. "Suggested next steps" lists unmet `measure` rows first (the loop's
-    own pick, see [improve.md](improve.md) §Working set), then judge deductions as recommendations
+    own pick, see [improve.md](improve.md) step 2), then judge deductions as recommendations
     only — judge never decides what the loop fixes next. The empty-sample blockquote drops "treat it
     like a design ceiling … excluded from pick the lowest dimension" for the same "never a candidate"
     wording as this file's own change above. The "audit writes nothing" note is now "measure/judge
