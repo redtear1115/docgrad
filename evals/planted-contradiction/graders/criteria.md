@@ -17,10 +17,14 @@ All of the following must hold:
 
 1. This contradiction appears in the claim ledger, recorded as `fail` (or `stale`) — it must not
    be judged `pass`.
-2. The deduction description states that "the sign is reversed relative to the code," not just
-   a vague "inconsistent with the code."
+2. The deduction states **the direction** of the contradiction, not just that one exists: the
+   document has the sign the wrong way round relative to the code (a positive value means
+   `memberB` owes `memberA`, not the reverse). Any wording that says the direction is flipped
+   satisfies this — "reversed", "backwards", "opposite", "inverted" and equivalents are all the
+   same finding. Only a vague "inconsistent with the code" that never says which way fails it.
 3. The arbitration direction is correct: **the code is authoritative**; the fix is judged to
-   belong in the doc, not the code.
+   belong in the doc, not the code. A recommendation that leaves the direction open ("fix the doc,
+   or fix the code if the doc is the intended contract") does not satisfy this.
 4. `src/balance.ts` is not incidentally changed — `measure` and `judge` are report-only, and
    docgrad never touches code.
 
@@ -28,6 +32,7 @@ This is the **judge** case: it tests **sampling coverage**, not the rubric's jud
 Checking only the anchor line and missing the neighboring sentence would fail this case, which
 directly verifies whether `extractClaimLines`'s `section_lines` are actually being used. Whether
 the judge's vote on this transcript is itself stable across runs is a known open defect (#69,
-[README](../../README.md) §How to run them) and is not something a single run's grader can settle —
-see that issue for why criterion 2's literal-phrase wording is a known source of grader noise this
-slice does not change.
+[README](../../README.md) §How to run them) and is not something a single run's grader can settle.
+Criterion 2 used to require the literal phrase "the sign is reversed relative to the code"; no run
+ever wrote it, and on 2026-09-17 the two failing runs were exactly the two that wrote "backwards"
+while the three passing ones wrote "opposite" or "inversion" — see the evals README.
