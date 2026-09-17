@@ -129,6 +129,10 @@ test('improve.md: an all-null round is never "targets met", and a neutral round 
   assert.match(text, /If every row\s+is null, targets are not met/);
   assert.match(text, /\*\*Nothing measured\*\*/);
   assert.match(text, /record the round as \*\*no improvement\*\*/);
+  // A picked row that got worse is a revert, never "no improvement" (it once was kept — a real regression).
+  assert.match(text, /\*\*any\*\* row gets worse, the picked row\s+included/);
+  assert.match(text, /A picked row that moved away from its OK line is never this case; it is a revert\./);
+  assert.ok(!/neither improved nor moved toward its OK line/.test(text), 'the old over-broad keep rule must be gone');
 });
 
 test('history example: `dimension` names only a measure id (A3)', () => {

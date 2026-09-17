@@ -96,12 +96,15 @@
      docs scope, it goes into `.docgrad/out-of-scope.jsonl` instead (see [Exit for findings outside docgrad's remit](#exit-for-findings-outside-docgrads-remit)).
 4. **Verify**: rerun the four scripts and re-evaluate the affected rows. Success = the picked row's `verdict` improves
    (`FAIL`→`WATCH`/`OK`, or `WATCH`→`OK`), **or** its value moves toward its OK line without a verdict change being
-   possible this round — report that case as partial. Failure/revert = any other row's `meets_target` moves
-   `true`→`false`, or its `verdict` worsens (`OK`→`WATCH`/`FAIL`, `WATCH`→`FAIL`) → revert the change that caused it,
-   and note it. **Judge stars, on a round that ran `--judge`, never gate verification** — a judge deduction rising or
-   falling decides nothing about whether this round's fix stands; only the measure rows do.
-   **Neither** — the picked row neither improved nor moved toward its OK line, and no other row worsened → keep the
-   change (it broke nothing), record the round as **no improvement**, and count it toward the plateau rule below.
+   possible this round — report that case as partial. Failure/revert = **any** row gets worse, the picked row
+   included: a `meets_target` that moves `true`→`false`, a `verdict` that worsens (`OK`→`WATCH`/`FAIL`,
+   `WATCH`→`FAIL`), or — for the picked row — a value that moves away from its OK line even with no verdict change
+   (`entry_cost` growing while still `FAIL`) → revert the change that caused it, and note it. **Judge stars, on a
+   round that ran `--judge`, never gate verification** — a judge deduction rising or falling decides nothing about
+   whether this round's fix stands; only the measure rows do.
+   **Unchanged** — the picked row's verdict and value are both exactly as before, and no other row worsened → keep
+   the change (it broke nothing), record the round as **no improvement**, and count it toward the plateau rule below.
+   A picked row that moved away from its OK line is never this case; it is a revert.
 5. **Record and commit**:
    - Append one line to `.docgrad/history.jsonl` (create it if it doesn't exist), in **schema 2**:
 

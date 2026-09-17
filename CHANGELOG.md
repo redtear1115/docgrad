@@ -291,8 +291,9 @@ recommending graduation. It never again reasons about a star rating anywhere in 
 - **Commit message**: `docs(docgrad): round N convergence — <signal> <old verdict>→<new verdict>`, with a `measure:`
   body line listing rows not meeting target (or "all rows meet target") and a `ledger:` line only when `--judge` ran.
 - **Edge cases the loop now names**: a round where every row's `meets_target` is `null` stops as "nothing measured"
-  (never targets met, never graduation); a fix that neither improves the picked row nor worsens another is kept and
-  counts toward plateau; the history row's `dimension` is always the picked measure id; `audit --dim <dimension>`
+  (never targets met, never graduation); a fix that leaves the picked row exactly unchanged (and worsens no other row) is
+  kept and counts toward plateau, while a fix that worsens any row — the picked row included, verdict or value — is
+  reverted; the history row's `dimension` is always the picked measure id; `audit --dim <dimension>`
   implies `--judge`, since a dimension can only be judged.
 - **SKILL.md gains `measure` and `judge` as first-class commands** (#80): `measure` runs the four scripts only,
   needs no rubric.md; `judge` reads rubric.md and rates the three LLM-judged dimensions, needs this round's `measure`
