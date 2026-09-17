@@ -566,6 +566,13 @@ property only the operator reading `--runs` output can see.
 - Non-goals: `claude plugin eval` was not run as part of this slice (it spends usage) — offered to the user
   after merge, per the plan's E5b acceptance note.
 
+### Release policy — a measure verdict change is minor
+
+`docs/how-to.md` §Cut a release now names the case it left open: changing an existing measure verdict line or
+rule (`reference/measure.md`, `lib.mjs › MEASURE_BANDS`) is a **minor** release. It can flip a repo's verdict, but
+`measure_hash` moves with it, so `report` breaks the trend there, and the CHANGELOG entry must say which verdicts
+can flip. A semantic change to a judge star anchor stays major. No fingerprint moves.
+
 ## 1.9.2 — 2026-09-16
 
 Four measurement fixes and one documentation entry. No ★1–★5 anchor text changed and no default
