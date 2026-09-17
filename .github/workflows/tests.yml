@@ -1,0 +1,26 @@
+# tests.yml — docgrad's own unit tests (node --test). Not a docgrad graduation artifact.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  node-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['18', '24'] # scripts promise Node >=18; 24 is what development runs on
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # tests build temp git repos, and some read this repo's history
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: git identity for tests that commit into temp repos
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name ci
+      - run: node --test tests/*.test.mjs

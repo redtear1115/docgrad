@@ -32,14 +32,25 @@ deliberately does not do this for you — it does not modify anyone's CI.
 | `max_bad_anchors` | 0 | 0 |
 | `max_orphans` | 0 | 0 of 13 documents |
 | `min_freshness_coverage` | 1 | 1.0 (13/13 files carry `Last updated:`) |
-| `max_entry_cost_tokens` | 2651 | 2,651 tokens (`skills/docgrad/SKILL.md`) |
+| `max_entry_cost_tokens` | 5000 | 2,651 tokens (`skills/docgrad/SKILL.md`) |
 | `max_pollution_ratio` | 0 | 0 (`exclude: []`) |
 
-Graduated 2026-09-17 on `docgrad/converge`, docgrad `measure_hash dd15ca3f`. Every threshold sits
-exactly on today's value, so the gate is green now and any regression turns it red. Two of them are
-tight on purpose and will need a deliberate decision when they bite: `max_entry_cost_tokens` fails
-on any growth of `SKILL.md` (the shipped OK line is 5,000), and `min_freshness_coverage: 1` fails the
-moment a new document arrives without a date signal.
+Graduated 2026-09-17 on `docgrad/converge`, docgrad `measure_hash dd15ca3f`. Five thresholds sit
+exactly on today's value, so the gate is green now and any regression turns it red;
+`min_freshness_coverage: 1` in particular fails the moment a new document arrives without
+`Last updated:`, which is this repo's own convention.
+
+**One threshold was deliberately loosened.** `max_entry_cost_tokens` is 5000, not today's 2,651. Pinned
+at 2,651 it failed on any growth of `SKILL.md` — including an ordinary new routing row — so every such
+PR would have to raise the number in the same diff, and a threshold that is routinely raised to make
+a light go green is decoration. 5000 is the `entry_cost` OK line `measure` already applies
+(`entry_cost_tiers[2]`), so the gate goes red exactly where `measure` would stop calling the entry
+cost OK. This departs from "the thresholds can only be tightened"; it was decided at installation,
+not to clear a red run.
+
+**Installed** as `.github/scripts/docs-gate.mjs` and `.github/workflows/docs-gate.yml` (2026-09-17).
+The copies here are the graduation record; the installed copies are what CI runs — keep the two in
+step when a threshold changes.
 
 Four of those are absolute numbers and stay meaningful. **`min_freshness_coverage` and
 `max_pollution_ratio` are both ratios, and a ratio threshold can go red on its own as the corpus
