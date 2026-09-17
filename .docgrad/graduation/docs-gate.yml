@@ -1,0 +1,53 @@
+# docs-gate.yml — GitHub Actions workflow template (produced by docgrad, **not installed by docgrad**)
+#
+# To enable: copy it yourself to .github/workflows/docs-gate.yml and adjust. docgrad never writes to .github/.
+#
+# This gate is what "graduation" means in practice: docgrad is a one-time convergence tool;
+# once it's gone, CI is what holds the result. Without it, convergence naturally decays —
+# oikos had new orphans and dateless files pop up the day it graduated, and they were still there two months later.
+
+name: docs-gate
+
+on:
+  pull_request:
+    paths:
+      # Matches this repo's .docgrad.yml (docs_dirs / docs_files / entry_files / index_file / src_dirs)
+      - 'docs/**'
+      - 'skills/docgrad/reference/**'
+      - 'skills/docgrad/SKILL.md'
+      - 'skills/docgrad/scripts/**'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - 'INTEROP.md'
+      - '.docgrad.yml'
+
+jobs:
+  docs-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # freshness reads real dates from git log; a shallow clone would give wrong results
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20' # docgrad's scripts have zero dependencies; Node >=18 is enough
+
+      # This repo is docgrad itself, so the gate measures with the scripts in this checkout
+      # (the PR's own scripts) rather than cloning a released copy.
+      - name: Run docs-gate
+        env:
+          DOCGRAD_DIR: .
+        run: node .github/scripts/docs-gate.mjs --root .
+        # exit 1 = docs failed the gate; exit 2 = environment problem (docgrad not found, script crashed)
+
+# ── You can also use off-the-shelf tools instead (docgrad's scripts are not the only option) ──────
+#
+#   dead links      lychee or markdown-link-check
+#   formatting      markdownlint
+#   terminology     Vale
+#
+# These tools are far more mature for dead links and formatting. docgrad's scripts still add
+# distinct value on two fronts: orphans/reachability (can you transitively reach it from a
+# single index?) and entry-file token budget — measurements specific to "documentation as
+# agent context" that a general docs linter doesn't do.
