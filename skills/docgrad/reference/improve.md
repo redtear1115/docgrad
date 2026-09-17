@@ -16,7 +16,7 @@
 - Only commit docs changes and `.docgrad/` state files — "docs changes" = files covered by `.docgrad.yml`'s `docs_dirs`/`docs_files`/
   `entry_files`, **not source code files** (including their comments). **Never touch the target repo's CI config.**
 - **`.docgrad/` belongs in version control, all of it.** It is not scratch space, it is this tool's state: `history.jsonl` is
-  what the next round compares its `rubric_hash`/`corpus_hash` against, `ledger.jsonl` is the cumulative coverage that the
+  what the next round compares its `docgrad` fingerprints against, `ledger.jsonl` is the cumulative coverage that the
   sampling rule in [judge.md](judge.md) §3. Correctness (claim ledger) draws down, `scorecard-latest.md` is what `report`
   reprints, and `graduation/` holds deliverables the team copies into `.github/` by hand. Gitignore any of them and the
   feature that reads it silently stops working — a cloned repo restarts coverage at zero and never draws a comparability
@@ -78,7 +78,7 @@
    - Append one line to `.docgrad/history.jsonl` (create it if it doesn't exist), in **schema 2**:
 
      ```json
-     {"schema": 2, "round": 3, "date": "YYYY-MM-DD", "dimension": "<what this round worked on: a measure id or a judged dimension>", "docgrad": {"version": "<copy from inventory.mjs docgrad block>", "rubric_hash": "<copy from inventory.mjs docgrad block>", "measure_hash": "<copy from inventory.mjs docgrad block>", "judge_hash": "<copy from inventory.mjs docgrad block>", "corpus_hash": "<copy from inventory.mjs docgrad block>"}, "measure": {"dead_link_ratio": {"value": 0, "numerator": 0, "denominator": 176, "verdict": "OK"}, "…": "one entry per `measure` item the four scripts printed this round"}, "judge": {"incomparable": true, "stars": {"<dimension rated this round>": 4}, "sample": {"claims_drawn": 8, "claims_total": 68}}, "coverage": {"claims_verified": 23, "claims_total": 68}, "notes": "…"}
+     {"schema": 2, "round": 3, "date": "YYYY-MM-DD", "dimension": "<what this round worked on: a measure id or a judged dimension>", "docgrad": {"version": "<copy from inventory.mjs docgrad block>", "measure_hash": "<copy from inventory.mjs docgrad block>", "judge_hash": "<copy from inventory.mjs docgrad block>", "corpus_hash": "<copy from inventory.mjs docgrad block>"}, "measure": {"dead_link_ratio": {"value": 0, "numerator": 0, "denominator": 176, "verdict": "OK"}, "…": "one entry per `measure` item the four scripts printed this round"}, "judge": {"incomparable": true, "stars": {"<dimension rated this round>": 4}, "sample": {"claims_drawn": 8, "claims_total": 68}}, "coverage": {"claims_verified": 23, "claims_total": 68}, "notes": "…"}
      ```
 
      **`docgrad` is copied whole from `inventory.mjs`'s output `docgrad` block.** Do not rename, drop, or fill in keys
@@ -101,16 +101,17 @@
      `measure_hash` (**added as `thresholds_hash` in v1.7.0, renamed in v2.0.0**; its inputs grew again later in 2.0.0) covers the three config values that move a judgement boundary without changing a word of
      `rubric.md` — `economy.entry_cost_tiers`, `economy.pollution_max` and `freshness.stale_after_days` — **plus the verdict band table
      (`lib.mjs › MEASURE_BANDS`) and `reference/measure.md`**. Two rounds whose
-     `measure_hash` differs were **not measured by the same ruler**, however identical their `rubric_hash` — what that
+     `measure_hash` differs were **not measured by the same ruler**, however identical their `judge_hash` — what that
      move breaks in `report` is stated in SKILL.md's `report` row, not repeated here. One thing it cannot tell you:
      rounds recorded **before** v1.7.0 have no such field, so in a legacy row the round where a repo's custom
      `economy:` block went from inert to authoritative reads as "unknown → first value", not as a change. That
      transition is a real break and it is stated in the v1.7.0 CHANGELOG rather than detectable here.
 
-     `judge_hash` (**added as `judgement_hash` in v1.8.0, renamed in v2.0.0**) covers the files that carry **the rules for applying the anchors** — `judge.md` (audit.md until v2.0.0 E2a) (the
-     scoring procedure, the sampling rule, the boundary rules) and `placement.md` (what counts as a consistency deduction).
-     `rubric_hash` fingerprints the anchors themselves; this one fingerprints how they are applied, and the two move
-     independently. What that move breaks in `report` is likewise stated in SKILL.md's `report` row. Same blind spot
+     `judge_hash` (**added as `judgement_hash` in v1.8.0, renamed in v2.0.0**) covers the files that carry **the
+     anchors and the rules for applying them** — `rubric.md` (the anchors themselves), `judge.md` (audit.md until
+     v2.0.0 E2a) (the scoring procedure, the sampling rule, the boundary rules) and `placement.md` (what counts as a
+     consistency deduction). (Until v2.0.0 E4b a separate `rubric_hash` covered rubric.md.) What that move breaks in
+     `report` is likewise stated in SKILL.md's `report` row. Same blind spot
      as the others: rounds recorded **before** v1.8.0 have no such field, so in a legacy row its first appearance
      reads as "unknown → first value" rather than as a change — and in particular it does **not** retroactively mark
      v1.7.0's correctness break (#48), which is the break that motivated it.

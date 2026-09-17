@@ -58,7 +58,8 @@ repo's `.docgrad.yml`, write JSON to stdout, report errors on stderr with a non-
 
 ## The fingerprint discipline
 
-The `docgrad` block (`version` plus four hashes) travels verbatim in every v2 `history.jsonl` row. **Two were renamed in v2.0.0** —
+The `docgrad` block (`version` plus three hashes) travels verbatim in every v2 `history.jsonl` row. E4b folded
+`rubric_hash` into `judge_hash`; see [rubric.md](skills/docgrad/reference/rubric.md) §Version history. **Two were renamed in v2.0.0** —
 `judgement_hash` → `judge_hash` and `thresholds_hash` → `measure_hash` — digesting the same inputs,
 so the values did not move at the rename. **`judge_hash`'s inputs, and therefore its value, changed
 later in the same release**: E2a repointed it from `audit.md` to `judge.md` (a false break — the file
@@ -73,8 +74,7 @@ Know which one your change moves:
 
 | Hash | Covers | Source |
 |---|---|---|
-| `rubric_hash` | `reference/rubric.md`, whole file | `lib.mjs › docgradMeta()` |
-| `judge_hash` | `reference/judge.md` + `reference/placement.md` | `lib.mjs › JUDGE_FILES` |
+| `judge_hash` | `reference/rubric.md` + `reference/judge.md` + `reference/placement.md` | `lib.mjs › JUDGE_FILES` |
 | `measure_hash` | `economy.entry_cost_tiers`, `economy.pollution_max`, `freshness.stale_after_days`, `reference/measure.md` + `lib.mjs › MEASURE_BANDS` | `lib.mjs › measureHash()` |
 | `corpus_hash` | The config fields that select the corpus | `lib.mjs › corpusFingerprint()` |
 
@@ -84,9 +84,10 @@ Two rules follow from this:
    was the reasoning recorded in #56: folding `audit.md` into `rubric_hash` while `audit.md` was
    itself changing would hide the break behind a hash movement nobody could interpret.
 2. **A cosmetic edit that moves a hash is a false break.** `corpusFingerprint()` normalizes entries
-   (trim, drop trailing slashes, dedupe, sort) for exactly this reason. `rubric_hash` deliberately
-   does *not* — it hashes the whole file, so reformatting rubric.md does draw a break. That
-   inconsistency is known and is written down in #56; do not "fix" one side of it in passing.
+   (trim, drop trailing slashes, dedupe, sort) for exactly this reason. `judge_hash` deliberately
+   does *not* (it hashes rubric.md, judge.md and placement.md whole) — so reformatting any of them
+   does draw a break. That inconsistency is known and is written down in #56; do not "fix" one side
+   of it in passing.
 
 ## `docs(docgrad):` is a reserved commit prefix
 

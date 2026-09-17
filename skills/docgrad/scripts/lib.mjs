@@ -1281,17 +1281,17 @@ export const AUTHORSHIP_UNAVAILABLE_NOTE =
 
 // --- docgrad's own version fingerprint (used for history.jsonl's comparability fields) ----------------
 //
-// rubric_hash is the fingerprint of "the ruler this round used": every edit to rubric.md changes
-// the hash, and the report draws a comparability break based on it. The first 8 characters are
-// enough to distinguish (collision probability is negligible), and it keeps each history line
-// from getting too long.
+// judge_hash is the fingerprint of "the ruler this round used": every edit to rubric.md, judge.md
+// or placement.md changes the hash, and the report draws a comparability break based on it. The
+// first 8 characters are enough to distinguish (collision probability is negligible), and it keeps
+// each history line from getting too long.
 
-// corpus_hash is the counterpart fingerprint: rubric_hash answers "which ruler did this round
+// corpus_hash is the counterpart fingerprint: judge_hash answers "which ruler did this round
 // use", corpus_hash answers "which files did it measure". Editing docs_dirs / docs_files /
 // index_file / entry_files / exclude / out_of_scope moves files_total, claims_total, the freshness denominator,
 // the orphan/reachability population and the pollution denominator all at once — every score in
-// that round becomes incomparable with the round before, while rubric_hash does not change a
-// single character. Same shape as rubric_hash (sha256, first 8 hex chars), so report's existing
+// that round becomes incomparable with the round before, while judge_hash does not change a
+// single character. Same shape as judge_hash (sha256, first 8 hex chars), so report's existing
 // comparability-break detection can be reused verbatim.
 //
 // Normalised before hashing, so cosmetic edits don't fake a break: entries trimmed, trailing
@@ -1669,9 +1669,9 @@ export function measureDigest(config, bands, files) {
 // ruler *plus* the rules that turn a config value into a verdict — together, the whole of what a
 // round's `measure` array actually says.
 //
-// rubric_hash fingerprints the ruler docgrad ships. It does not cover the ruler a *repo* is
+// judge_hash fingerprints the ruler docgrad ships. It does not cover the ruler a *repo* is
 // actually graded by, because three config values move judgement boundaries without touching a
-// word of rubric.md:
+// word of rubric.md, judge.md or placement.md:
 //
 //   economy.entry_cost_tiers   the entry_cost band boundaries (verdict lines)
 //   economy.pollution_max      the pollution WATCH line
@@ -1680,7 +1680,7 @@ export function measureDigest(config, bands, files) {
 // The first two were inert until v1.7.0 and warned about anyway; the third has been live since it
 // was introduced and was never warned about at all — the wiring was the opposite of what the docs
 // said in both directions (#50). Now they are all read, and all fingerprinted: two rounds whose
-// measure_hash differs were not measured by the same ruler, however identical their rubric_hash.
+// measure_hash differs were not measured by the same ruler, however identical their judge_hash.
 //
 // null without a config, for the same reason corpus_hash is: "unknown" must stay distinguishable
 // from "the defaults". Also null (never throws) when reference/measure.md cannot be read, exactly
@@ -1731,13 +1731,18 @@ function findManifest(startDir) {
 // repoint — cannot be told apart from the hash alone; see rubric.md §Version history for the
 // full disclosure.
 //
-// rubric_hash fingerprints the **anchors**. It does not fingerprint the **rules for applying them**,
-// and those live in different files — which v1.7.0 demonstrated the hard way: #48 added two boundary
-// rules to audit.md, one of which can only lower a correctness pass rate, and no fingerprint moved.
-// The break had to be disclosed in prose and trusted to be read (#56).
+// (Before v2.0.0 E4b) rubric_hash fingerprinted the **anchors** separately, and judge_hash covered
+// only the **rules for applying them** — two files apart, which v1.7.0 demonstrated the hard way:
+// #48 added two boundary rules to audit.md, one of which can only lower a correctness pass rate,
+// and no fingerprint moved. The break had to be disclosed in prose and trusted to be read (#56).
+// E4b folds the two together: once E2b-2 retired rubric.md's last measure threshold, rubric.md
+// held only judge anchors, the same layer as judge.md and placement.md below, so it moved into
+// judge_hash's coverage and the separate fingerprint field retired.
 //
 // What is in, and why — decided by what the skill's own blockers say decides a rating (SKILL.md §2):
 //
+//   reference/rubric.md     the anchors themselves. Since v2.0.0 E4b it holds only judge material,
+//                           so it belongs in the same layer as judge.md and placement.md below.
 //   reference/judge.md      the rating procedure, the sampling rule, the boundary rules;
 //                           `audit` and `improve`/`loop` reach it through the audit.md router.
 //   reference/placement.md  "Before rating **consistency** you must also read placement.md — the
@@ -1746,12 +1751,10 @@ function findManifest(startDir) {
 //
 // What is out, and why:
 //
-//   reference/rubric.md     already covered by rubric_hash. Hashing it twice would make one edit
-//                           move two fingerprints and tell a reader nothing extra.
 //   reference/measure.md    the script run and the graduation gate check — mechanical and
 //                           reproducible. Since E2b-1 it is covered by measure_hash instead
 //                           (see measureHash above), so hashing it here too would move two
-//                           fingerprints for one edit, the same reason rubric.md is out.
+//                           fingerprints for one edit.
 //   reference/audit.md      a thin router with no rules of its own; it points readers to
 //                           measure.md and judge.md and carries nothing that changes a rating.
 //   reference/improve.md    it is the round *flow* — recording, committing, graduation — and it
@@ -1760,10 +1763,9 @@ function findManifest(startDir) {
 //                           closest call here; it is out because a plain `audit` never reads it, and
 //                           a fingerprint that moves for runs it cannot affect is noise.
 //
-// Whole-file, like rubric_hash: a formatting-only edit moves it. That is the same trade rubric_hash
-// already makes, and narrowing to rule sections would have to change rubric_hash too to stay
-// coherent — a separate decision, not a side effect of this one.
-const JUDGE_FILES = ['reference/judge.md', 'reference/placement.md'];
+// Whole-file: a formatting-only edit moves it, and narrowing to rule sections would be a separate
+// decision, not a side effect of this one.
+const JUDGE_FILES = ['reference/rubric.md', 'reference/judge.md', 'reference/placement.md'];
 
 export function judgeHash(skillRoot = SKILL_ROOT) {
   const h = createHash('sha256');
@@ -1775,7 +1777,7 @@ export function judgeHash(skillRoot = SKILL_ROOT) {
       h.update(fs.readFileSync(path.join(skillRoot, rel), 'utf8'), 'utf8');
     }
   } catch {
-    return null; // same contract as rubric_hash: unknown stays distinguishable from a value
+    return null; // unknown stays distinguishable from a value
   }
   return h.digest('hex').slice(0, 8);
 }
@@ -1788,16 +1790,8 @@ export function docgradMeta(skillRoot = SKILL_ROOT, config = null) {
   } catch {
     version = null; // allowed to be missing when run from outside the source tree; don't let it crash the script
   }
-  let rubricHash = null;
-  try {
-    const rubric = fs.readFileSync(path.join(skillRoot, 'reference/rubric.md'), 'utf8');
-    rubricHash = createHash('sha256').update(rubric, 'utf8').digest('hex').slice(0, 8);
-  } catch {
-    rubricHash = null;
-  }
   return {
     version,
-    rubric_hash: rubricHash,
     measure_hash: measureHash(config, skillRoot),
     judge_hash: judgeHash(skillRoot),
     corpus_hash: corpusHash(config),
@@ -1827,7 +1821,7 @@ export function normalizeClaimText(text) {
   return String(text).replace(/\s+/gu, ' ').trim();
 }
 
-// sha256, first 12 hex chars — the same shape as rubric_hash/corpus_hash but longer than their 8.
+// sha256, first 12 hex chars — the same shape as judge_hash/corpus_hash but longer than their 8.
 // Those two are a single value per round and only ever compared against the previous round, so
 // they have no birthday problem. claim_hash is a **key across a whole population**, and a realistic
 // repo carries hundreds to low thousands of claims. At 2,000 claims, 32 bits (8 hex chars) collides
