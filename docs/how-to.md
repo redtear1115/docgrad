@@ -57,7 +57,7 @@ Three of those flags are not optional for this plugin:
 
 - **`--allow-tools Bash`** — docgrad's measure signals are computed by Node scripts, and the
   harness removes ungranted tools from the session entirely. A case's own `allowed_tools` cannot
-  grant `Bash`; only this flag can. Without it the audit is structurally impossible, not merely
+  grant `Bash`; only this flag can. Without it `measure` is structurally impossible, not merely
   worse.
 - **`--scaffold`** — each run starts in an empty workspace, so each case's `fixture.sh` copies its
   fixture in and gives it its own git history.

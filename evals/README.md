@@ -1,10 +1,15 @@
 # docgrad evals
 
-> **Last updated:** 2026-09-16
+> **Last updated:** 2026-09-17
 
 Skill-level evaluation: this measures "when an agent uses this skill to score a repo, is the
 result stable and correct" — not the scripts' unit behavior (that's `tests/`,
-`node --test tests/*.test.mjs`).
+`node --test tests/*.test.mjs`). v2 split that one question into two, with different answers:
+**`measure`'s numbers are expected to be identical run to run** on an unchanged tree — a mismatch
+is a bug in the scripts, not discretion; **`judge`'s star ratings are model judgement**, and
+whether they land the same way twice is exactly what `--runs 5` is for. See
+[judge.md §Known instability](../skills/docgrad/reference/judge.md#known-instability) for what is
+and isn't stable today.
 
 ## Contents
 
@@ -16,9 +21,10 @@ result stable and correct" — not the scripts' unit behavior (that's `tests/`,
 
 ## Why they exist
 
-`tests/` has 60+ unit tests all passing, but they test the output of the five scripts,
-**not the stability of the star rating**. After oikos's graduation on 2026-07-13, a same-day
-re-verification found consistency went ★4→★2 — not a single unit test went red, because the
+`tests/` has 60+ unit tests all passing, but they test the output of the scripts,
+**not whether `measure`'s numbers or `judge`'s star ratings are stable across runs**. After
+oikos's graduation on 2026-07-13 (1.x), a same-day re-verification found consistency — a judged
+dimension in both 1.x and v2 — went ★4→★2, and not a single unit test went red, because the
 scripts weren't what was broken.
 
 Without evals there's no way to answer "is the error on a ★4 rating ±0 or ±2," and no way to
@@ -30,9 +36,9 @@ real-scenario testing) call for.
 
 | case | what it tests | pass condition |
 |---|---|---|
-| `linkage-known` | **reproducibility** | dead links 1/12 = 8.33% can only be linkage ★2. The per-run grader checks that one star; **whether it is identical across runs is checked here, by reading the `--runs 5` distribution** — a judge sees one transcript and cannot see a distribution, so asking it for cross-run consistency is asking for something outside its view |
-| `planted-contradiction` | **sampling coverage** | the contradiction sits in the sentence **next to** the anchor line (no code ref) — checking only the anchor line would miss it |
-| `clean-baseline` | **false positives** | a fully clean repo must not be docked; raising sensitivity must not turn into false positives everywhere |
+| `linkage-known` | **measure correctness** — must be deterministic | dead links 1/12 = 8.33% can only verdict `dead_link_ratio` **FAIL** (`> 2%`). This is a `measure` number, not a judge star: it's expected to come out identical on every run of an unchanged tree, and the per-run grader checks it against that expectation directly — no distribution needed for this one |
+| `planted-contradiction` | **judge sampling** | the contradiction sits in the sentence **next to** the anchor line (no code ref) — checking only the anchor line would miss it. This is the `judge` case: correctness is model judgement over a sample, and whether the judge's own vote on this transcript is stable across runs is tracked separately (#69, see below), not asserted per run |
+| `clean-baseline` | **false positives across both layers** | a fully clean repo must not be docked — neither by `measure`'s verdicts (dead links, bad anchors, orphans, date mismatches) nor by `judge`'s correctness ledger; raising sensitivity must not turn into false positives everywhere |
 
 The first two push docgrad to catch real defects; the third confirms it doesn't harm a clean
 repo in the process. Drop any one of the three and the other two's conclusions become untrustworthy.
@@ -43,16 +49,28 @@ repo in the process. Drop any one of the three and the other two's conclusions b
 claude plugin eval . --runs 5
 ```
 
-- `--runs 5`: **the distribution of star ratings is itself the metric**. Getting ★2/★2/★3 across
-  three runs means room for discretion remains at that point — track it as a defect, don't just
-  take the mode and move on.
+- `--runs 5`: **the distribution of `judge`'s star ratings is itself the metric — it is a tracked
+  defect (#69), not a green-suite criterion.** Getting ★2/★2/★3 across three runs on `judge`'s
+  dimensions means room for discretion remains at that point; a per-run grader can only ever check
+  one transcript, so cross-run stability is read from the distribution afterward, by a human, not
+  folded into whether any individual run "passed." `measure`'s numbers are the opposite case: they
+  are expected to be identical across all `--runs`, and a mismatch there is a real regression the
+  suite should fail on.
 - `--model`: the checklist requires testing Haiku/Sonnet/Opus. The rubric is a large amount of
   judgment-based zh-TW prose, and whether a weaker model can map it consistently to the right
   answer is **completely unknown** — that's exactly what this is meant to measure.
-- `--threshold`: everything must be green to pass; `linkage-known`'s star rating leaves no room
-  for interpretation.
+- `--threshold`: everything must be green to pass; `linkage-known`'s `measure` verdict leaves no
+  room for interpretation.
 
 ## Current status: the harness runs, the suite does not score yet
+
+> **History.** This section, its blocker table, and the dated results below it were written
+> against 1.x's `audit` command and six-dimension star rating (through 2026-09-16). They're kept
+> as a record of what it took to get the harness running at all — the mechanics (scaffold, `Bash`,
+> `git`, `node`, reading `explanation` on a zero) are unchanged by the v2 measure/judge split, only
+> the vocabulary they were diagnosed against (`audit`, "six dimensions," per-dimension stars) is
+> 1.x. Where a passage states something as v2's current behavior, it's been updated in place;
+> passages narrating what a specific 1.x run said are left as they were said.
 
 `claude plugin eval` **does run now** (v1.7.0, 2026-09-14). Getting there took unpicking seven
 separate blockers, six of which are fixed in this directory. They are written down because each one
@@ -71,8 +89,9 @@ nothing about which layer failed.
 | 8 | **A usage limit hit mid-run** | `score 0`, `passed: false` — the same shape as a failed case | **Cannot be fixed, must be recognised**: the run is void, not failing. See below |
 
 Blocker 4 is worth stating plainly because it is a property of this tool, not of this suite:
-**docgrad's six dimensions are built on the output of five Node scripts, not on an LLM's impression
-of the documents.** Without `Bash` the audit is structurally impossible, and the harness removes
+**`measure`'s signals are the output of four dependency-free Node scripts, not an LLM's impression
+of the documents** — and `judge` itself needs this same round's `measure` output as a precondition
+before it rates anything. Without `Bash` neither layer is possible, and the harness removes
 ungranted tools from the session entirely. Any eval of docgrad must grant it.
 
 ### Blocker 5: git — what it cost, and what fixing it bought
@@ -180,7 +199,7 @@ tool; it can only fail to say anything. That is now the open work, and it is not
 
 ### The earlier reproducibility evidence is hand-run
 
-Because the harness has never produced a score, the three cases were **executed by hand**, with their
+Because the harness had not yet produced a score at the time, the three cases were **executed by hand**, with their
 `prompt.md` text unchanged and each output scored against its `graders/criteria.md`: three fixtures ×
 two language arms (the English rubric and the Traditional Chinese one it was translated from) × two
 runs = 12 independent audits. Results are in [case-studies/03-fixtures.md](../case-studies/03-fixtures.md).
@@ -205,19 +224,51 @@ else; with it you get each run's `trace.jsonl`, which is where every finding abo
 
 ## Mechanical baselines for the fixtures
 
-The script output for the three repos under `evals/fixtures/` is fixed; the graders' assertions
+The `measure` output for the three repos under `evals/fixtures/` is fixed; the graders' assertions
 are built directly on these numbers. Before changing a fixture, rerun the comparison first —
-if the numbers change, update the graders accordingly:
+if the numbers change, update the graders accordingly.
+
+**Run against a scaffolded copy, not the fixture in place.** `evals/fixtures/*` sits inside this
+repo's own git history, so reading it in place would date every file by *this* repo's commits, not
+by the fixture's own pinned `2026-09-13` date each `fixture.sh` now commits with (`GIT_AUTHOR_DATE`
+/ `GIT_COMMITTER_DATE`, so `date_drift` and `mismatches` are stable whatever day the eval runs).
+Run each case's own `fixture.sh` in an empty scratch directory — it expects to be run with that
+directory as `cwd` — then run the four scripts against the `target/` it creates:
 
 ```bash
-for f in clean linkage-known planted-contradiction; do
-  node skills/docgrad/scripts/links.mjs     --root evals/fixtures/$f
-  node skills/docgrad/scripts/freshness.mjs --root evals/fixtures/$f
+for c in clean-baseline linkage-known planted-contradiction; do
+  mkdir -p /tmp/docgrad-eval-baseline/$c && (cd /tmp/docgrad-eval-baseline/$c && bash /path/to/docgrad/evals/$c/fixture.sh)
+  node skills/docgrad/scripts/links.mjs     --root /tmp/docgrad-eval-baseline/$c/target
+  node skills/docgrad/scripts/freshness.mjs --root /tmp/docgrad-eval-baseline/$c/target
+  node skills/docgrad/scripts/inventory.mjs --root /tmp/docgrad-eval-baseline/$c/target
+  node skills/docgrad/scripts/coverage.mjs  --root /tmp/docgrad-eval-baseline/$c/target
 done
 ```
 
-| fixture | links | dead | orphans | reachable | freshness coverage |
-|---|---|---|---|---|---|
-| `clean` | 3 | 0 | 0 | 1.0 | 1.0 |
-| `linkage-known` | 12 | 1 | 0 | 1.0 | 1.0 |
-| `planted-contradiction` | 2 | 0 | 0 | 1.0 | 1.0 |
+| case | links total | dead | bad_anchors | orphans | `dead_link_ratio` | `orphan_ratio` | `reachable_ratio` | `date_coverage` | `date_drift` | `mismatches` |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `clean-baseline` | 3 | 0 | 0 | 0 | OK (0%) | OK (0/3) | OK (1.0) | OK (3/3) | OK (0) | `[]` |
+| `linkage-known` | 12 | 1 | 0 | 0 | **FAIL (8.33% = 1/12, `docs/guide.md` → `./install.md`)** | OK (0/5) | OK (1.0) | OK (5/5) | OK (0) | `[]` |
+| `planted-contradiction` | 2 | 0 | 0 | 0 | OK (0%) | OK (0/3) | OK (1.0) | OK (3/3) | OK (0) | `[]` |
+
+`key_doc_age`/`stale` are left out of this table on purpose — they measure the gap to the day the
+scripts are actually run, not to the fixture's pinned commit date, so their number and verdict move
+with the calendar even though nothing about the fixture changed. Confirmed by running the same two
+scripts against `clean-baseline` and `linkage-known` with `DOCGRAD_TODAY=2027-06-01` (>180 days
+after the pinned `2026-09-13`, well past `freshness.stale_after_days` (60) and the `key_doc_age`
+FAIL line at `max(180, stale_after_days)`):
+
+```
+$ DOCGRAD_TODAY=2027-06-01 node skills/docgrad/scripts/freshness.mjs --root .../clean-baseline/target
+key_doc_age: value 261, verdict FAIL ("FAIL > 180 days")   # was OK at the eval's own run date
+date_coverage: OK · date_drift: OK · mismatches: []        # unchanged from the table above
+
+$ DOCGRAD_TODAY=2027-06-01 node skills/docgrad/scripts/links.mjs --root .../linkage-known/target
+dead_link_ratio: FAIL (8.33%) · orphan_ratio: OK · reachable_ratio: OK · index_present: OK
+                                                              # identical to the table above
+```
+
+Every row either grader must assert (see `linkage-known/graders/criteria.md` and `clean-baseline/graders/criteria.md`) holds at
+its asserted verdict at both run dates, and `mismatches` stays `[]` at both — which is the point of
+pinning the fixture's commit date: `date_drift`/`mismatches` don't depend on when the eval runs,
+only `key_doc_age` does, and that's exactly the one signal neither grader asserts.

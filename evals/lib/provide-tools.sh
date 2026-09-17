@@ -8,8 +8,8 @@
 #   git: error: Failed to locate 'git'.
 #
 # Every git-derived signal then goes null — and `freshness.mjs` needs `gitDate()` to produce a
-# mismatch at all, so `mismatches: []` becomes vacuous rather than clean, the ★4 anchor ("only
-# isolated mismatches") cannot be established, and docgrad correctly rounds down. The rating is
+# mismatch at all, so `mismatches: []` becomes vacuous rather than clean, and the date signals cannot be
+# established (in 1.x this capped the freshness star; in 2.0 the git-derived rows go null). The rating is
 # right and the input is half missing, which is the one failure shape an eval must not have.
 #
 # The scaffold runs *before* the sandboxed session and its own `git init` works, so the resolution
@@ -49,7 +49,7 @@ chmod +x bin/git
 # in the same place.
 REAL_NODE="$(command -v node || true)"
 if [ -z "$REAL_NODE" ] || [ ! -x "$REAL_NODE" ]; then
-  echo "provide-tools: no node binary found; the five measurement scripts cannot run" >&2
+  echo "provide-tools: no node binary found; the measurement scripts cannot run" >&2
   exit 1
 fi
 printf '#!/bin/sh\nexec %s "$@"\n' "$(stable_path "$REAL_NODE")" > bin/node

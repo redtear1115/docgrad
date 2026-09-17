@@ -4,7 +4,7 @@ max_turns: 60
 timeout_seconds: 900
 ---
 
-Run a full docgrad audit (`/docgrad audit`) on the repository in `./target`, treating that
+Run `/docgrad measure` and then `/docgrad judge` on the repository in `./target`, treating that
 directory as the target repo root.
 
 `git` and `node` for this workspace are in `./bin`; run the measurement scripts with
