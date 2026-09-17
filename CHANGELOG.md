@@ -8,18 +8,19 @@ For version-number semantics (semver, docgrad-specific) see [docs/how-to.md](doc
 **docgrad now grades in two layers, and only one of them decides anything.**
 
 - **`measure`** — the scripts' numbers, each with an `OK` / `WATCH` / `FAIL` verdict: dead links,
-  orphans, reachability, date coverage and drift, key-document age, entry-file token cost, pollution,
-  undocumented and drifted areas. Reproducible on an unchanged tree, carries per-signal targets, and is
+  orphans, reachability, index presence, date coverage and drift, key-document age, entry-file token
+  cost, pollution, undocumented and drifted areas. Reproducible on an unchanged tree, carries per-signal targets, and is
   the only thing `improve` / `loop` select, verify and stop on, and the only thing the graduation gate
   checks.
 - **`judge`** — the model's ★1–★5 for completeness, correctness and consistency. **Stars are not
   reproducible, never gate CI or the loop, are never compared across rounds, and are never combined into
   an overall score.**
 
-1.x put both on one scorecard, one history and one set of targets. The measured case for splitting
-them: across `--runs 5`, the script outputs never moved while model judgement did — a consistency
-rating that dropped ★4→★2 on re-verification with every unit test green, completeness splitting ★1/★2
-on one unchanged fixture (#70). The epoch sections below carry the detail; **[UPGRADING.md](UPGRADING.md)
+1.x put both on one scorecard, one history and one set of targets. The case for splitting them is
+measured twice over. In 1.x, a same-day re-verification after a repo's graduation dropped
+consistency ★4→★2 (#12), and not one unit test went red. And across the `--runs 5` eval runs, the
+script outputs never moved while model judgement did — completeness split ★1/★2 on one unchanged
+fixture (#70). The epoch sections below carry the detail; **[UPGRADING.md](UPGRADING.md)
 is the short version for anyone upgrading.**
 
 ### Breaking
@@ -27,6 +28,10 @@ is the short version for anyone upgrading.**
 - **`audit` no longer rates by default.** It is a deprecated alias for `measure`; stars need
   `judge` (or `audit --judge`). New commands: `measure`, `judge`.
   → [UPGRADING §1](UPGRADING.md#1-commands-audit--measure--judge----judge)
+- **`improve` / `loop` rate only with `--judge`.** Without it a round writes no stars and verifies no
+  claims, so the ledger does not grow and the history row's `coverage` is `null`. In 1.x every round
+  rated. Either way, a round now picks its row from the measure verdicts, never from a star: the
+  history row's `dimension` is that measure id, and the commit message lists unmet measure rows. → [UPGRADING §1](UPGRADING.md#1-commands-audit--measure--judge----judge)
 - **`.docgrad.yml` `targets` names measure signals** (`entry_cost: WATCH`), accepting only `OK` or `WATCH`,
   block form only. 1.x star values (`completeness: 4`) are ignored with a `note`; other shapes are errors.
   → [UPGRADING §2](UPGRADING.md#2-docgradyml-targets-star-values-are-ignored-not-honoured)
@@ -50,8 +55,9 @@ is the short version for anyone upgrading.**
 
 ### Restart from a baseline
 
-**No 1.x round is comparable with a 2.0 round**, by design: every fingerprint either changed name or
-changed what it covers, and three of the six 1.x dimensions stopped being rated. On every repo already
+**No 1.x round is comparable with a 2.0 round**, by design: the two ruler fingerprints were renamed
+and regrouped (`measure_hash`, `judge_hash`), and three of the six 1.x dimensions stopped being rated.
+(`corpus_hash` is unchanged — it only says whether the graded files are the same.) On every repo already
 onboarded, run `measure` once to take a 2.0 baseline (and `judge` if you want stars), and let `loop`
 converge from there. Existing `.docgrad/history.jsonl` rows stay where they are and are reported as 1.x
 history; regenerate any committed graduation gate. → [UPGRADING §8](UPGRADING.md#8-what-to-do)
@@ -59,7 +65,9 @@ history; regenerate any committed graduation gate. → [UPGRADING §8](UPGRADING
 ### Fingerprints at this release
 
 `measure_hash dd15ca3f` · `judge_hash 41cb532f` — both moved several times inside 2.0.0, as each epoch below
-records; CONTRIBUTING's rule 1 was waived for this release and disclosed there. `corpus_hash` is derived
+records; CONTRIBUTING's rule 1 (don't change what a hash covers in the same release as a change it
+would reveal) was waived for this release — see the epoch 2a section below and `rubric.md` §Version
+history. `corpus_hash` is derived
 from a repo's own config and is not moved by any code change in this release.
 
 ### Known, not fixed
@@ -70,7 +78,6 @@ from a repo's own config and is not moved by any code change in this release.
 - Deferred: line-range fragment validation (#85), ledger row spec check (#67), claim ranking past ~98
   candidates (#60) → 2.0.1; the sepia style pass (#63, #64) → 2.1.0, waiting on a sepia release after
   v0.10.0.
-
 
 ### v2.0.0 epoch 1 — the fingerprints speak in two layers
 
