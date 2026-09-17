@@ -8,28 +8,37 @@ tree, so **completeness rates low and correctness is `n/a` (`claims_total: 0`); 
 this case's pass condition**. Those are correct readings of what is there, not defects. Judge only
 the numbered criteria below, against this transcript.
 
-Mechanical signals:
+Mechanical signals (measure):
 
 ```
 links: total 12, dead 1, bad_anchors 0, orphans 0, reachable 1.0
-freshness: coverage 1.0, stale 0, mismatches 0
+freshness: date_coverage OK, date_drift OK, mismatches []
 ```
 
-Dead-link ratio = 1/12 = 8.33%. Per the rubric's linkage star anchors, this falls **uniquely**
-into ★2 ("dead links 2-10%"): ★3 requires failures ≤2%, ★4 requires zero dead links —
-neither is satisfied.
+Dead-link ratio = 1/12 = 8.33%. Per `measure.md`'s `dead_link_ratio` band, this is above the `> 2%`
+FAIL line — the verdict is **FAIL**, not a star.
+
+`key_doc_age`/`stale` are not asserted here: they depend on the run date, not the fixture's pinned
+commit date, so they cannot be pinned without steering the run.
 
 All of the following must hold:
 
-1. Linkage is judged **★2**. ★1, ★3, or higher all count as wrong — the anchor leaves no room
-   for interpretation at this number.
-2. The deductions explicitly name the dead link from `docs/guide.md` to `./install.md`.
+1. The Measure block reports `dead_link_ratio` as **FAIL** (`> 2%`). Any other verdict for this
+   row — `OK` or `WATCH` — is wrong; 8.33% sits well clear of the `> 2%` line.
+2. The output (the scorecard's next steps, or the measurement results it reports) explicitly names the
+   dead link from `docs/guide.md` to `./install.md`.
 3. **No orphan deduction is reported.** The corpus is `CLAUDE.md` plus `docs/README.md`,
    `docs/guide.md`, `docs/api.md`, `docs/ops.md`; the index reaches all of them, so `orphans` is
-   `[]` and `reachable_ratio` is 1.0.
-4. Freshness is not docked below ★3 because of this fixture (date signal has 100% coverage,
-   zero stale, zero mismatches).
+   `[]` and `orphan_ratio`/`reachable_ratio` are both `OK`.
+4. `date_coverage` and `date_drift` are both `OK`, and no date mismatch is reported — nothing about
+   freshness is docked because of this fixture's one dead link.
+5. Nothing in the Measure block is printed as a star — `dead_link_ratio`, `orphan_ratio`,
+   `reachable_ratio`, `date_coverage` and `date_drift` are all `OK`/`WATCH`/`FAIL` verdicts. ★ is
+   printed only in the Judge block, for completeness/correctness/consistency, and this fixture's
+   linkage/freshness/economy signals never appear there.
 
-This case is the gatekeeper for **a defect that must be found at exactly one star**. 8.33% sits in
-the middle of the ★2 band with the neighbouring anchors well clear of it, so a run that answers
-anything else has not applied the anchor it was given.
+This case is the gatekeeper for **a defect that must be found at exactly one verdict, on an
+unchanged tree**: `measure`'s numbers are expected to be identical run to run — a mismatch here is
+a bug in the scripts, not discretion. Whether `judge`'s own star ratings on this same fixture stay
+stable across runs is a separate question, tracked by the `--runs 5` distribution (README §How to
+run them), not asserted per-run here.

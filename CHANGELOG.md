@@ -515,6 +515,57 @@ overall score). No rubric anchor, measure band, or loop rule changed — this sl
   `improve.md`/`rubric.md` content — already v2, untouched except the new `rubric.md` §Version history entry
   above.
 
+### v2.0.0 epoch 5b — evals speak the two layers (#83)
+
+`evals/` catches up to the same measure/judge vocabulary E5a gave the docs, and stops asking any grader for a
+property only the operator reading `--runs` output can see.
+
+- **Every case's `prompt.md`** now runs `/docgrad measure` then `/docgrad judge` on `./target` (the retired
+  `/docgrad audit` command no longer appears in any prompt or grader), and asks for the full scorecard — both the Measure
+  block and the Judge block. `planted-contradiction`'s prompt additionally asks for the correctness dimension's
+  claim-ledger table and cumulative coverage, unchanged from before.
+- **`linkage-known`'s grader now passes on `measure` numbers, not a judge star**: `dead_link_ratio` must verdict
+  **FAIL** (`> 2%`, at 1/12 = 8.33%) and name the dead link `docs/guide.md` → `./install.md`; `orphan_ratio` /
+  `reachable_ratio` must be `OK` (no orphan deduction); freshness assertions are limited to the
+  date-independent rows, `date_coverage` `OK` and `date_drift` `OK` with `mismatches: []`. `key_doc_age`/`stale`
+  are removed from both its mechanical-signals block and its criteria — they depend on the day the eval runs,
+  not the fixture, and cannot be pinned without steering the run. No criterion asks for a star on
+  linkage/freshness/economy, since `measure` never prints one.
+- **`clean-baseline`'s grader** asserts zero false positives across the same rows (`dead_link_ratio`,
+  `orphan_ratio`, `reachable_ratio`, `index_present` all `OK`; `date_coverage`/`date_drift` `OK`;
+  `mismatches: []`) plus the correctness ledger all `pass`. `key_doc_age`/`stale` are removed for the same
+  reason and with the same one-sentence wording as `linkage-known`. The retired "★5 is a design ceiling"
+  criterion is gone — there is no ★ on a measure signal to excuse.
+- **`planted-contradiction`'s grader** keeps its four assertions unchanged in substance; only "an audit is
+  report-only" becomes "measure/judge are report-only," and its closing paragraph now names it explicitly as
+  **the judge case** — the one whose own vote instability (#69) is tracked separately, not fixed here. Per #69,
+  criterion 2's literal-phrase requirement ("the sign is reversed relative to the code") is left unchanged in
+  this slice; the issue's finding that it produces a coin-flip vote is noted in the grader as a pointer to #69,
+  not resolved by rewording the criterion's semantics.
+- **Every `evals/*/fixture.sh` now pins its commit date**: `GIT_AUTHOR_DATE`/`GIT_COMMITTER_DATE` are set to
+  `2026-09-13T12:00:00`, the date every fixture file's own "Last updated" line already claims. `date_drift` and
+  `mismatches` are therefore stable whatever day `claude plugin eval` actually runs on — verified by running
+  `links.mjs`/`freshness.mjs` against scaffolded copies of `clean-baseline` and `linkage-known` with
+  `DOCGRAD_TODAY=2027-06-01` (>180 days later): `mismatches: []` and every row either grader asserts held at
+  its asserted verdict; only `key_doc_age` moved (OK → FAIL), which is exactly why it isn't asserted.
+- **`case.yaml` tags**: `clean-baseline` and `linkage-known` are `[measure, judge]` (both run `judge`, and
+  `linkage-known`'s pass condition is specifically about `measure` determinism); `planted-contradiction` is
+  `[judge]`.
+- **`evals/README.md`**: the case table is reframed around what each case pins (measure correctness /
+  judge sampling / false positives across both layers); `--runs 5`'s star distribution is stated plainly as a
+  tracked defect (#69), never a green-suite criterion; the blocker table and dated results from the 1.x
+  `audit`-era harness runs are kept, under an explicit "History" label, as a record of what it took to get the
+  harness running at all — their diagnoses (scaffold, `Bash`, `git`, `node`) still hold, only their vocabulary
+  is 1.x. §Mechanical baselines for the fixtures is rebuilt from **scaffolded copies** (the table shows the links and freshness rows) (each case's own
+  `fixture.sh`, run in a scratch directory, then the four scripts against the `target/` it creates) rather than
+  reading the fixtures in place — `evals/fixtures/*` sits inside this repo's own git history, so an in-place
+  read would date every file by this repo's commits, not the fixture's pinned date.
+- No fingerprint moves: `evals/` is not in `measure_hash`, `judge_hash` or `corpus_hash`'s inputs, and none of
+  the four scripts, `rubric.md`, `judge.md` or `.docgrad.yml`-shaped config changed. Confirmed unchanged before
+  and after: `measure_hash dd15ca3f`, `judge_hash 41cb532f`, `corpus_hash 71d1ce84`.
+- Non-goals: `claude plugin eval` was not run as part of this slice (it spends usage) — offered to the user
+  after merge, per the plan's E5b acceptance note.
+
 ## 1.9.2 — 2026-09-16
 
 Four measurement fixes and one documentation entry. No ★1–★5 anchor text changed and no default

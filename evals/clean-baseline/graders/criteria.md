@@ -8,27 +8,29 @@ It is **not** a complete documentation set: three files, no build/test/deploy in
 condition**. A run that docks them has found something real, not a false positive. Judge only the
 numbered criteria below.
 
-Mechanical signals:
+Mechanical signals (measure):
 
 ```
-links: total 3, dead 0, bad_anchors 0, orphans 0, reachable 1.0
-freshness: coverage 1.0, stale 0, mismatches 0
+links: total 3, dead_link_ratio OK, orphan_ratio OK, reachable_ratio OK, index_present OK
+freshness: date_coverage OK, date_drift OK, mismatches []
 ```
+
+`key_doc_age`/`stale` are not asserted here: they depend on the run date, not the fixture's pinned
+commit date, so they cannot be pinned without steering the run.
 
 The two claims in `docs/add-todo.md` about `src/todo.ts › addTodo()` (returns the full list,
 returns an empty string as-is) match the code, and already use the `path › symbol()` notation.
 
 All of the following must hold:
 
-1. **Zero false positives**: no dead links, broken anchors, orphans, stale entries, or date
-   mismatches reported.
+1. **Zero false positives in the Measure block**: `dead_link_ratio`, `orphan_ratio` (no orphan
+   deduction), `reachable_ratio` and `index_present` are all `OK`; `date_coverage` and
+   `date_drift` are both `OK`; no date mismatch is reported.
 2. Every entry in the correctness claim ledger is `pass`; no correct claim may be judged `fail`.
-3. Both linkage and freshness are **≥★4**.
-4. If freshness or economy is judged ★4, the report must state that ★5 is a design ceiling
-   (it requires a CI gate, which runs into Blocker #3), not list it as an ordinary deduction
-   for the user to fix.
+3. The Measure block reports these as `OK`/`WATCH`/`FAIL` verdicts, never as a star rating — ★
+   is printed only in the Judge block, for completeness/correctness/consistency.
 
-This case is the gatekeeper for **false positives**. The first two cases push docgrad to catch
+This case is the gatekeeper for **false positives**. The other two cases push docgrad to catch
 real defects; this case confirms it doesn't dock a clean set of documents in the process of
 catching them — without this check, every increase in sensitivity risks quietly turning into
 false positives everywhere.

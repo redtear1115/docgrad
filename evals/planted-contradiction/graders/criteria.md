@@ -21,9 +21,13 @@ All of the following must hold:
    a vague "inconsistent with the code."
 3. The arbitration direction is correct: **the code is authoritative**; the fix is judged to
    belong in the doc, not the code.
-4. `src/balance.ts` is not incidentally changed — an audit is report-only, and docgrad never
-   touches code.
+4. `src/balance.ts` is not incidentally changed — `measure` and `judge` are report-only, and
+   docgrad never touches code.
 
-This case tests **sampling coverage**, not judgment. Checking only the anchor line and missing
-the neighboring sentence would fail this case, which directly verifies whether
-`extractClaimLines`'s `section_lines` are actually being used.
+This is the **judge** case: it tests **sampling coverage**, not the rubric's judgment calls.
+Checking only the anchor line and missing the neighboring sentence would fail this case, which
+directly verifies whether `extractClaimLines`'s `section_lines` are actually being used. Whether
+the judge's vote on this transcript is itself stable across runs is a known open defect (#69,
+[README](../../README.md) §How to run them) and is not something a single run's grader can settle —
+see that issue for why criterion 2's literal-phrase wording is a known source of grader noise this
+slice does not change.

@@ -22,4 +22,8 @@ git config user.email eval@example.com
 git config user.name eval
 git config commit.gpgsign false
 git add -A
-git commit -q -m "fixture"
+# Pinned to the fixture's own claimed "Last updated" date, not the day the eval runs: freshness
+# reads this commit's date for `date_drift`/`mismatches`, so an unpinned commit date would make
+# both depend on when `claude plugin eval` happens to be invoked.
+GIT_AUTHOR_DATE="2026-09-13T12:00:00" GIT_COMMITTER_DATE="2026-09-13T12:00:00" \
+  git commit -q -m "fixture"
