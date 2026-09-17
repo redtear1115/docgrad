@@ -68,17 +68,17 @@ judge not run this round — no judged-dimension table
   `reference/init.md`, 122 chars, anchored).
 
 ## Graduation gate
-`.docgrad/graduation/docs-gate.mjs` and `docs-gate.yml` have been produced, **not installed** — no
-workflow references them (this repo has no `.github/`). Run it by hand with
-`DOCGRAD_DIR=. node .docgrad/graduation/docs-gate.mjs --root .`; today it is green, with every threshold
-pinned to the numbers above (see `.docgrad/graduation/README.md`).
+Produced in `.docgrad/graduation/` and **installed** as `.github/scripts/docs-gate.mjs` +
+`.github/workflows/docs-gate.yml`, which runs it on every PR touching the documentation paths. Green
+today. Thresholds are pinned to the numbers above except `max_entry_cost_tokens`, deliberately set to
+5000 (the `entry_cost` OK line) rather than today's 2,651 — the reason is in
+`.docgrad/graduation/README.md`. `main` has no branch protection, so a red gate shows on the PR but does
+not block the merge unless the check is made required.
 
 ## Suggested next steps
 **Measure rows not meeting target first:** none — all 11 rows meet target.
 
-1. Install the gate (copy the `.mjs` to `.github/scripts/` and the `.yml` to `.github/workflows/`),
-   or deliberately decide not to; until then it only guards anyone who runs it by hand.
-2. Decide how tight to keep two pinned thresholds before they bite: `max_entry_cost_tokens: 2651`
-   fails on any growth of `SKILL.md` (the shipped OK line is 5,000), and `min_freshness_coverage: 1`
-   fails on the first document added without `Last updated:`.
+1. Consider making the `docs-gate` check required on `main`; until then it reports, it does not block.
+2. `min_freshness_coverage: 1` fails on the first document added without `Last updated:` — intended,
+   since that is this repo's convention.
 3. For stars, run `/docgrad judge` — this loop did not rate anything.
