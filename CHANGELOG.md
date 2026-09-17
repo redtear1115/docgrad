@@ -573,6 +573,17 @@ rule (`reference/measure.md`, `lib.mjs › MEASURE_BANDS`) is a **minor** releas
 `measure_hash` moves with it, so `report` breaks the trend there, and the CHANGELOG entry must say which verdicts
 can flip. A semantic change to a judge star anchor stays major. No fingerprint moves.
 
+### evals — first v2 run recorded; `planted-contradiction` grader asks for substance
+
+- `evals/README.md` §First v2 run (2026-09-17): 30 runs across two arms. `measure` came out identical in all
+  15 with-plugin runs (`measure_hash dd15ca3f`, same verdict on all 11 signals); the judge-star
+  distribution is recorded as the tracked defect (#69/#70). `planted-contradiction` scored 0.60, and its two
+  failing runs had found the contradiction.
+- `planted-contradiction` criterion 2 no longer demands the literal phrase "the sign is reversed relative to
+  the code" — any wording that states the direction ("backwards", "opposite", "inverted", …) satisfies it;
+  criterion 3 now says an arbitration left open ("fix the doc, or the code") does not. A re-run of that case
+  scored 5/5, recorded with its limits in the same section. No fingerprint moves (`evals/` is in none).
+
 ## 1.9.2 — 2026-09-16
 
 Four measurement fixes and one documentation entry. No ★1–★5 anchor text changed and no default

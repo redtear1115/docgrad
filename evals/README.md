@@ -16,6 +16,7 @@ and isn't stable today.
 - [Why they exist](#why-they-exist)
 - [The three cases](#the-three-cases)
 - [How to run them](#how-to-run-them)
+- [First v2 run (2026-09-17)](#first-v2-run-2026-09-17)
 - [Current status: the harness runs, the suite does not score yet](#current-status-the-harness-runs-the-suite-does-not-score-yet)
 - [Mechanical baselines for the fixtures](#mechanical-baselines-for-the-fixtures)
 
@@ -61,6 +62,55 @@ claude plugin eval . --runs 5
   answer is **completely unknown** — that's exactly what this is meant to measure.
 - `--threshold`: everything must be green to pass; `linkage-known`'s `measure` verdict leaves no
   room for interpretation.
+
+## First v2 run (2026-09-17)
+
+```bash
+claude plugin eval . --runs 5 --scaffold --allow-tools Bash --keep-temp --trust-plugin
+```
+
+Claude Code 2.1.274, `measure_hash dd15ca3f`. Two arms (the default ablation adds a no-plugin
+baseline), 30 runs, 56 minutes, `$24.43`.
+
+| case | with docgrad | without | Δ |
+|---|---|---|---|
+| `clean-baseline` | 1.00 — 3/3 votes ×5 | 0.00 | +1.00 |
+| `linkage-known` | 1.00 — 3/3 votes ×5 | 0.00 | +1.00 |
+| `planted-contradiction` | 0.60 — votes 3/3, 0/3, 3/3, 1/3, 3/3 | 0.00 | +0.60 |
+
+**`measure` was identical in every run.** All 15 with-plugin runs reported `measure_hash dd15ca3f`
+and the same verdict on all 11 signals: `dead_link_ratio` FAIL ×5 on `linkage-known`, everything else
+OK on every case. That is the property the v2 split promised, now observed through the harness
+rather than only in `tests/` — and the pinned fixture dates are why `date_drift` and the mismatch list
+could not move.
+
+**`judge` stars, read as a distribution** (the tracked defect, not a pass condition):
+
+| case | Completeness | Correctness | Consistency |
+|---|---|---|---|
+| `clean-baseline` | ★2 ★3 ★2 ★2 ★3 | ★4 ×5 | ★4 ×5 |
+| `linkage-known` | ★1 ★2 ★1 ★1 ★2 | n/a ×5 | ★3 ★4 ★3 ★3 ★3 |
+| `planted-contradiction` | ★2 ★2 ★2 ★2 ★3 | ★2 ×5 | ★2 ×5 |
+
+The stars the planted case exists to pin (correctness and consistency ★2) held in all five runs.
+Completeness moved by one step on all three fixtures — the same boundary #70 names — and
+`linkage-known`'s consistency moved once.
+
+**The two failing `planted-contradiction` runs found the contradiction.** All five recorded the
+claim as `fail` and arbitrated against the code. The judges leave no reasons, so the following is read
+off the transcripts, not stated by the harness: the two failing runs were the only two that described
+the sign as "backwards", while the three passing runs wrote "opposite" or "inversion" — and criterion 2
+then demanded the literal phrase "the sign is reversed relative to the code", which no run wrote. The
+1/3 run also hedged the arbitration ("or fix the code if the document is the intended contract").
+Criterion 2 now asks for the direction in any wording, and criterion 3 says an open-ended arbitration
+does not count.
+
+**Re-run with the revised grader** (same day, `planted-contradiction` only, `--ablation none`, 5 runs,
+14 minutes, `$6.61`): **5/5, every run 3/3 votes.** Read that narrowly. Every one of those five
+transcripts used "backwards" *and* "opposite" somewhere, and none hedged the arbitration, so this run
+shows the revised grader accepts transcripts that say "backwards" — it does not isolate a run that
+says *only* "backwards", and five runs cannot show the vote is now stable. It is one more sample
+toward #69, not a closed question.
 
 ## Current status: the harness runs, the suite does not score yet
 
