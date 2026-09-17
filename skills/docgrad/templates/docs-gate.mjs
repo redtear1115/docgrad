@@ -27,7 +27,12 @@ const THRESHOLDS = {
   max_orphans: 0, // a doc unreachable from the index = an agent can't retrieve it
   min_freshness_coverage: 0.9, // date-signal coverage ratio
   max_entry_cost_tokens: 5000, // entry-file fixed cost: the tax every task has to pay
+  max_pollution_ratio: 0.1, // junk share of the corpus (tokens matched by exclude ÷ all collected doc tokens); pinned to this repo's ratio at graduation, not to docgrad's shipped default
 };
+
+// This gate runs against whatever is on disk when it runs. CI runs on a clean checkout, so it
+// measures the clean corpus; a local run with untracked files may read a different pollution.ratio
+// (see inventory.mjs's pollution.note).
 
 // Returns the directory that actually *contains* `scripts/`, which since v1.7.0 is not necessarily
 // the directory you point at: the skill payload moved to `skills/docgrad/` while an install root
@@ -129,6 +134,21 @@ check(
   inventory.entry_cost.tokens_est <= THRESHOLDS.max_entry_cost_tokens,
   `<= ${THRESHOLDS.max_entry_cost_tokens}`
 );
+// inventory.pollution.ratio not being a number means this docgrad install is too old to emit it,
+// or its output shape changed — an environment problem, not a docs failure, so this exits 2 rather
+// than joining `violations` (which would exit 1).
+if (typeof inventory.pollution?.ratio !== 'number') {
+  console.error(
+    'docs-gate: inventory.pollution.ratio is missing or not a number — this docgrad install may be too old to report it, or its output shape changed'
+  );
+  process.exit(2);
+}
+check(
+  'pollution ratio',
+  inventory.pollution.ratio,
+  inventory.pollution.ratio <= THRESHOLDS.max_pollution_ratio,
+  `<= ${THRESHOLDS.max_pollution_ratio}`
+);
 
 if (violations.length) {
   console.error('docs-gate: documentation failed the gate\n');
@@ -143,5 +163,5 @@ if (violations.length) {
 
 console.log(
   `docs-gate: passed (dead links 0 / bad anchors 0 / orphans 0 / freshness ${freshness.coverage_ratio} / ` +
-    `fixed cost ${inventory.entry_cost.tokens_est} tokens)`
+    `fixed cost ${inventory.entry_cost.tokens_est} tokens / pollution ${inventory.pollution.ratio})`
 );

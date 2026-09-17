@@ -452,17 +452,26 @@ When `.docgrad/graduation/docs-gate.mjs` exists, report all four of these:
    file — it is a literal block of `key: <number>` lines near the top — and compare each to what step
    1 already measured: `max_dead_links` / `max_bad_anchors` / `max_orphans` against `links.mjs`,
    `min_freshness_coverage` against `freshness.coverage_ratio`, `max_entry_cost_tokens` against
-   `inventory.entry_cost.tokens_est`. Report the verdict as the gate's, not as docgrad's:
+   `inventory.entry_cost.tokens_est`, `max_pollution_ratio` against `inventory.pollution.ratio`.
+   Report the verdict as the gate's, not as docgrad's:
    *"the committed gate is red: freshness coverage 0.90 < its declared 0.93"*.
    This is what catches the real failure mode, which is not that the gate is wrong but that it
    **expires**: a ratio threshold pinned at graduation goes red by itself when the corpus grows, and
    growing the corpus is something docgrad actively encourages. On the measured repo the denominator
    went 46 → 50 as `docs_files` and two new specs came in, and 0.9348 became 0.90 against a pinned
-   0.93.
+   0.93. `max_pollution_ratio` is a ratio threshold too, but it can expire in either direction: a new
+   junk file matched by `exclude` (tracked or not) pushes it up, a new clean doc pushes it down.
+   A gate produced before this key existed (docgrad ≤ 2.0.0-pre) has no `max_pollution_ratio` in its
+   `THRESHOLDS` block. Treat a missing key as "not declared by this gate," not as fail-closed — the
+   fail-closed rule below is about the block's *shape*, not which keys it happens to declare. Report
+   it once: *"this gate predates the pollution threshold."*
 4. **Whether the judging logic still matches the template docgrad ships.** Compare the file against
    `$SKILL_DIR/templates/docs-gate.mjs` ignoring the `THRESHOLDS` block (that block is meant to be
    edited). Differences elsewhere are worth one line of report — *"its judging logic differs from the
-   template docgrad ships"* — as information, not as a fault.
+   template docgrad ships"* — as information, not as a fault. A gate produced by an older docgrad is
+   *expected* to differ this way (the template gained `max_pollution_ratio`'s check since it was
+   generated); the remedy is regenerating it from the current template at the repo's next graduation
+   or a deliberate update, not treating the difference as a defect.
 
 **Fail closed.** If the `THRESHOLDS` block is not a plain list of `key: <number>` lines — a computed
 value, an interpolation, extra statements — do **not** guess at what it evaluates to, and do not
@@ -509,5 +518,26 @@ E4b entry for why `judge_hash` now folds rubric.md in.
     `FAIL` line changed; §Verdict lines above still describes them exactly.
   - **`targets` is still not a `measure_hash` input**, exactly as when it held star values: it decides
     when a repo is satisfied, not how it is measured.
+
+- **v2.0.0 (E4c) — the graduation gate asserts pollution**:
+  - **Step 8b gains a sixth threshold the gate declares.** `max_pollution_ratio` joins `max_dead_links` /
+    `max_bad_anchors` / `max_orphans` / `min_freshness_coverage` / `max_entry_cost_tokens` in item 3's comparison, checked
+    against `inventory.pollution.ratio`. A gate produced before this key existed has no
+    `max_pollution_ratio`; that is reported once as "this gate predates the pollution threshold," not
+    treated as fail-closed — the fail-closed rule is about the `THRESHOLDS` block's shape, not which
+    keys a given gate happens to declare. Item 4's "logic differs from the template" note gains the
+    same allowance: an older gate's judging logic is *expected* to differ once the template's checks
+    grow, and the remedy is regenerating it, not treating the difference as a defect.
+  - **`skills/docgrad/templates/docs-gate.mjs` and `graduation-README.md` change too** (the produced
+    gate itself, and the guide that ships with it), but neither is a `measure_hash` input — only this
+    file and `lib.mjs › MEASURE_BANDS` are. This section is what moves the hash.
+  - **`measure_hash` moves, because this file changed.** The old → new value is recorded in
+    CHANGELOG.md, not here, for the same reason as E2c-1's entry above.
+  - **Verdict lines are unchanged.** No `MEASURE_BANDS` threshold moved; the `pollution` signal's
+    `OK`/`WATCH`/`FAIL` boundary (`economy.pollution_max`) is exactly what §Verdict lines already
+    described. `max_pollution_ratio` is a CI-gate threshold on the *template*, pinned independently at
+    graduation to that round's `inventory.pollution.ratio` — it is never set from
+    `economy.pollution_max` (that stays the separate, config-side WATCH boundary this file's scripts
+    evaluate on every round).
 
 </details>
