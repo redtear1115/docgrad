@@ -292,7 +292,8 @@ recommending graduation. It never again reasons about a star rating anywhere in 
   body line listing rows not meeting target (or "all rows meet target") and a `ledger:` line only when `--judge` ran.
 - **Edge cases the loop now names**: a round where every row's `meets_target` is `null` stops as "nothing measured"
   (never targets met, never graduation); a fix that leaves the picked row exactly unchanged (and worsens no other row) is
-  kept and counts toward plateau, while a fix that worsens any row — the picked row included, verdict or value — is
+  kept and recorded as no improvement on the picked row (whether that round counts toward plateau is decided in
+  §Stop conditions — see the #102 follow-up section below), while a fix that worsens any row — the picked row included, verdict or value — is
   reverted; the history row's `dimension` is always the picked measure id; `audit --dim <dimension>`
   implies `--judge`, since a dimension can only be judged.
 - **One source for the loop's rules.** `improve.md` step 4 (keep or revert) and `improve.md` §Stop conditions are the
@@ -349,6 +350,32 @@ recommending graduation. It never again reasons about a star rating anywhere in 
   moving `measure_hash` for it belongs to its own slice); `evals/`, `templates/`, `SKILL.md`'s `report` row,
   `case-studies/**`, `README*` (still say "six dimensions," left for E5, #83); the E4 graduation gate
   (#82/#88/#90); E3's scorecard two-block layout (#81/#87).
+
+### v2.0.0 #102 follow-up — when the loop's stop conditions are checked, and the step 4 edge cases
+
+No script, output or fingerprint changes; `improve.md` is in no fingerprint.
+
+- **§Stop conditions says when each condition is checked.** Targets met, Nothing measured and Outside docgrad's remit
+  are checked between step 1 and step 2: a round that stops there picks nothing, fixes nothing, runs no step 5 and
+  writes no history row. Plateau is checked after step 5, so the round that triggers it is still recorded. Needs
+  human decision can arise mid-round.
+- **A single `improve` runs the same pre-round checks** as `loop`, instead of always running its one round.
+- **Graduation happens at the Targets met stop**, which is the one pre-round stop that writes and commits files: the
+  two gate files, their README and a fresh `.docgrad/scorecard-latest.md` (step 5 did not run, so without this
+  `report` would reprint the previous round's scorecard). No history row is written for it.
+- **Step 4**: the picked row improving does not save a round in which another row worsened — it is reverted. Any
+  move of the picked row's value toward its OK line counts as partial success; the old "without a verdict change
+  being possible this round" qualifier is gone. An unchanged picked row is kept and recorded as no improvement on
+  that row, and no longer decides plateau by itself.
+- **Plateau is working-set-wide**: a round where the picked row was unchanged but another working-set row improved
+  does not count. Only changes the round kept count as improvement — a reverted change contributes none, a side fix
+  or small-corpus fix that stayed still does.
+- Step 3's economy dead end ("delete it" is the only way left) is handed to the user as Needs human decision, not
+  called a plateau.
+- `tests/single-source-rules.test.mjs` gains patterns for four paraphrases and the two stop conditions that had none,
+  plus a fixed list of known restatements every pattern set must keep catching. `README.md`'s 1.x plateau sentence is
+  allow-listed until E5 (#83) rewrites it as a link. Known limit: the check still only recognises listed phrasings
+  (see #102).
 
 ## 1.9.2 — 2026-09-16
 
