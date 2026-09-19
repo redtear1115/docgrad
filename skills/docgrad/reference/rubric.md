@@ -214,8 +214,8 @@ anchors (see its entry).
   scoped-audit `--include` sentence gained the no-match error** (**not an anchor change**): no ★1–★5
   threshold moved and no default changed. `rankClaimCandidates()` used to degrade to plain path/line
   order once `refs` stopped discriminating (#60) — on a real repo, 77% of the population sits at
-  refs: 1, so one heavily-referenced document could own the whole top of a capped draw and starve
-  every other document out of it. It now numbers each claim by its ordinal (by line) among its own
+  refs: 1, so whichever document sorted first by path could own the whole top of a capped draw and
+  starve every other document out of it. It now numbers each claim by its ordinal (by line) among its own
   document's claims at that refs value, and interleaves those ordinals across documents before
   falling back to path, then line. This is the draw order `judge.md` step 3 and this file's
   §Mechanical signal → dimension map both describe, and both are `judge_hash` inputs, so the hash

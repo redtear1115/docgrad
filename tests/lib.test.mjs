@@ -1306,8 +1306,10 @@ test('rankClaimCandidates: result is identical regardless of perFile input order
   const baseline = rankClaimCandidates(perFile).map((c) => `${c.path}:${c.line}`);
   // Shuffle the file order (and, within a.md, the claim order) several ways; grouping is keyed by
   // path/refs value, never by array position, so the result must not move.
-  const shuffled1 = [perFile[2], perFile[0], perFile[1]];
-  const shuffled2 = [perFile[1], perFile[2], perFile[0]];
+  const aReversed = { path: 'a.md', claims: [...perFile[0].claims].reverse() };
+  const bReversed = { path: 'b.md', claims: [...perFile[1].claims].reverse() };
+  const shuffled1 = [perFile[2], aReversed, perFile[1]];
+  const shuffled2 = [bReversed, perFile[2], aReversed];
   assert.deepEqual(rankClaimCandidates(shuffled1).map((c) => `${c.path}:${c.line}`), baseline);
   assert.deepEqual(rankClaimCandidates(shuffled2).map((c) => `${c.path}:${c.line}`), baseline);
 });
@@ -1474,7 +1476,7 @@ test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes st
 
   assert.deepEqual(Object.keys(meta), ['version', 'measure_hash', 'judge_hash', 'corpus_hash']);
   assert.equal(meta.measure_hash, 'bd0d4a1b', 'measure_hash after #85 (was dd15ca3f through 2.0.1, cc49bc6f through #102)');
-  assert.equal(meta.judge_hash, '9b641618', 'judge_hash after 2.2.0/#60 (was 41cb532f through E5a)');
+  assert.equal(meta.judge_hash, '0e1f37cc', 'judge_hash after 2.2.0/#60 (was 41cb532f through E5a)');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
   // change; a placement.md edit is a judge-side one; neither may disturb the other, or #82's

@@ -2091,8 +2091,8 @@ export function extractClaimLines(text, srcDirs = [], { symbols = null } = {}) {
 // first (the more specific the claim, the more it deserves verification). Within an equal-refs
 // tier, candidates are drawn round-robin across documents (#60) — each document's 1st claim at
 // that refs value, then each document's 2nd, and so on — instead of degrading to path order,
-// which used to let one heavily-referenced document own the whole top of the window and starve
-// every other document out of the capped draw. A claim's round-robin ordinal is its position (by
+// which used to let whichever document sorts first by path own the whole top of an equal-refs
+// tier and starve every other document out of the capped draw. A claim's round-robin ordinal is its position (by
 // line, ascending) among its own document's claims that share its refs value; two claims with the
 // same refs and the same ordinal (i.e. from different documents) are then broken by path, then by
 // line, so the order is total and deterministic and does not depend on the input order of
