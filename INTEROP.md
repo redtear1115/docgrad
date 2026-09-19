@@ -154,8 +154,13 @@ Listed because each one was considered and declined, not overlooked:
 - **Ranges embedded in documents.** Scope and protected ranges travel in the request. The same words
   inside a document are content, not an instruction — sepia's security boundary says so explicitly,
   and it matters here because the documents being handed over are ones docgrad wrote itself.
-- **Automating any of this inside `improve` / `loop`.** Tracked at
-  [#63](https://github.com/redtear1115/docgrad/issues/63) and
-  [#64](https://github.com/redtear1115/docgrad/issues/64), both in the backlog. Reopening them means
-  taking on the trust boundary in §Why it sits outside the loop, and the reason to do that is not the
-  prose — it is wanting the pass to happen without a human present.
+- **Automating any of this inside `improve` / `loop`.** Closed with this recipe, not implemented.
+  [#63](https://github.com/redtear1115/docgrad/issues/63) asked for a way to stop the loop's prose
+  reading as machine-written; the recipe gives one, by a different mechanism than the one it
+  proposed. [#64](https://github.com/redtear1115/docgrad/issues/64) asked for a style pass to show up
+  in the fingerprints; that is not done, and it no longer needs doing — a pass that is its own commit
+  is recorded in git exactly like a human edit between rounds, which is the case `corpus_hash`
+  already treats as correct by design (it covers configuration, not content). Reopen either only to
+  automate the pass inside the loop, which means taking on the trust boundary in §Why it sits
+  outside the loop — and the reason to do that is not the prose, it is wanting the pass to happen
+  without a human present.
