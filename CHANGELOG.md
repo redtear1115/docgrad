@@ -3,6 +3,27 @@
 Version authority is `version` in [.claude-plugin/plugin.json](.claude-plugin/plugin.json); this file records changes per version.
 For version-number semantics (semver, docgrad-specific) see [docs/how-to.md](docs/how-to.md) §Cut a release.
 
+## Unreleased
+
+**`measure_hash` moves, from `dd15ca3f` to `bd0d4a1b`**, because one row is added. `judge_hash`
+`41cb532f` and `corpus_hash` `71d1ce84` are unchanged.
+
+**What can flip:** only the new row. A repo whose documents link line ranges past the end of their
+target files gains `stale_range_ratio` at `WATCH` or `FAIL`; no existing row's value, verdict or line
+changed. A repo that met every target under 2.0.x and has no stale ranges still meets them.
+
+- **Added (#85): `stale_range_ratio` — a line range that points past the end of its target file.**
+  `docs/api.md` linking `src/foo.ts#L120-L140` after `foo.ts` was cut to 80 lines is the defect
+  documentation and code drifting apart actually produces, and until now nothing reported it: #74
+  stopped judging `#L…` fragments as headings but deliberately left the range unchecked. A range is
+  stale when any line it names is past the end of the file, including only its end (`L70-L120` in a
+  90-line file); a single line follows the same rule, and a blank line that exists is not stale. Its
+  own row and its own `stale_ranges` bucket, not `bad_anchors`: the fix is to update the numbers,
+  not to find a heading, and inside `bad_anchors` it could only ever hold `dead_link_ratio` at
+  `WATCH`. Same lines as `dead_link_ratio` — FAIL above 2%, OK at 0 — over line-range links only.
+  Ranges into any file type are checked, since they mostly point at source code. The graduation gate
+  template does not assert it yet.
+
 ## 2.0.1 — 2026-09-19
 
 One parsing fix in `.docgrad.yml`. No fingerprint moves: `measure_hash` `dd15ca3f`, `judge_hash`

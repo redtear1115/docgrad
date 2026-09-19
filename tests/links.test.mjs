@@ -29,12 +29,13 @@ test('links: dead links/bad anchors/orphans/reachable ratio', () => {
   assert.equal(out.scope, null);
 });
 
-test('links: --include only counts dead links/bad anchors, orphans and reachable ratio are never computed', () => {
+test('links: --include only counts dead links/bad anchors/stale ranges, orphans and reachable ratio are never computed', () => {
   const out = JSON.parse(
     execFileSync(process.execPath, [SCRIPT, '--root', FIXTURE, '--include', 'docs/**'], { encoding: 'utf8' })
   );
   assert.deepEqual(out.scope, ['docs/**']);
   assert.match(out.note, /reachable ratio/);
+  assert.match(out.note, /dead links, bad anchors and stale ranges are counted/, 'the note names every per-link count (#85)');
   // docs/orphan.md is an orphan on a full run; not judged under scope -> null ("not computed"),
   // never [] ("computed, and there are none")
   assert.equal(out.orphans, null);
@@ -202,7 +203,7 @@ test('links: measure array — ids in table order, right after docgrad, FAIL on 
   assert.deepEqual(Object.keys(out).slice(0, 3), ['scope', 'docgrad', 'measure']);
   assert.deepEqual(
     out.measure.map((m) => m.id),
-    ['dead_link_ratio', 'orphan_ratio', 'reachable_ratio', 'index_present']
+    ['dead_link_ratio', 'stale_range_ratio', 'orphan_ratio', 'reachable_ratio', 'index_present']
   );
   const byId = Object.fromEntries(out.measure.map((m) => [m.id, m]));
   // basic fixture: 1 dead / 5 total = 20% -> FAIL; 1 orphan / 4 included = 25% -> FAIL;
@@ -212,6 +213,10 @@ test('links: measure array — ids in table order, right after docgrad, FAIL on 
   assert.equal(byId.orphan_ratio.verdict, 'FAIL');
   assert.equal(byId.reachable_ratio.verdict, 'WATCH');
   assert.equal(byId.index_present.verdict, 'OK');
+  // no line-range links in the basic fixture: 0 with a note, and OK — not null, not FAIL
+  assert.equal(byId.stale_range_ratio.verdict, 'OK');
+  assert.equal(byId.stale_range_ratio.denominator, 0);
+  assert.equal(byId.stale_range_ratio.note, 'no line-range links');
 });
 
 test('links: measure — scoped run nulls orphan_ratio/reachable_ratio/index_present, dead_link_ratio still evaluated', () => {
@@ -245,11 +250,12 @@ test('links: measure — no index_file: index_present is FAIL, orphan_ratio/reac
   }
 });
 
-test('links: measure — this repo is dead 0 / bad anchors 0 / orphans [] / reachable 1, so all four rows are OK', () => {
+test('links: measure — this repo is dead 0 / bad anchors 0 / stale ranges 0 / orphans [] / reachable 1, so every row is OK', () => {
   const root = fileURLToPath(new URL('../', import.meta.url));
   const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', root], { encoding: 'utf8' }));
   assert.deepEqual(out.dead_links, []);
   assert.deepEqual(out.bad_anchors, []);
+  assert.deepEqual(out.stale_ranges, []);
   assert.deepEqual(out.orphans, []);
   assert.equal(out.reachable_ratio, 1);
   assert.ok(out.measure.every((m) => m.verdict === 'OK'), JSON.stringify(out.measure));
@@ -289,6 +295,122 @@ test('links: #L39-L86 is a line-range fragment, not a bad anchor — but a misty
       'L-ranges are not judged; a typo and a lower-case near-miss still are'
     );
   } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// #85 — a line range past the end of its target file is a stale range: its own bucket and its own row,
+// not a bad anchor. Targets are source files here on purpose: that is what ranges point at, and the
+// heading check never looks at a non-markdown target, so a check wired through it would see nothing.
+test('links: a line range past the end of its target is a stale range, counted in stale_range_ratio (#85)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-stale-range-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'docs'));
+    fs.mkdirSync(path.join(tmp, 'src', 'dir'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmp, '.docgrad.yml'),
+      'docs_dirs: [docs/]\nentry_files: []\nindex_file: docs/README.md\n'
+    );
+    // ten lines, line 5 blank, trailing newline
+    fs.writeFileSync(path.join(tmp, 'src', 'foo.ts'), ['l1', 'l2', 'l3', 'l4', '', 'l6', 'l7', 'l8', 'l9', 'l10'].join('\n') + '\n');
+    // two lines: the trailing newline ends line 2, it does not open a line 3
+    fs.writeFileSync(path.join(tmp, 'src', 'two.ts'), 'a\nb\n');
+    fs.writeFileSync(
+      path.join(tmp, 'docs', 'README.md'),
+      [
+        '# Index',
+        '',
+        '- [inside](../src/foo.ts#L2-L4)',
+        '- [last line](../src/foo.ts#L10)',
+        '- [blank line](../src/foo.ts#L5)',
+        '- [end past](../src/foo.ts#L8-L12)',
+        '- [start past](../src/foo.ts#L11-L20)',
+        '- [single past](../src/foo.ts#L11)',
+        '- [zero](../src/foo.ts#L0)',
+        '- [reversed inside](../src/foo.ts#L4-L2)',
+        '- [reversed past](../src/foo.ts#L12-L3)',
+        '- [trailing newline](../src/two.ts#L2)',
+        '- [trailing newline past](../src/two.ts#L3)',
+        '- [directory](../src/dir#L1)',
+        '- [dead](../src/missing.ts#L1)',
+        '- [lower case is not a range](../src/foo.ts#l30)',
+        '- [outside the root](../../outside.ts#L1)',
+        '',
+      ].join('\n')
+    );
+
+    const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' }));
+
+    assert.deepEqual(
+      out.stale_ranges.map((s) => s.anchor).sort(),
+      ['L0', 'L11', 'L11-L20', 'L12-L3', 'L3', 'L8-L12'].sort(),
+      'past the end (either end, or a single line), L0, and a reversed range read by its larger end'
+    );
+    const endPast = out.stale_ranges.find((s) => s.anchor === 'L8-L12');
+    assert.equal(endPast.file, 'docs/README.md');
+    assert.equal(endPast.line, 6);
+    assert.equal(endPast.target_lines, 10, 'the entry says how long the target actually is');
+    assert.equal(out.stale_ranges.find((s) => s.anchor === 'L3').target_lines, 2);
+
+    // a blank line that exists is not stale; neither is the last line, nor a reversed range inside
+    for (const fine of ['L5', 'L10', 'L4-L2', 'L2-L4', 'L2']) {
+      assert.ok(!out.stale_ranges.some((s) => s.anchor === fine), `${fine} is inside its target`);
+    }
+    // a stale range is not a bad anchor, and a range to a missing file is a dead link, not a range
+    assert.deepEqual(out.bad_anchors, []);
+    assert.deepEqual(out.dead_links.map((d) => d.target), ['../src/missing.ts#L1']);
+    assert.equal(out.out_of_root_links.length, 1);
+
+    // denominator: the eleven ranges into existing files — not the directory, the dead link, the
+    // out-of-root one, or the lower-case near-miss
+    const row = out.measure.find((m) => m.id === 'stale_range_ratio');
+    assert.equal(row.numerator, 6);
+    assert.equal(row.denominator, 11);
+    assert.equal(row.value, Number((6 / 11).toFixed(4)));
+    assert.equal(row.verdict, 'FAIL');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// #85 introduced the first read of a non-markdown link target. An unreadable one must not take the
+// whole links measure down — before #85 that file was never opened, so a crash here would be a
+// regression in every row, not only the new one. It is not judged, and the row says so.
+test('links: an unreadable range target is not judged and is noted, and the script still exits 0 (#85)', (t) => {
+  if (process.getuid?.() === 0) return t.skip('running as root: chmod 000 does not block reads');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-stale-range-unreadable-'));
+  const locked = path.join(tmp, 'src', 'locked.ts');
+  try {
+    fs.mkdirSync(path.join(tmp, 'docs'));
+    fs.mkdirSync(path.join(tmp, 'src'));
+    fs.writeFileSync(path.join(tmp, '.docgrad.yml'), 'docs_dirs: [docs/]\nentry_files: []\nindex_file: docs/README.md\n');
+    fs.writeFileSync(path.join(tmp, 'src', 'crlf.ts'), 'x\r\ny\r\n'); // two lines, CRLF
+    fs.writeFileSync(path.join(tmp, 'src', 'nonl.ts'), 'x\ny'); // two lines, no trailing newline
+    fs.writeFileSync(path.join(tmp, 'src', 'empty.ts'), ''); // no lines
+    fs.writeFileSync(locked, 'secret\n');
+    fs.chmodSync(locked, 0o000);
+    fs.writeFileSync(
+      path.join(tmp, 'docs', 'README.md'),
+      [
+        '# Index',
+        '- [crlf inside](../src/crlf.ts#L2)',
+        '- [crlf past](../src/crlf.ts#L3)',
+        '- [no trailing newline](../src/nonl.ts#L2)',
+        '- [empty file](../src/empty.ts#L1)',
+        '- [unreadable](../src/locked.ts#L1)',
+        '',
+      ].join('\n')
+    );
+
+    const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' }));
+    assert.deepEqual(out.stale_ranges.map((s) => s.anchor).sort(), ['L1', 'L3']);
+    const row = out.measure.find((m) => m.id === 'stale_range_ratio');
+    assert.equal(row.denominator, 4, 'the unreadable target is not in the denominator');
+    assert.equal(row.numerator, 2);
+    assert.match(row.note, /1 line-range link\(s\) not judged: target unreadable/);
+    assert.equal(out.measure.find((m) => m.id === 'dead_link_ratio').verdict, 'OK', 'the other rows are untouched');
+  } finally {
+    fs.chmodSync(locked, 0o644);
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });

@@ -1343,7 +1343,7 @@ test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes st
   const meta = docgradMeta(skillRoot, config);
 
   assert.deepEqual(Object.keys(meta), ['version', 'measure_hash', 'judge_hash', 'corpus_hash']);
-  assert.equal(meta.measure_hash, 'dd15ca3f', 'measure_hash after E4c (was cc49bc6f through #102)');
+  assert.equal(meta.measure_hash, 'bd0d4a1b', 'measure_hash after #85 (was dd15ca3f through 2.0.1, cc49bc6f through #102)');
   assert.equal(meta.judge_hash, '41cb532f', 'judge_hash after E5a (was 9c31f7e3 through E3)');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
@@ -1498,6 +1498,20 @@ test('evaluateMeasure: band edges — dead_link_ratio (FAIL >2%, OK ==0 and ok_a
   assert.equal(at(0, 1), 'WATCH', 'the ok_also bad_anchors ==0 condition downgrades an otherwise-OK verdict to WATCH');
   assert.equal(at(0.02), 'WATCH', 'at the FAIL boundary itself: not >2%, not ==0');
   assert.equal(at(0.0201), 'FAIL', 'just above the FAIL boundary');
+});
+
+// #85 — the same lines as dead_link_ratio, minus ok_also: a stale range is its own defect, and no
+// second count holds this row off OK.
+test('evaluateMeasure: band edges — stale_range_ratio (FAIL >2%, OK ==0, no ok_also)', () => {
+  const config = loadConfig(FIXTURE);
+  const at = (value) => evaluateMeasure('stale_range_ratio', { value }, config, {}).verdict;
+  assert.equal(at(0), 'OK');
+  assert.equal(at(0.02), 'WATCH', 'at the FAIL boundary itself: not >2%, not ==0');
+  assert.equal(at(0.0201), 'FAIL', 'just above the FAIL boundary');
+  const row = MEASURE_BANDS.find((r) => r.id === 'stale_range_ratio');
+  assert.equal(row.script, 'links');
+  assert.equal(row.scope, 'any', 'per-link like dead_link_ratio, so it stays evaluated under --include');
+  assert.equal(row.ok_also, undefined);
 });
 
 // #? — 1 dead link, 2 bad anchors, 100 total links: 1% ratio, not OK (anchors non-zero), not FAIL

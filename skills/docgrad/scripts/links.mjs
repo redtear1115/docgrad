@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// links.mjs — dead links/bad anchors/orphans (reachability computed transitively from index_file + entry_files)
+// links.mjs — dead links/bad anchors/stale ranges/orphans (reachability computed transitively from index_file + entry_files)
 // Usage: node links.mjs [--root <repo>] [--config <file>] [--include <glob>] [--exclude-ledger <path>] [--locate-ledger <path>]; JSON -> stdout.
-// When scope-limited, only dead links/bad anchors are emitted: orphans and reachable ratio are
+// When scope-limited, only dead links/bad anchors/stale ranges are emitted: orphans and reachable ratio are
 // full-index concepts that go wrong once scope narrows, so they're never computed under scope.
 // --exclude-ledger (#54) is a no-op here: only inventory.mjs draws claim candidates from a claim
 // ledger; link checking has nothing to do with it. Accepted and ignored, like --include above.
@@ -16,24 +16,51 @@ const MD_TARGET_RE = /\.(md|mdx|markdown)$/i;
 
 // `#L39-L86` is GitHub's line-range convention, not a heading reference (#74). `extractHeadings`
 // can never match it, so every link written that way was reported as a broken anchor — a permanent
-// linkage deduction for a convention that is not broken. It is now judged as nothing rather than as
-// a heading: docgrad has no concept of a line range, and reporting a defect it cannot define is
-// worse than staying quiet about it.
+// linkage deduction for a convention that is not broken. #74 made it judged as nothing rather than
+// as a heading: docgrad had no concept of a line range then, and reporting a defect it could not
+// define was worse than staying quiet about it. #85 has since given it one — see below.
 //
 // It lives here rather than inside `githubSlug()` because that function answers "what slug does
 // this text produce", which is a different question from "is this text a heading reference at
 // all" — and because the same call site flags `cjk_uncertain`, which must keep applying to real
 // anchors.
 //
-// **Verifying the range** — that it falls inside the target file's line count, so a range pointing
-// past the end of a shrunken file is caught — is the strictly better answer, and is deliberately
-// not this. It adds a measurement signal rather than removing a false one, and linkage becomes a
-// CI gate under the v2 measure/judge split, which is where a check like that belongs.
+// **Verifying the range** (#85) is done, but not here and not as a heading check: a range that
+// points past the end of its target file is a stale range, counted in its own `stale_ranges` bucket
+// and its own `stale_range_ratio` row. It is not a broken anchor — the fix is to update the numbers,
+// not to find the heading — and folding it into `bad_anchors` would cap it at WATCH, because
+// `bad_anchors` only ever holds `dead_link_ratio` off OK. See `lineRangeOf` below.
 //
-// The cost of skipping: a mistyped heading anchor that happens to look like `L12` stops being
-// reported. The shape is narrow — a leading capital `L`, digits only after it — and `#l39-l86` in
-// lower case is still judged, because that is not the convention either.
+// The cost of the skip above: a mistyped heading anchor that happens to look like `L12` stops being
+// reported as a bad anchor. The shape is narrow — a leading capital `L`, digits only after it — and
+// `#l39-l86` in lower case is still judged, because that is not the convention either.
 const LINE_RANGE_ANCHOR_RE = /^L\d+(-L\d+)?$/;
+
+// #85. A range is stale when any line it names is past the end of the target file: `L70-L120` into a
+// 90-line file points the reader at thirty lines that are gone, which is exactly how documentation and
+// code drift apart. The rule is the same for a single line: `#L7` in a five-line file is stale. A line
+// that exists but is blank is **not** stale — blank lines are legitimate, and nothing mechanical can
+// tell a deliberate one from a drifted one. `L0` names no line at all and is stale too. A reversed
+// range (`L20-L10`) is read by its larger end, the same way GitHub highlights it.
+function lineRangeOf(anchor) {
+  const m = /^L(\d+)(?:-L(\d+))?$/.exec(anchor);
+  if (!m) return null;
+  const start = Number(m[1]);
+  const end = m[2] === undefined ? start : Number(m[2]);
+  return { first: Math.min(start, end), last: Math.max(start, end) };
+}
+
+const RANGE_TARGET_NOT_A_FILE = 'not-a-file'; // a directory: no lines to count, not judged
+const RANGE_TARGET_UNREADABLE = 'unreadable'; // permissions, a race: not judged, and reported
+
+// Lines as GitHub numbers them: a trailing newline ends the last line rather than opening an empty
+// one, and an empty file has none. Split on `\n` alone, so a CRLF file counts the same.
+function countLines(absPath) {
+  const text = fs.readFileSync(absPath, 'utf8');
+  if (text === '') return 0;
+  const parts = text.split('\n').length;
+  return text.endsWith('\n') ? parts - 1 : parts;
+}
 
 
 // --- out-of-root link targets (#57) -------------------------------------------------
@@ -140,6 +167,10 @@ try {
   const dead_links = [];
   const out_of_root_links = [];
   const bad_anchors = [];
+  const stale_ranges = [];
+  let range_links = 0; // line-range links to an existing in-root file: stale_range_ratio's denominator
+  let unreadable_range_links = 0; // ...whose target could not be read: not judged, and the row says so
+  const lineCounts = new Map(); // a file linked by range several times is read once
   const graph = new Map(included.map((p) => [p, new Set()]));
   let total_links = 0;
 
@@ -161,6 +192,35 @@ try {
         continue;
       }
       if (includedSet.has(resolved)) graph.get(rel).add(resolved);
+      // #85. Any file type, in the corpus or not — a range almost always points at source code, which
+      // the heading check below never looks at. The target is already known to exist inside the root:
+      // the out-of-root and dead-link checks above have `continue`d past everything else. A directory
+      // has no lines to count and is left alone.
+      const range = anchor ? lineRangeOf(anchor) : null;
+      if (range) {
+        const abs = path.join(root, resolved);
+        if (!lineCounts.has(resolved)) {
+          // An unreadable target is not judged — but it is counted and said, never folded into the
+          // quiet "no range links" reading. Before #85 this script never opened a non-markdown
+          // target, so one unreadable file here must not take the whole links measure down with it.
+          let count;
+          try {
+            count = fs.statSync(abs).isFile() ? countLines(abs) : RANGE_TARGET_NOT_A_FILE;
+          } catch {
+            count = RANGE_TARGET_UNREADABLE;
+          }
+          lineCounts.set(resolved, count);
+        }
+        const targetLines = lineCounts.get(resolved);
+        if (targetLines === RANGE_TARGET_UNREADABLE) {
+          unreadable_range_links += 1;
+        } else if (targetLines !== RANGE_TARGET_NOT_A_FILE) {
+          range_links += 1;
+          if (range.first < 1 || range.last > targetLines) {
+            stale_ranges.push({ file: rel, line, target, anchor, target_lines: targetLines });
+          }
+        }
+      }
       if (anchor && !LINE_RANGE_ANCHOR_RE.test(anchor) && MD_TARGET_RE.test(resolved) && includedSet.has(resolved)) {
         if (!slugsOf(resolved).has(githubSlug(anchor))) {
           bad_anchors.push({ file: rel, line, target, anchor, cjk_uncertain: CJK_RE.test(anchor) });
@@ -170,7 +230,7 @@ try {
   }
 
   const scopeNoteText = scoped
-    ? 'scope-limited: orphans/reachable ratio not computed (reachability is a full-index concept), only dead links and bad anchors are counted'
+    ? 'scope-limited: orphans/reachable ratio not computed (reachability is a full-index concept), only dead links, bad anchors and stale ranges are counted'
     : null;
   const combinedNoteText = [scopeNoteText, excludeLedgerNoteText, locateLedgerNoteText, legacyTargetsNote(config)].filter(Boolean).join('; ') || null;
 
@@ -213,6 +273,30 @@ try {
             denominator: total_links,
             extra: { bad_anchors: bad_anchors.length },
           },
+      config,
+      { scoped }
+    ),
+    // #85. Denominator is line-range links only, not every link: a repo with two hundred links and
+    // three ranges, one of them stale, has a third of its ranges wrong, and diluting that by the other
+    // links would hide it. No range links at all is 0 with a note, the same way `dead_link_ratio`
+    // treats no links.
+    evaluateMeasure(
+      'stale_range_ratio',
+      (() => {
+        const unreadNote = unreadable_range_links
+          ? `${unreadable_range_links} line-range link(s) not judged: target unreadable`
+          : null;
+        if (range_links === 0) {
+          return { value: 0, numerator: 0, denominator: 0, note: ['no line-range links', unreadNote].filter(Boolean).join('; ') };
+        }
+        return {
+          value: Number((stale_ranges.length / range_links).toFixed(4)),
+          raw: stale_ranges.length / range_links,
+          numerator: stale_ranges.length,
+          denominator: range_links,
+          ...(unreadNote ? { note: unreadNote } : {}),
+        };
+      })(),
       config,
       { scoped }
     ),
@@ -272,6 +356,9 @@ try {
         // assert the one fact this bucket exists in order not to go and find out.
         out_of_root_links,
         bad_anchors,
+        // #85: each entry names the linking document and line, the range as written, and how many
+        // lines the target actually has — enough to fix it without opening the target first.
+        stale_ranges,
         // null when it can't be computed, never [] — an empty array is indistinguishable from
         // "computed, and there are genuinely none", and downstream reads that as "linkage is fine".
         // Same condition as reachable_ratio: under scope, or with no index_file, reachability has

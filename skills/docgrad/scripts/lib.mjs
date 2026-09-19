@@ -1495,8 +1495,9 @@ function resolveSkillRoot() {
 // `bad_anchors: 0` condition is expressed here so both halves live in the same hashed data instead
 // of one being a threshold and the other being an `if` statement nothing can see move.
 //
-// `source` names the anchors retired in v2.0.0; `source` names the retired anchor each line
-// replaces.
+// `source` is one of three things: the retired v2.0.0 rubric.md anchor a row's lines replace; the
+// issue that added a row after the retirement, with no anchor behind it (#85); or `none calibrated`,
+// where rubric.md never had a line to retire.
 export const MEASURE_BANDS = [
   {
     id: 'dead_link_ratio',
@@ -1507,6 +1508,15 @@ export const MEASURE_BANDS = [
     ok: { op: '==', value: 0 },
     ok_also: [{ input: 'bad_anchors', op: '==', value: 0 }],
     source: 'retired rubric.md Linkage ★4 "zero dead links" + "broken anchors always cost stars" / ★2 "2–10%" (see rubric.md §Version history, v2.0.0)',
+  },
+  {
+    id: 'stale_range_ratio',
+    script: 'links',
+    unit: 'percent',
+    scope: 'any',
+    fail: { op: '>', value: 0.02 },
+    ok: { op: '==', value: 0 },
+    source: '#85 — the same lines as dead_link_ratio: a range past the end of its target file is a link to code that is no longer there, which is the dead-link defect one level down',
   },
   {
     id: 'orphan_ratio',

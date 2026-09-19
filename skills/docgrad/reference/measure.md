@@ -27,7 +27,7 @@ For a scoped run: see [judge.md](judge.md) §Scoped audit.
 Every script except `retrieval.mjs` (report-only) now emits a top-level `measure` array: each row
 carries `id`, `value` (with `numerator`/`denominator` when it is a ratio), `verdict`
 (`"OK" | "WATCH" | "FAIL" | null`) and `line` — the boundary that decided the verdict, in the
-number's own units — plus the anchor `source` it was read from. **Report the number first and the
+number's own units — plus the `source` its lines were read from. **Report the number first and the
 verdict next to it**; the verdict names which line fired, it does not replace the number. The
 evaluation order is fixed for every row: **FAIL is checked first, then OK, else WATCH.** A row
 with no calibrated FAIL line (`fail: null` in `lib.mjs › MEASURE_BANDS`) can be OK or WATCH but
@@ -36,7 +36,7 @@ five comparisons — `<`, `<=`, `>`, `>=`, `==` — read in their ordinary arith
 exact equality, used for presence checks (`index_present`) and zero checks (`undocumented_dirs`,
 `drifted_dirs`) rather than for a ratio.
 
-A ratio row (`dead_link_ratio`, `orphan_ratio`, `date_coverage`, and `reachable_ratio` where it
+A ratio row (`dead_link_ratio`, `stale_range_ratio`, `orphan_ratio`, `date_coverage`, and `reachable_ratio` where it
 applies) is **evaluated against the unrounded division**, not against the four-decimal `value` it
 reports: 51 orphans over 1019 included documents is 0.050049…, which rounds to the same `0.0500`
 a reader sees whether or not the true ratio actually cleared the retired ★4 "orphans ≤5%" line, so
@@ -53,7 +53,9 @@ Since v2.0.0 these lines replace the linkage, freshness and economy star anchors
 and these verdict lines coexisted, describing the same boundaries side by side; that intermediate
 state is over.
 
-The eleven rows, across four scripts, each citing the rubric.md anchor its OK/FAIL lines come from:
+The twelve rows, across four scripts, each citing where its OK/FAIL lines come from: the retired
+rubric.md anchor it replaces, except `stale_range_ratio` (#85, added after the retirement) and
+`undocumented_dirs` / `drifted_dirs` (`none calibrated` — rubric.md never had a FAIL line for them):
 
 - **links.mjs**
   - `dead_link_ratio` — `dead_links.length / total_links`. FAIL `> 2%`; OK requires the ratio to be
@@ -62,6 +64,17 @@ The eleven rows, across four scripts, each citing the rubric.md anchor its OK/FA
     alongside the row for that reason. With `total_links: 0` the ratio is `0` with `note: "no links"`
     — the retired ★4 criterion is literally "zero dead links", and the no-links risk is the
     orphan/index rows' job, not this one's.
+  - `stale_range_ratio` — `stale_ranges.length / range_links` (#85). FAIL `> 2%`; OK `0`. A
+    line-range link (`#L7`, `#L39-L86`) is stale when any line it names is past the end of its target
+    file, or it names `L0`; a reversed range is read by its larger end. A line that exists but is
+    blank is not stale. The denominator counts only line-range links into existing in-root files, of
+    any type — ranges mostly point at source code, not at documents — so a directory, a dead target
+    and an out-of-root target are not in it (the latter two are already `dead_links` and
+    `out_of_root_links`). A target that cannot be read is not judged either, and the row's `note`
+    counts how many were skipped — it is never folded into a quiet zero. With no range links the
+    ratio is `0` with `note: "no line-range links"`.
+    Unlike `dead_link_ratio` there is no `ok_also`: a stale range is not a broken anchor, and nothing
+    else holds this row off OK.
   - `orphan_ratio` — `orphans.length / included.length`. FAIL `> 20%`; OK `≤ 5%`. `null` (not `0`)
     whenever `orphans` itself is `null` (no `index_file`, or a scoped run) or the corpus is empty —
     a ratio with no denominator is not a measurement.
@@ -165,6 +178,11 @@ maintained, and the report must say so.
 Measurement: the full mechanical output of links.mjs (dead-link ratio = dead_links / total_links). A
 broken anchor keeps `dead_link_ratio` off OK; `cjk_uncertain` is an advisory field and is **not** a
 reason to skip confirmation.
+
+A stale range and a broken anchor are different defects with different fixes, which is why they are
+counted apart: a broken anchor wants the heading found, a stale range wants its numbers updated to
+wherever the code moved. Each `stale_ranges` entry carries `target_lines`, the length the target
+actually has now, so the fix can start from the linking document.
 
 > **`orphans: null` is not `orphans: []`.** When the repo has no `index_file`, or the run is scoped,
 > reachability cannot be computed and both `orphans` and `reachable_ratio` come back `null`. Do not
@@ -539,5 +557,20 @@ E4b entry for why `judge_hash` now folds rubric.md in.
     graduation to that round's `inventory.pollution.ratio` — it is never set from
     `economy.pollution_max` (that stays the separate, config-side WATCH boundary this file's scripts
     evaluate on every round).
+- **v2.1.0 (#85) — a new row, `stale_range_ratio`**:
+  - **What can flip.** A repo whose documents link line ranges past the end of their target files
+    gains a row that was not there before, and that row can be `WATCH` or `FAIL`. No existing row's
+    value, verdict or line changed: `dead_link_ratio` still counts the same links, and a line-range
+    fragment still never lands in `bad_anchors` (#74). So a repo that met every target under 2.0.x
+    can stop meeting them under 2.1.0 only through this row, and only if it has stale ranges.
+  - **A trend across this entry is a trend over a longer row list, not a changed ruler.** Two rounds
+    either side of it compare fine on every row they share; the new row simply has no earlier
+    value.
+  - **`measure_hash` moves**, because both `lib.mjs › MEASURE_BANDS` and this file changed. The
+    old → new value is recorded in CHANGELOG.md, for the same reason as E2c-1's entry above.
+    `judge_hash` and `corpus_hash` are unchanged.
+  - **The graduation gate template does not check it yet.** A gate produced before or after this
+    entry asserts the same thresholds it did; §8b's allowance for an older gate's logic differing
+    from the template already covers the day it does.
 
 </details>
