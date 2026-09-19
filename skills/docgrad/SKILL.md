@@ -63,11 +63,13 @@ node "$SKILL_DIR/scripts/retrieval.mjs" --root .   # traceability/marginal cost 
 ```
 
 Shared flags: `--config <file>` (when the config file is not at the root), `--include <glob>`
-(limits the scope for a scoped audit; repeatable or comma-separated. `coverage.mjs` and
-`retrieval.mjs` **accept it and deliberately ignore it** — they exit 0, report `scope: null`, and
-each explains in its `note` why narrowing the scope would misjudge its own measurement. They do not
-reject it, so a scoped run against them does not fail; it silently measures the full corpus, which
-is why the note matters),
+(limits the scope for a scoped audit; repeatable or comma-separated. A pattern that matches no file
+in the final included set is an error — `inventory.mjs`, `links.mjs` and `freshness.mjs` exit
+non-zero, naming every unmatched pattern and why (#120); it no longer silently scopes to an empty
+corpus. `coverage.mjs` and `retrieval.mjs` **accept it and deliberately ignore it** — they exit 0,
+report `scope: null`, and each explains in its `note` why narrowing the scope would misjudge its own
+measurement. They do not reject it, so a scoped run against them does not fail; it silently measures
+the full corpus, which is why the note matters),
 `--locate-ledger <path>` (path to a claim ledger, #63 — only `inventory.mjs` acts on it, emitting a `locate_ledger` block that says where each ledgered claim sits in this round's corpus, uncapped and read off the unfiltered population; the other four accept it and report it as a no-op in their own `note`),
 `--exclude-ledger <path>` (path to `.docgrad/ledger.jsonl`, #54 — only `inventory.mjs` acts on it,
 filtering already-ledgered candidates out of `claim_candidates` before `claim_candidates_cap` is
