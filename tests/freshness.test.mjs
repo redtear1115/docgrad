@@ -122,14 +122,18 @@ test('freshness: measure — files_total: 0 (an empty corpus) makes date_coverag
   // A no-match --include is now an error (#120) — reach the empty-corpus case a different way,
   // via a config with nothing in scope at all, and keep asserting the null/"empty corpus" shape.
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-empty-'));
-  fs.writeFileSync(path.join(tmp, '.docgrad.yml'), 'docs_dirs: []\n');
-  const r = spawnSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' });
-  assert.equal(r.status, 0, r.stderr);
-  const out = JSON.parse(r.stdout);
-  assert.equal(out.files_total, 0);
-  const dateCoverage = out.measure.find((m) => m.id === 'date_coverage');
-  assert.equal(dateCoverage.verdict, null);
-  assert.equal(dateCoverage.note, 'empty corpus');
+  try {
+    fs.writeFileSync(path.join(tmp, '.docgrad.yml'), 'docs_dirs: []\n');
+    const r = spawnSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.files_total, 0);
+    const dateCoverage = out.measure.find((m) => m.id === 'date_coverage');
+    assert.equal(dateCoverage.verdict, null);
+    assert.equal(dateCoverage.note, 'empty corpus');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test('freshness: --include matching nothing in the corpus is an error, not a silent empty run (#120)', () => {
