@@ -3,7 +3,7 @@
 Version authority is `version` in [.claude-plugin/plugin.json](.claude-plugin/plugin.json); this file records changes per version.
 For version-number semantics (semver, docgrad-specific) see [docs/how-to.md](docs/how-to.md) §Cut a release.
 
-## Unreleased
+## 2.1.0 — 2026-09-19
 
 **`measure_hash` moves, from `dd15ca3f` to `bd0d4a1b`**, because one row is added. `judge_hash`
 `41cb532f` and `corpus_hash` `71d1ce84` are unchanged.
@@ -11,6 +11,11 @@ For version-number semantics (semver, docgrad-specific) see [docs/how-to.md](doc
 **What can flip:** only the new row. A repo whose documents link line ranges past the end of their
 target files gains `stale_range_ratio` at `WATCH` or `FAIL`; no existing row's value, verdict or line
 changed. A repo that met every target under 2.0.x and has no stale ranges still meets them.
+
+**Evals ran before release** (`--runs 5`, 2026-09-19): all three cases 1.00 with docgrad, 0.00
+without, every with-plugin run 3/3 votes; `measure` identical in all 15 with-plugin runs at
+`measure_hash bd0d4a1b`, `stale_range_ratio` OK throughout. Details in
+[evals/README.md §v2.1.0 release run](evals/README.md#v210-release-run-2026-09-19).
 
 - **Added (#85): `stale_range_ratio` — a line range that points past the end of its target file.**
   `docs/api.md` linking `src/foo.ts#L120-L140` after `foo.ts` was cut to 80 lines is the defect
@@ -21,8 +26,17 @@ changed. A repo that met every target under 2.0.x and has no stale ranges still 
   own row and its own `stale_ranges` bucket, not `bad_anchors`: the fix is to update the numbers,
   not to find a heading, and inside `bad_anchors` it could only ever hold `dead_link_ratio` at
   `WATCH`. Same lines as `dead_link_ratio` — FAIL above 2%, OK at 0 — over line-range links only.
-  Ranges into any file type are checked, since they mostly point at source code. The graduation gate
-  template does not assert it yet.
+  Ranges into any file type are checked, since they mostly point at source code. A target that
+  cannot be read is not judged, and the row's `note` says how many were skipped — never a quiet zero.
+  The graduation gate template does not assert it yet.
+- **Documentation (#116): running sepia on the prose docgrad writes.** `INTEROP.md` §Running the
+  style pass is a four-step recipe: commit the round, branch, run sepia `refactor` on the files that
+  round wrote, then post-check with `measure --include` before reading the diff. It is a separate,
+  human-invoked step rather than a stage of the loop, and the section says why: a pass the graded
+  repo can switch on needs a trust boundary this recipe does not; the ledger freeze gate would guard
+  nothing for a freshly written document; and restoring a snapshot over a tree another tool just
+  edited is itself a write. Needs sepia ≥ v0.11.0. #63 is closed by it; #64 is closed as no longer
+  needed, because a pass that is its own commit is recorded in git like any human edit.
 
 ## 2.0.1 — 2026-09-19
 

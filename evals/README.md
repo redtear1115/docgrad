@@ -1,6 +1,6 @@
 # docgrad evals
 
-> **Last updated:** 2026-09-17
+> **Last updated:** 2026-09-19
 
 Skill-level evaluation: this measures "when an agent uses this skill to score a repo, is the
 result stable and correct" — not the scripts' unit behavior (that's `tests/`,
@@ -16,6 +16,7 @@ and isn't stable today.
 - [Why they exist](#why-they-exist)
 - [The three cases](#the-three-cases)
 - [How to run them](#how-to-run-them)
+- [v2.1.0 release run (2026-09-19)](#v210-release-run-2026-09-19)
 - [First v2 run (2026-09-17)](#first-v2-run-2026-09-17)
 - [Current status: the harness runs, the suite does not score yet](#current-status-the-harness-runs-the-suite-does-not-score-yet)
 - [Mechanical baselines for the fixtures](#mechanical-baselines-for-the-fixtures)
@@ -62,6 +63,41 @@ claude plugin eval . --runs 5
   answer is **completely unknown** — that's exactly what this is meant to measure.
 - `--threshold`: everything must be green to pass; `linkage-known`'s `measure` verdict leaves no
   room for interpretation.
+
+## v2.1.0 release run (2026-09-19)
+
+```bash
+claude plugin eval . --runs 5 --scaffold --allow-tools Bash --keep-temp
+```
+
+Claude Code 2.1.278, on `main` at `61d3543` — the 2.1.0 code, with the manifests still saying 2.0.1
+(the release commit only changes version fields and the CHANGELOG). Required before release by
+[how-to §Run the skill-level evals](../docs/how-to.md#run-the-skill-level-evals), because #85 adds a
+measure row. Two arms, 30 runs, 54 minutes, `$25.31`.
+
+| case | with docgrad | without | Δ |
+|---|---|---|---|
+| `clean-baseline` | 1.00 — 3/3 votes ×5 | 0.00 | +1.00 |
+| `linkage-known` | 1.00 — 3/3 votes ×5 | 0.00 | +1.00 |
+| `planted-contradiction` | 1.00 — 3/3 votes ×5 | 0.00 | +1.00 |
+
+**`measure` was identical in every run of each case.** All 15 with-plugin runs reported
+`measure_hash bd0d4a1b` and emitted the new `stale_range_ratio` row at OK — none of the fixtures
+links a line range, so it has nothing to find. `dead_link_ratio` was FAIL ×5 on `linkage-known`;
+every other verdict was OK, apart from `undocumented_dirs` and `drifted_dirs`, which are `null`
+(uncalibrated) on `linkage-known` in all five runs.
+
+**`judge` stars** (read off the transcripts' reports; a distribution, not a pass condition):
+
+| case | Completeness | Correctness | Consistency |
+|---|---|---|---|
+| `clean-baseline` | ★2 ★2 ★2 ★3 ★2 | ★4 ×5 | ★4 ×5 |
+| `linkage-known` | ★2 ★2 ★1 ★2 ★1 | n/a ×5 | ★4 ×5 |
+| `planted-contradiction` | ★2 ×5 | ★2 ×5 | ★2 ×5 |
+
+The planted case's correctness and consistency ★2 held in all five runs again, and this time every
+run passed with 3/3 votes. Completeness still moves by one step on two of the three fixtures (#70).
+One run of 15 votes per case cannot show #69 is closed; it is another sample toward it.
 
 ## First v2 run (2026-09-17)
 
