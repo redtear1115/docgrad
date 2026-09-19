@@ -74,8 +74,29 @@ function parseInlineList(v) {
   return inner === '' ? [] : splitInlineItems(inner).map((s) => parseScalar(s));
 }
 
+// `__proto__` as a key is not an unknown key, it is an assignment to the prototype setter:
+// `root['__proto__'] = {}` re-parents `root` instead of adding a member. The re-parented values are
+// invisible to Object.keys, JSON.stringify and object spread, and still answer a dotted read — so a
+// validator that enumerates own keys and rejects what it doesn't recognise sees a clean config while
+// `config.freshness.field` reads an attacker's value. `constructor` and `prototype` are refused with
+// it rather than reasoned about one at a time. The result objects are null-prototype so that a key
+// this list misses cannot reach a prototype at all; nothing reads the config through
+// `hasOwnProperty` or `in`, so the missing prototype costs nothing.
+const UNSAFE_CONFIG_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function assertSafeConfigKey(key, raw) {
+  if (UNSAFE_CONFIG_KEYS.has(key)) {
+    throw new Error(`Refusing config key "${key}" (it addresses the object's prototype, not a field): ${raw.trim()}`);
+  }
+}
+
 export function parseYamlSubset(text) {
-  const root = {};
+  const root = Object.create(null);
+  // Duplicates are tracked per map, not globally: `freshness.field` and a future `coverage.field`
+  // are different fields that share a name. Last-win used to be silent, which is the wrong default
+  // for a file whose keys select behaviour.
+  const seenTop = new Set();
+  const seenNested = new Map();
   let nestedKey = null; // the top-level key currently being expanded (nested map or block list)
   for (const raw of text.split(/\r?\n/)) {
     if (!raw.trim() || raw.trim().startsWith('#')) continue;
@@ -86,10 +107,14 @@ export function parseYamlSubset(text) {
       const m = content.match(/^([^:]+):\s*(.*)$/);
       if (!m) throw new Error(`Could not parse config line: ${raw}`);
       const key = m[1].trim();
+      assertSafeConfigKey(key, raw);
+      if (seenTop.has(key)) throw new Error(`Duplicate config key "${key}": ${raw.trim()}`);
+      seenTop.add(key);
       const rest = m[2].trim();
       if (rest === '') {
         nestedKey = key;
-        root[key] = {}; // becomes an array once a "- " line is encountered
+        root[key] = Object.create(null); // becomes an array once a "- " line is encountered
+        seenNested.set(key, new Set());
       } else {
         nestedKey = null;
         root[key] = rest.startsWith('[') ? parseInlineList(rest) : parseScalar(rest);
@@ -102,8 +127,15 @@ export function parseYamlSubset(text) {
       } else {
         const m = content.match(/^([^:]+):\s*(.*)$/);
         if (!m) throw new Error(`Could not parse config line: ${raw}`);
+        const childKey = m[1].trim();
+        assertSafeConfigKey(childKey, raw);
+        const seenChildren = seenNested.get(nestedKey);
+        if (seenChildren.has(childKey)) {
+          throw new Error(`Duplicate config key "${nestedKey}.${childKey}": ${raw.trim()}`);
+        }
+        seenChildren.add(childKey);
         const rest = m[2].trim();
-        root[nestedKey][m[1].trim()] = rest.startsWith('[') ? parseInlineList(rest) : parseScalar(rest);
+        root[nestedKey][childKey] = rest.startsWith('[') ? parseInlineList(rest) : parseScalar(rest);
       }
     }
   }
