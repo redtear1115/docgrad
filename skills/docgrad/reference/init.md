@@ -94,7 +94,7 @@ When `.docgrad.yml` already exists, rerunning init = rescan, using the existing 
    supported by the config parser. Conventions are still tried in the order `convention` lists them; within one convention, the first
    line in document order that names any listed keyword *and* carries a date wins
 8. `targets`: default OK everywhere — ask which `measure` signals may settle at `WATCH` (multi-select over the
-   `MEASURE_BANDS` ids: `dead_link_ratio`, `orphan_ratio`, `reachable_ratio`, `index_present`, `date_coverage`,
+   `MEASURE_BANDS` ids: `dead_link_ratio`, `stale_range_ratio`, `orphan_ratio`, `reachable_ratio`, `index_present`, `date_coverage`,
    `key_doc_age`, `date_drift`, `entry_cost`, `pollution`, `undocumented_dirs`, `drifted_dirs`). `FAIL` can never be
    accepted, for any signal.
    If `entry_cost` is hard to hit because the repo's entry file is inherently large, prefer accepting `WATCH` on it over changing

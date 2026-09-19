@@ -1509,6 +1509,15 @@ export const MEASURE_BANDS = [
     source: 'retired rubric.md Linkage ★4 "zero dead links" + "broken anchors always cost stars" / ★2 "2–10%" (see rubric.md §Version history, v2.0.0)',
   },
   {
+    id: 'stale_range_ratio',
+    script: 'links',
+    unit: 'percent',
+    scope: 'any',
+    fail: { op: '>', value: 0.02 },
+    ok: { op: '==', value: 0 },
+    source: '#85 — the same lines as dead_link_ratio: a range past the end of its target file is a link to code that is no longer there, which is the dead-link defect one level down',
+  },
+  {
     id: 'orphan_ratio',
     script: 'links',
     unit: 'percent',

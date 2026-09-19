@@ -47,7 +47,7 @@
    **Pick order**: every `FAIL` before any unaccepted `WATCH` (a `WATCH` row whose `accept` is `"WATCH"` already has
    `meets_target: true` and so is not in the working set at all). Within the same verdict, fixed tie-break order —
    `undocumented_dirs`, `drifted_dirs`, `date_coverage`, `key_doc_age`, `date_drift`, `index_present`,
-   `dead_link_ratio`, `orphan_ratio`, `reachable_ratio`, `entry_cost`, `pollution` (this is the 1.x rubric tie-break
+   `dead_link_ratio`, `stale_range_ratio`, `orphan_ratio`, `reachable_ratio`, `entry_cost`, `pollution` (this is the 1.x rubric tie-break
    order completeness → freshness → linkage → economy, with the judged dimensions removed). **A signal id not on this
    list** (a future `MEASURE_BANDS` row) is picked after every id that is, in `lib.mjs › MEASURE_BANDS` order — so
    adding a new signal never requires touching the list above to keep it pickable, only to give it a considered

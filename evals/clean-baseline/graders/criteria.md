@@ -11,7 +11,7 @@ numbered criteria below.
 Mechanical signals (measure):
 
 ```
-links: total 3, dead_link_ratio OK, orphan_ratio OK, reachable_ratio OK, index_present OK
+links: total 3, dead_link_ratio OK, stale_range_ratio OK (no line-range links), orphan_ratio OK, reachable_ratio OK, index_present OK
 freshness: date_coverage OK, date_drift OK, mismatches []
 ```
 
