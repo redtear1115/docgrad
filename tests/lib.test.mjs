@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { parseYamlSubset, loadConfig, resolveRoot, parseArgs, matchesScope, collectFiles, estimateTokens, githubSlug, extractHeadings, extractLinks, extractClaimedDate, parseFreshnessConventions, parseFreshnessFields, extractCodeRefs, validateConfigTypes, docgradMeta, corpusHash, gitTrackedFiles, extractClaimLines, rankClaimCandidates, claimHash, CLAIM_HASH_CHARS, buildSrcSymbolIndex, gitAddCommitSubjects, isDocgradAuthored, measureHash, judgeHash, loadLedgerClaimHashes, loadLedgerRows, MEASURE_BANDS, evaluateMeasure, measureDigest, MEASURE_FILES } from '../skills/docgrad/scripts/lib.mjs';
+import { parseYamlSubset, loadConfig, resolveRoot, parseArgs, matchesScope, collectFiles, estimateTokens, githubSlug, extractHeadings, extractLinks, extractClaimedDate, parseFreshnessConventions, parseFreshnessFields, extractCodeRefs, validateConfigTypes, docgradMeta, corpusHash, gitTrackedFiles, extractClaimLines, rankClaimCandidates, claimHash, CLAIM_HASH_CHARS, buildSrcSymbolIndex, gitAddCommitSubjects, isDocgradAuthored, measureHash, judgeHash, loadLedgerClaimHashes, loadLedgerRows, summarizeLedgerConformance, ledgerConformanceNote, LEDGER_REQUIRED_FIELDS, MEASURE_BANDS, evaluateMeasure, measureDigest, MEASURE_FILES } from '../skills/docgrad/scripts/lib.mjs';
 import { fileURLToPath } from 'node:url';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/basic/', import.meta.url));
@@ -1358,6 +1358,176 @@ test('loadLedgerRows: error text names the flag it was called for, and loadLedge
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+});
+
+// --- #67: claim-ledger row conformance — checked and reported, never enforced -----------------
+//
+// loadLedgerRows() stays non-throwing on these fields (it throws only on a missing/bad claim_hash,
+// as before) and additionally carries a per-row `missing` list; summarizeLedgerConformance() is the
+// pure aggregator over that list, so it is tested directly against hand-built rows rather than
+// through a ledger file.
+
+function conformingRow(overrides = {}) {
+  return {
+    round: 1, line: 12, doc: 'docs/x.md', claim: 'Routing is defined in `src/router.ts`',
+    verify: 'Read src/router.ts', result: 'pass', borderline: false, verified_at: '2026-07-12',
+    ...overrides,
+  };
+}
+
+test('loadLedgerRows: a fully conforming row has no missing fields', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-ledger-conform-'));
+  try {
+    const ledgerPath = path.join(tmp, 'ledger.jsonl');
+    fs.writeFileSync(ledgerPath, `${JSON.stringify({ claim_hash: 'aaa', ...conformingRow() })}\n`);
+    const [row] = loadLedgerRows(ledgerPath);
+    assert.deepEqual(row.missing, []);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('summarizeLedgerConformance: a conforming ledger — conforming == rows, missing all 0', () => {
+  const rows = [
+    { claim_hash: 'a', round: 1, missing: [] },
+    { claim_hash: 'b', round: 1, missing: [] },
+  ];
+  const summary = summarizeLedgerConformance(rows);
+  assert.equal(summary.rows, 2);
+  assert.equal(summary.conforming, 2);
+  for (const f of LEDGER_REQUIRED_FIELDS) assert.equal(summary.missing[f], 0, f);
+  assert.deepEqual(ledgerConformanceNote(summary), []);
+});
+
+test('loadLedgerRows/summarizeLedgerConformance: a fail row without rationale is non-conforming, missing.rationale is 1', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-ledger-fail-'));
+  try {
+    const ledgerPath = path.join(tmp, 'ledger.jsonl');
+    fs.writeFileSync(ledgerPath, `${JSON.stringify({ claim_hash: 'a', ...conformingRow({ result: 'fail' }) })}\n`);
+    const rows = loadLedgerRows(ledgerPath);
+    assert.deepEqual(rows[0].missing, ['rationale']);
+    const summary = summarizeLedgerConformance(rows);
+    assert.equal(summary.conforming, 0);
+    assert.equal(summary.missing.rationale, 1);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadLedgerRows: a borderline pass without rationale is non-conforming', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-ledger-borderline-'));
+  try {
+    const ledgerPath = path.join(tmp, 'ledger.jsonl');
+    fs.writeFileSync(ledgerPath, `${JSON.stringify({ claim_hash: 'a', ...conformingRow({ borderline: true }) })}\n`);
+    const rows = loadLedgerRows(ledgerPath);
+    assert.deepEqual(rows[0].missing, ['rationale']);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadLedgerRows: a non-borderline pass without rationale is conforming', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-ledger-ok-'));
+  try {
+    const ledgerPath = path.join(tmp, 'ledger.jsonl');
+    fs.writeFileSync(ledgerPath, `${JSON.stringify({ claim_hash: 'a', ...conformingRow() })}\n`);
+    const rows = loadLedgerRows(ledgerPath);
+    assert.deepEqual(rows[0].missing, []);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadLedgerRows: result "ok" is not one of pass/fail/stale, counts as missing.result', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-ledger-badresult-'));
+  try {
+    const ledgerPath = path.join(tmp, 'ledger.jsonl');
+    fs.writeFileSync(ledgerPath, `${JSON.stringify({ claim_hash: 'a', ...conformingRow({ result: 'ok' }) })}\n`);
+    const rows = loadLedgerRows(ledgerPath);
+    assert.ok(rows[0].missing.includes('result'));
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadLedgerRows: wrong types count as missing (round as string, borderline as string, line as float)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-ledger-badtypes-'));
+  try {
+    const ledgerPath = path.join(tmp, 'ledger.jsonl');
+    fs.writeFileSync(
+      ledgerPath,
+      `${JSON.stringify({ claim_hash: 'a', ...conformingRow({ round: '1', borderline: 'false', line: 1.5 }) })}\n`
+    );
+    const rows = loadLedgerRows(ledgerPath);
+    assert.ok(rows[0].missing.includes('round'), 'a stringified round does not count as an integer');
+    assert.ok(rows[0].missing.includes('borderline'), 'a stringified boolean is still missing');
+    assert.ok(rows[0].missing.includes('line'), 'a non-integer number is not a valid line');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('loadLedgerRows: blank lines are skipped (missing is computed per non-blank row only)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-ledger-blank-'));
+  try {
+    const ledgerPath = path.join(tmp, 'ledger.jsonl');
+    fs.writeFileSync(
+      ledgerPath,
+      `${JSON.stringify({ claim_hash: 'a', ...conformingRow() })}\n\n   \n${JSON.stringify({ claim_hash: 'b', ...conformingRow() })}\n`
+    );
+    const rows = loadLedgerRows(ledgerPath);
+    assert.equal(rows.length, 2);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('summarizeLedgerConformance: round-1 non-conforming rows plus round-2 conforming rows give latest_round.missing all 0', () => {
+  const rows = [
+    { claim_hash: 'a', round: 1, missing: ['doc', 'line'] },
+    { claim_hash: 'b', round: 1, missing: ['borderline'] },
+    { claim_hash: 'c', round: 2, missing: [] },
+    { claim_hash: 'd', round: 2, missing: [] },
+  ];
+  const summary = summarizeLedgerConformance(rows);
+  assert.equal(summary.rows, 4);
+  assert.equal(summary.conforming, 2, 'the two round-2 rows');
+  assert.equal(summary.missing.doc, 1);
+  assert.ok(summary.latest_round);
+  assert.equal(summary.latest_round.round, 2);
+  assert.equal(summary.latest_round.rows, 2);
+  assert.equal(summary.latest_round.conforming, 2);
+  for (const f of LEDGER_REQUIRED_FIELDS) assert.equal(summary.latest_round.missing[f], 0, f);
+});
+
+test('summarizeLedgerConformance: no row has an integer round -> latest_round is null', () => {
+  const rows = [
+    { claim_hash: 'a', round: undefined, missing: ['round'] },
+    { claim_hash: 'b', round: '1', missing: ['round'] },
+  ];
+  const summary = summarizeLedgerConformance(rows);
+  assert.equal(summary.latest_round, null);
+});
+
+test('summarizeLedgerConformance: a ledger past ~124k rows does not overflow the call stack finding latest_round', () => {
+  // Math.max(...rounds) spread one argument per row and threw RangeError above ~124k rows — a
+  // regression against 2.1.0, where both ledger flags accepted a ledger of any size.
+  const rows = Array.from({ length: 200_000 }, (_, i) => ({ claim_hash: `h${i}`, round: (i % 7) + 1, missing: [] }));
+  const summary = summarizeLedgerConformance(rows);
+  assert.equal(summary.rows, 200_000);
+  assert.equal(summary.latest_round.round, 7);
+  assert.equal(summary.latest_round.rows, rows.filter((r) => r.round === 7).length);
+});
+
+test('ledgerConformanceNote: names how many rows miss each field, the borderline-count caveat, and the pre-v1.7.0 forward-only note', () => {
+  const rows = [
+    { claim_hash: 'a', round: 1, missing: ['borderline', 'rationale'] },
+  ];
+  const summary = summarizeLedgerConformance(rows);
+  const note = ledgerConformanceNote(summary);
+  assert.ok(note.some((n) => n.includes('1 row(s) miss `borderline`')));
+  assert.ok(note.some((n) => /borderline count cannot be computed/.test(n)));
+  assert.ok(note.some((n) => /pre-v1\.7\.0/.test(n)));
 });
 
 // --- v2 E1/E2a/E2b-1/E2b-2: the two-layer fingerprint vocabulary ------------------------
