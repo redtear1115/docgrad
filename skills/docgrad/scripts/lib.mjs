@@ -2245,7 +2245,7 @@ export function ledgerConformanceNote(summary) {
   }
   if (summary.missing.borderline > 0 || summary.missing.rationale > 0) {
     notes.push(
-      "rows lacking borderline/rationale may be forward-only pre-v1.7.0 history (reference/improve.md ~190-195), not a defect — they are not to be back-filled."
+      "rows lacking borderline/rationale may be forward-only pre-v1.7.0 history (reference/improve.md §Steps in each round, step 5), not a defect — they are not to be back-filled."
     );
   }
   return notes;
