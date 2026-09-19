@@ -187,6 +187,10 @@
      > candidate is a claim that was edited or deleted since — leave it in the ledger as history and let the new wording be
      > drawn as the new claim it is. Once migrated, write `claim_hash` on every new row and stop writing `claim_id`.
 
+     After appending, the next round's `inventory.claim_population.exclude_ledger.conformance.latest_round.missing`
+     must be all 0 (#67) — a row missing a required field here is a defect in *this* round's append, not something a
+     later round has to reconcile.
+
      > **`borderline` and `rationale` (added v1.7.0) are forward-only.** `borderline` is written on every row;
      > `rationale` is mandatory on every `fail` and every borderline `pass` (see [judge.md](judge.md) step 3 (boundary rules)). Rows written
      > before this version have neither, and are **not** to be back-filled — a rationale reconstructed now would be this

@@ -2109,6 +2109,48 @@ export function rankClaimCandidates(perFile) {
 // back to "nothing excluded" — would silently re-emit the unfiltered window while the caller
 // believes it asked for a filtered one, which is the exact defect this flag exists to close, just
 // hidden one layer deeper. A malformed ledger must stop the run, not degrade it quietly.
+// --- #67: claim-ledger row conformance (checked and reported, never enforced) ---------------
+//
+// improve.md's row example, rubric.md §Correctness and judge.md's boundary rules together describe
+// a row shape, but until now nothing read past `claim_hash` — a round could silently write a
+// degraded row (this repo's own ledger did: see #67) and the next round would accept it without
+// comment. `LEDGER_REQUIRED_FIELDS` is that shape, made checkable. "Absent or wrong type" both count
+// as missing — a `result` that is present but spelled wrong (`"ok"`) is exactly as unusable as one
+// that is absent.
+export const LEDGER_REQUIRED_FIELDS = ['round', 'line', 'doc', 'claim', 'verify', 'verified_at', 'result', 'borderline', 'rationale'];
+
+const LEDGER_RESULT_VALUES = ['pass', 'fail', 'stale'];
+
+function isMissingInt(v) {
+  return typeof v !== 'number' || !Number.isInteger(v);
+}
+function isMissingNonEmptyString(v) {
+  return typeof v !== 'string' || v.length === 0;
+}
+
+// `rationale` is the one conditional field (improve.md:190-191, rubric.md:110, judge.md:133):
+// required on a `fail`, and on a borderline `pass` — a pass rate that moved because a borderline
+// call flipped needs the reasoning on record, a clean pass does not.
+function rationaleRequired(row) {
+  return row.result === 'fail' || (row.borderline === true && row.result === 'pass');
+}
+
+// Which required fields this row is missing (absent or wrong type). `claim_hash` is not in this
+// list — a missing/bad claim_hash already throws above, before a row ever reaches here.
+function missingLedgerFields(row) {
+  const missing = [];
+  if (isMissingInt(row.round)) missing.push('round');
+  if (isMissingInt(row.line)) missing.push('line');
+  if (isMissingNonEmptyString(row.doc)) missing.push('doc');
+  if (isMissingNonEmptyString(row.claim)) missing.push('claim');
+  if (isMissingNonEmptyString(row.verify)) missing.push('verify');
+  if (isMissingNonEmptyString(row.verified_at)) missing.push('verified_at');
+  if (typeof row.result !== 'string' || !LEDGER_RESULT_VALUES.includes(row.result)) missing.push('result');
+  if (typeof row.borderline !== 'boolean') missing.push('borderline');
+  if (rationaleRequired(row) && isMissingNonEmptyString(row.rationale)) missing.push('rationale');
+  return missing;
+}
+
 export function loadLedgerRows(ledgerPath, flag = '--exclude-ledger') {
   let text;
   try {
@@ -2140,13 +2182,73 @@ export function loadLedgerRows(ledgerPath, flag = '--exclude-ledger') {
     // `doc` is the ledger's own locating field (see reference/improve.md's row example) — kept as a
     // locating *aid* only. Nothing here trusts it: a row's position is recomputed from this round's
     // corpus scan, so a stale or tampered `doc`/`line` cannot move where a claim is reported.
-    rows.push({ claim_hash: row.claim_hash, doc: typeof row.doc === 'string' ? row.doc : null });
+    //
+    // Every other required field (#67) is likewise checked but never enforced here — this stays a
+    // non-throwing reader. `round` is kept as its raw (possibly non-integer) value so a caller can
+    // still tell "absent" from "wrong type" from "a real round number", and so latest-round grouping
+    // (below) can require an actual integer without a second pass over the file.
+    rows.push({
+      claim_hash: row.claim_hash,
+      doc: typeof row.doc === 'string' ? row.doc : null,
+      round: row.round,
+      missing: missingLedgerFields(row),
+    });
   }
   return rows;
 }
 
 export function loadLedgerClaimHashes(ledgerPath, flag = '--exclude-ledger') {
   return new Set(loadLedgerRows(ledgerPath, flag).map((r) => r.claim_hash));
+}
+
+// Pure summariser over `loadLedgerRows()`'s output — no I/O, so it is trivial to test against a
+// hand-built row list. `latest_round` exists because the ledger is append-only: legacy rows from
+// before a field existed stay non-conforming forever, and burying that under an all-time total would
+// make a converging repo look permanently broken. It covers the rows whose `round` is exactly the
+// maximum *integer* round seen; a row with no integer round can never be "the latest round", so it
+// is excluded from that grouping (though it still counts in the all-time totals). `null` when no row
+// has an integer round at all.
+export function summarizeLedgerConformance(rows) {
+  const tally = (rs) => {
+    const missing = Object.fromEntries(LEDGER_REQUIRED_FIELDS.map((f) => [f, 0]));
+    let conforming = 0;
+    for (const row of rs) {
+      if (row.missing.length === 0) conforming += 1;
+      for (const f of row.missing) missing[f] += 1;
+    }
+    return { rows: rs.length, conforming, missing };
+  };
+  const withIntRound = rows.filter((r) => Number.isInteger(r.round));
+  let latest_round = null;
+  if (withIntRound.length) {
+    const maxRound = Math.max(...withIntRound.map((r) => r.round));
+    latest_round = { round: maxRound, ...tally(withIntRound.filter((r) => r.round === maxRound)) };
+  }
+  return { ...tally(rows), latest_round };
+}
+
+// The prose companion to summarizeLedgerConformance()'s numbers (#67) — reported alongside it
+// wherever it is emitted, never used to fail a run. Empty when every row conforms.
+export function ledgerConformanceNote(summary) {
+  if (summary.rows === summary.conforming) return [];
+  const notes = [];
+  const perField = LEDGER_REQUIRED_FIELDS.filter((f) => summary.missing[f] > 0)
+    .map((f) => `${summary.missing[f]} row(s) miss \`${f}\``)
+    .join(', ');
+  notes.push(
+    `${summary.rows - summary.conforming} of ${summary.rows} ledger row(s) do not conform to the row spec (reference/improve.md, reference/rubric.md §Correctness): ${perField}.`
+  );
+  if (summary.missing.borderline > 0) {
+    notes.push(
+      `rubric.md's borderline count cannot be computed from the ${summary.missing.borderline} row(s) lacking \`borderline\` — read it as unknown for those rows, not as zero.`
+    );
+  }
+  if (summary.missing.borderline > 0 || summary.missing.rationale > 0) {
+    notes.push(
+      "rows lacking borderline/rationale may be forward-only pre-v1.7.0 history (reference/improve.md ~190-195), not a defect — they are not to be back-filled."
+    );
+  }
+  return notes;
 }
 
 // --- #63 prerequisite: --locate-ledger --------------------------------------------------------

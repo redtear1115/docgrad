@@ -8,7 +8,8 @@ import {
   extractCodeRefs, extractApiRefs, extractClaimLines, rankClaimCandidates, docgradMeta, evaluateMeasure, legacyTargetsNote,
   gitTrackedFiles, gitUnavailableNote, matchesPathPrefix,
   buildSrcSymbolIndex, gitAddCommitSubjects, isDocgradAuthored, AUTHORSHIP_UNAVAILABLE_NOTE,
-  MAX_SRC_SYMBOL_FILE_BYTES, SHIPPED_TIERS, SHIPPED_POLLUTION_MAX, loadLedgerClaimHashes, loadLedgerRows, locateLedgerClaims,
+  MAX_SRC_SYMBOL_FILE_BYTES, SHIPPED_TIERS, SHIPPED_POLLUTION_MAX, loadLedgerRows, locateLedgerClaims,
+  summarizeLedgerConformance, ledgerConformanceNote,
 } from './lib.mjs';
 
 const LIST_ITEM_RE = /^\s*(?:[-*+]|\d+\.)\s+/;
@@ -197,7 +198,12 @@ try {
   const rankedCandidates = rankClaimCandidates(
     filesRaw.map((f) => ({ path: f.path, claims: f._claimLines }))
   );
-  const excludedHashes = excludeLedger ? loadLedgerClaimHashes(excludeLedger) : null;
+  // Loaded as rows, not just hashes (#67): --exclude-ledger's filtering only ever used the hash set,
+  // but the same read now also feeds claim_population.exclude_ledger.conformance below, so the
+  // ledger is read once rather than twice. The hash set itself is exactly what loadLedgerClaimHashes
+  // would have produced — filtering behaviour is unchanged.
+  const excludeLedgerRows = excludeLedger ? loadLedgerRows(excludeLedger) : null;
+  const excludedHashes = excludeLedgerRows ? new Set(excludeLedgerRows.map((r) => r.claim_hash)) : null;
   const drawableCandidates = excludedHashes
     ? rankedCandidates.filter((c) => !excludedHashes.has(c.claim_hash))
     : rankedCandidates;
@@ -233,6 +239,12 @@ try {
         'positions were located against the unfiltered claim population, so --exclude-ledger (also passed on this run) did not hide any of them.'
       );
     }
+    // #67: whether each row *reads* as this round's rows scan finds it is a different question from
+    // whether it *conforms* to the row spec (improve.md's example row, rubric.md §Correctness,
+    // judge.md's boundary rules) — a row can be perfectly locatable and still be missing `borderline`
+    // or `rationale`. Reported, never enforced: a non-conforming ledger still locates and still
+    // filters exactly as before.
+    const conformance = summarizeLedgerConformance(ledgerRows);
     return {
       path: locateLedger,
       // `lines` is the ledger's **non-empty** row count (blank lines are skipped, as they are by
@@ -246,6 +258,7 @@ try {
       multi_position: multiPosition,
       entries,
       note,
+      conformance: { ...conformance, note: ledgerConformanceNote(conformance) },
     };
   })();
   const files = filesRaw.map(({ _ruleLines, _claimLines, ...f }) => f);
@@ -426,6 +439,14 @@ try {
                   ledger_claim_hashes: excludedHashes.size,
                   excluded: excludedByLedgerCount,
                   drawable: drawableCandidates.length,
+                  // #67: report-only, same summary as locate_ledger.conformance above — improve.md
+                  // mandates --exclude-ledger every round that has a ledger, so this is the one place
+                  // a non-conforming ledger is guaranteed to surface even when --locate-ledger wasn't
+                  // also passed.
+                  conformance: (() => {
+                    const c = summarizeLedgerConformance(excludeLedgerRows);
+                    return { ...c, note: ledgerConformanceNote(c) };
+                  })(),
                 },
               }
             : {}),

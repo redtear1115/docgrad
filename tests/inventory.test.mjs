@@ -717,12 +717,12 @@ test('inventory: --exclude-ledger filters ledgered candidates out before the cap
     assert.equal(out.claim_population.emitted, 60);
     assert.equal(out.claim_population.cap, 60);
     assert.equal(out.claim_population.truncated, true);
-    assert.deepEqual(out.claim_population.exclude_ledger, {
-      path: ledgerPath,
-      ledger_claim_hashes: 30,
-      excluded: 30,
-      drawable: 120,
-    });
+    // conformance (#67) is asserted separately below; check the pre-existing fields on their own so
+    // this test doesn't also have to restate the conformance shape.
+    assert.equal(out.claim_population.exclude_ledger.path, ledgerPath);
+    assert.equal(out.claim_population.exclude_ledger.ledger_claim_hashes, 30);
+    assert.equal(out.claim_population.exclude_ledger.excluded, 30);
+    assert.equal(out.claim_population.exclude_ledger.drawable, 120);
     // What's emitted is exactly the next 60 of the total order, proving the filter runs before
     // .slice(0, cap) rather than after (a filter applied after would instead emit the first 60
     // minus the ledgered 30 = only 30 candidates).
@@ -1197,6 +1197,83 @@ test('inventory: a scoped --locate-ledger run names scope narrowing as a cause o
     const full = runInventory(tmp, '--locate-ledger', ledgerPath);
     assert.equal(full.locate_ledger.located, hashes.length);
     assert.equal(full.locate_ledger.note.length, 0);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// --- #67: claim-ledger row conformance, reported not enforced ---------------------------------
+
+test('inventory: --locate-ledger carries conformance, and an unconforming ledger is reported without changing locating', () => {
+  const tmp = claimRepo(5);
+  try {
+    const hash = runInventory(tmp).claim_candidates[0].claim_hash;
+    // writeLocateLedger's default rows carry only claim_hash/round/result — doc/line/claim/verify/
+    // borderline are absent, same shape as this repo's own pre-#67 ledger (see #67 acceptance).
+    const ledgerPath = writeLocateLedger(tmp, [{ claim_hash: hash }]);
+    const out = runInventory(tmp, '--locate-ledger', ledgerPath);
+    assert.equal(out.locate_ledger.located, 1, 'conformance checking does not change locating');
+    const c = out.locate_ledger.conformance;
+    assert.equal(c.rows, 1);
+    assert.equal(c.conforming, 0);
+    assert.equal(c.missing.doc, 1);
+    assert.equal(c.missing.line, 1);
+    assert.equal(c.missing.claim, 1);
+    assert.equal(c.missing.verify, 1);
+    assert.equal(c.missing.borderline, 1);
+    assert.equal(c.missing.rationale, 0, 'a non-borderline pass does not require rationale');
+    assert.equal(c.latest_round.round, 1);
+    assert.ok(c.note.some((n) => n.includes('do not conform')));
+    assert.ok(c.note.some((n) => /borderline count cannot be computed/.test(n)));
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('inventory: a conforming --locate-ledger ledger reports conforming == rows, missing all 0, and no note', () => {
+  const tmp = claimRepo(5);
+  try {
+    const hash = runInventory(tmp).claim_candidates[0].claim_hash;
+    const ledgerPath = writeLocateLedger(tmp, [{
+      claim_hash: hash, round: 1, line: 1, doc: 'docs/rules.md', claim: 'x', verify: 'y',
+      result: 'pass', borderline: false, verified_at: '2026-09-19',
+    }]);
+    const out = runInventory(tmp, '--locate-ledger', ledgerPath);
+    const c = out.locate_ledger.conformance;
+    assert.equal(c.conforming, c.rows);
+    for (const v of Object.values(c.missing)) assert.equal(v, 0);
+    assert.deepEqual(c.note, []);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('inventory: --exclude-ledger carries conformance alongside its filtering, unchanged filtering behaviour', () => {
+  const tmp = claimRepo(50);
+  try {
+    const allHashes = runInventory(tmp).claim_candidates.map((c) => c.claim_hash);
+    const ledgerPath = writeLedger(tmp, allHashes.slice(0, 3));
+    const out = runInventory(tmp, '--exclude-ledger', ledgerPath);
+    assert.equal(out.claim_population.exclude_ledger.excluded, 3, 'filtering is unaffected by conformance checking');
+    const c = out.claim_population.exclude_ledger.conformance;
+    assert.equal(c.rows, 3);
+    assert.equal(c.conforming, 0);
+    assert.equal(c.missing.doc, 3);
+    assert.ok(c.note.length > 0);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('inventory: an unflagged run gains no new top-level or claim_population keys from #67', () => {
+  const tmp = claimRepo(5);
+  try {
+    const out = runInventory(tmp);
+    assert.ok(!('locate_ledger' in out));
+    assert.ok(!('conformance' in out.claim_population));
+    assert.deepEqual(Object.keys(out.claim_population), [
+      'api_matching', 'src_symbols', 'src_files_scanned', 'authorship', 'cap', 'emitted', 'population', 'truncated', 'notes',
+    ]);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
