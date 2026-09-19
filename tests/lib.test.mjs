@@ -47,7 +47,9 @@ language: zh-TW
   assert.deepEqual(got.entry_files, ['CLAUDE.md', 'AGENTS.md']);
   assert.equal(got.index_file, 'docs/README.md');
   assert.deepEqual(got.exclude, []);
-  assert.deepEqual(got.freshness, { convention: 'frontmatter', field: 'last_updated' });
+  // spread first: nested maps are null-prototype, which deepStrictEqual treats as unequal to a
+  // plain object literal even when every key and value matches
+  assert.deepEqual({ ...got.freshness }, { convention: 'frontmatter', field: 'last_updated' });
   assert.equal(got.targets.entry_cost, 'WATCH');
   assert.equal(got.targets.dead_link_ratio, 'OK');
   assert.equal(got.correctness_sample, 8);
@@ -65,6 +67,39 @@ test('parseYamlSubset: block list, and # and : inside quotes', () => {
 
 test('parseYamlSubset: illegal indentation throws', () => {
   assert.throws(() => parseYamlSubset('  orphan_indent: 1\n'), /indentation/);
+});
+
+test('parseYamlSubset: a __proto__ key is refused instead of re-parenting the result', () => {
+  // Before this check, `root['__proto__'] = {}` hit the prototype setter: `docs_dirs` was the only
+  // own key and JSON.stringify showed nothing, while `parsed.path` answered '/evil'. An allowlist
+  // validator that enumerates own keys passes such a config, and `style_skill.path` is a dotted read.
+  assert.throws(() => parseYamlSubset('__proto__:\n  path: /evil\ndocs_dirs: [docs]\n'), /prototype/);
+  assert.throws(() => parseYamlSubset('freshness:\n  __proto__: /evil\n'), /prototype/);
+  assert.throws(() => parseYamlSubset('constructor: x\n'), /prototype/);
+  assert.throws(() => parseYamlSubset('prototype: x\n'), /prototype/);
+});
+
+test('parseYamlSubset: the parsed object has no prototype to reach', () => {
+  const parsed = parseYamlSubset('docs_dirs: [docs]\nfreshness:\n  field: last_updated\n');
+  assert.equal(Object.getPrototypeOf(parsed), null);
+  assert.equal(Object.getPrototypeOf(parsed.freshness), null);
+  // and it still survives the spread and the JSON round-trip loadConfig and the scripts rely on
+  assert.deepEqual({ ...parsed }.docs_dirs, ['docs']);
+  assert.equal(JSON.parse(JSON.stringify(parsed)).freshness.field, 'last_updated');
+});
+
+test('parseYamlSubset: a duplicate key throws instead of silently last-winning', () => {
+  assert.throws(() => parseYamlSubset('exclude: [a]\nexclude: [b]\n'), /Duplicate config key "exclude"/);
+  assert.throws(
+    () => parseYamlSubset('freshness:\n  field: a\n  field: b\n'),
+    /Duplicate config key "freshness\.field"/
+  );
+});
+
+test('parseYamlSubset: the same child key under two different parents is not a duplicate', () => {
+  const parsed = parseYamlSubset('freshness:\n  field: a\ncoverage:\n  field: b\n');
+  assert.equal(parsed.freshness.field, 'a');
+  assert.equal(parsed.coverage.field, 'b');
 });
 
 test('loadConfig: missing config file throws an error pointing at init', () => {
