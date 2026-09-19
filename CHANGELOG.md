@@ -3,6 +3,25 @@
 Version authority is `version` in [.claude-plugin/plugin.json](.claude-plugin/plugin.json); this file records changes per version.
 For version-number semantics (semver, docgrad-specific) see [docs/how-to.md](docs/how-to.md) §Cut a release.
 
+## 2.0.1 — 2026-09-19
+
+One parsing fix in `.docgrad.yml`. No fingerprint moves: `measure_hash` `dd15ca3f`, `judge_hash`
+`41cb532f` and `corpus_hash` `71d1ce84` are the values 2.0.0 shipped with.
+
+**One kind of config that loaded under 2.0.0 now fails to load:** a `.docgrad.yml` that sets the same
+key twice in one map. Delete the duplicate line; the error names the key.
+
+- **Fixed (#115): a duplicate key in `.docgrad.yml` was silently overwritten.** `exclude: [a]`
+  followed later by `exclude: [b]` kept only `[b]`, with no error, in a file whose keys decide what
+  gets measured. It now stops every script with a non-zero exit naming the key. Duplicates are counted
+  per map, so `freshness.field` and `coverage.field` are still two different fields.
+- **Fixed (#115): `__proto__` as a key re-parented the parsed config.** It was read not as an unknown
+  key but as an assignment to the prototype setter: the values under it were invisible to
+  `Object.keys`, `JSON.stringify` and object spread, and still answered a dotted read — so a validator
+  that checks own keys saw a clean config. `Object.prototype` itself was never touched; the effect was
+  confined to that one parse. `__proto__`, `constructor` and `prototype` are now refused at any level,
+  and the parsed objects are null-prototype, so a key this list misses has no prototype to reach.
+
 ## 2.0.0 — 2026-09-17
 
 **docgrad now grades in two layers, and only one of them decides anything.**
