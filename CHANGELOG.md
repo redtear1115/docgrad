@@ -3,6 +3,65 @@
 Version authority is `version` in [.claude-plugin/plugin.json](.claude-plugin/plugin.json); this file records changes per version.
 For version-number semantics (semver, docgrad-specific) see [docs/how-to.md](docs/how-to.md) §Cut a release.
 
+## 2.2.0 — 2026-09-19
+
+**`judge_hash` moves, from `41cb532f` to `0e1f37cc`**, because `judge.md` and `rubric.md` now describe
+a different claim draw order (#60) and say that an `--include` pattern matching nothing is an error
+(#120). `measure_hash` `bd0d4a1b` and `corpus_hash` `71d1ce84` are unchanged: no measure row, band or
+corpus-selecting field moved, so no `measure` verdict can flip.
+
+**What changes for a reader of a claim ledger:** cumulative coverage stays comparable across this
+move — the claim population and every `claim_hash` are the same — but the draw *sequence* is not:
+from an unchanged corpus, a 2.2.0 round can draw different claims at the same cap than a 2.1.0 round
+would have. See [rubric.md §Version history](skills/docgrad/reference/rubric.md#version-history-and-comparability-notes).
+
+**One kind of invocation that ran under 2.1.0 now fails:** `inventory.mjs`, `links.mjs` or
+`freshness.mjs` with an `--include` pattern that matches no file in the graded corpus. Fix the
+pattern, or bring the file into the corpus (`docs_files`); the error names the pattern and why it
+missed.
+
+**Evals ran before release** (`--runs 5`, 2026-09-19): `clean-baseline` and `linkage-known` 1.00
+with docgrad, `planted-contradiction` 0.80, all 0.00 without; `measure` identical in all 15
+with-plugin runs at `measure_hash bd0d4a1b`. The one failing run (0/3 votes) found the planted
+contradiction, recorded it `fail` in its ledger table, stated its direction and arbitrated against
+the code, but closed with "there is no ledger" — which a judge reading only the last message can take
+as denying criterion 1. The judges give no reasons, so that is a plausible cause rather than a proven
+one; it is recorded as a grader-wording question alongside #69, not as a regression, and #60 cannot
+have caused it (the fixture's two candidates are drawn in every run). Details in
+[evals/README.md §v2.2.0 release run](evals/README.md#v220-release-run-2026-09-19).
+
+- **Fixed (#120): an `--include` pattern that matched nothing reported all OK.** `--include` only
+  narrows the configured corpus, so `links.mjs --include CHANGELOG.md` — a file under no `docs_dirs`
+  — used to print `scope: ["CHANGELOG.md"]`, check zero links and pass every row; the v2.1.0 release
+  check was fooled by exactly this. `collectFiles()` now requires every pattern to match at least one
+  included file and otherwise exits non-zero naming each pattern with one reason: outside
+  `docs_dirs`/`docs_files`/`entry_files`/`index_file`, removed by `exclude`/`out_of_scope`, or dropped
+  by `exclude_untracked`. `coverage.mjs` and `retrieval.mjs` still accept `--include` and ignore it.
+  `INTEROP.md`'s post-check step is the caller this protects most: a file outside the corpus now
+  fails it instead of passing it.
+- **Added (#67): claim-ledger rows are checked against their spec, and the result is reported.**
+  The ledger's row shape is spelled out in `improve.md` and `rubric.md`, but nothing read past
+  `claim_hash`, so a round could write degraded rows and the next accepted them — this repo's own
+  ledger has three rows with no `doc`, `line`, `claim`, `verify` or `borderline`. `inventory.mjs` now
+  emits a `conformance` summary wherever it already reads a ledger — `claim_population.exclude_ledger`
+  (every loop round, since `improve.md` mandates `--exclude-ledger`) and `locate_ledger` — counting
+  rows missing each field, where absent and wrong-type both count and `rationale` is required only on
+  a `fail` or a borderline `pass`. `latest_round` repeats the count for the newest round alone,
+  because an append-only ledger keeps its legacy rows forever; `improve.md` step 5 now checks that
+  it is all zero after each round. Report only: nothing is blocked, the filtering is unchanged, and a
+  run with neither flag gains no keys. This repo's ledger is left as it is — back-filling `verify` or
+  `borderline` now would invent history — and the summary reports it: 3 rows, 0 conforming.
+- **Changed (#60): claim candidates are drawn round-robin across documents within an equal-refs
+  tier.** The ranking was refs descending, then path, then line, so once `refs` stopped
+  discriminating the window filled from whichever document sorted first by path. Claims are now
+  ordered by refs, then by their ordinal among their own document's claims at that refs value, then
+  path, then line: each document's first claim, then each document's second. The order is still
+  total and deterministic, and raising `claim_candidates_cap` still only appends. On a fixture where
+  95% of claims are `refs: 1`, the first 60 went from 57/2/1 across three documents to 23/20/12/3/2
+  across five. On this repo nothing visible changes — its first 60 are all `refs ≥ 2`, across the
+  same 11 documents — so the effect is on corpora dominated by single-reference claims, which is
+  where #60 measured it.
+
 ## 2.1.0 — 2026-09-19
 
 **`measure_hash` moves, from `dd15ca3f` to `bd0d4a1b`**, because one row is added. `judge_hash`
