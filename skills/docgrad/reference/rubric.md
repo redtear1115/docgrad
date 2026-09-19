@@ -228,12 +228,10 @@ anchors (see its entry).
     claims verified is still the same kind of number before and after. What is not comparable is
     which claim a given round draws *next*: a round run against the old order and a round run
     against the new order can draw different claims at the same cap, even from an unchanged corpus.
-  - `judge_hash` moves from `41cb532f` to `5781e476` on this repo. (This file is itself a
-    `judge_hash` input, so it cannot quote its own resulting value with byte-for-byte precision —
-    each edit to add or correct the quoted value moves the value again. `docgradMeta()` against the
-    merged tree, and the pinned literal in `tests/lib.test.mjs`, are the values of record; treat this
-    entry's number as accurate as of when it was last touched, not as a live-recomputed fixed point.)
-    `measure_hash` (`bd0d4a1b`) and `corpus_hash` (`71d1ce84`) are unaffected — nothing in
+  - **`judge_hash` moves away from `41cb532f`.** The new value cannot be quoted here — this file is
+    one of its own inputs, so a literal would move the hash again (the E4b entry's precedent) — see
+    the CHANGELOG's `2.2.0` section for the recorded old → new value.
+  - `measure_hash` (`bd0d4a1b`) and `corpus_hash` (`71d1ce84`) do not move — nothing in
     `measure.md`, `MEASURE_BANDS` or the corpus-selecting config fields changed.
 - **v1.6.0 — the claim-candidate window is configurable and disclosed** (**not an anchor change**):
   the ★1–★5 thresholds are untouched and no dimension gained or lost a criterion. `inventory.mjs` has always emitted only the
