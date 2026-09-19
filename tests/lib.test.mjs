@@ -1252,7 +1252,10 @@ test('gitAddCommitSubjects: outside a git work tree returns null, never an empty
   }
 });
 
-test('rankClaimCandidates: more refs comes first, ties broken by path then line (stable, reproducible)', () => {
+test('rankClaimCandidates: more refs comes first, ties broken round-robin then by path then line (stable, reproducible)', () => {
+  // One claim per (path, refs) group here, so the round-robin ordinal is 1 for every claim and
+  // this collapses to the old path/line tiebreak — kept as a baseline the round-robin tests below
+  // build on.
   const ranked = rankClaimCandidates([
     { path: 'b.md', claims: [{ line: 2, text: 'x', refs: 1 }] },
     { path: 'a.md', claims: [{ line: 9, text: 'y', refs: 1 }, { line: 1, text: 'z', refs: 3 }] },
@@ -1261,6 +1264,52 @@ test('rankClaimCandidates: more refs comes first, ties broken by path then line 
     ranked.map((c) => `${c.path}:${c.line}`),
     ['a.md:1', 'a.md:9', 'b.md:2']
   );
+});
+
+test('rankClaimCandidates: equal-refs claims interleave round-robin across documents (#60)', () => {
+  // 3 docs, each contributing several refs:1 claims. Old behaviour (plain path/line order) would
+  // draw all of a.md's claims before touching b.md or c.md; round-robin instead draws each
+  // document's 1st claim, then each document's 2nd, and so on.
+  const ranked = rankClaimCandidates([
+    { path: 'a.md', claims: [{ line: 1, text: 'a1', refs: 1 }, { line: 2, text: 'a2', refs: 1 }, { line: 3, text: 'a3', refs: 1 }] },
+    { path: 'b.md', claims: [{ line: 1, text: 'b1', refs: 1 }, { line: 2, text: 'b2', refs: 1 }] },
+    { path: 'c.md', claims: [{ line: 1, text: 'c1', refs: 1 }] },
+  ]);
+  assert.deepEqual(
+    ranked.map((c) => `${c.path}:${c.line}`),
+    // round 1: a.md:1, b.md:1, c.md:1 (path order among equal ordinal 1)
+    // round 2: a.md:2, b.md:2 (c.md has no 2nd claim)
+    // round 3: a.md:3
+    ['a.md:1', 'b.md:1', 'c.md:1', 'a.md:2', 'b.md:2', 'a.md:3']
+  );
+});
+
+test('rankClaimCandidates: the refs tier still dominates the round-robin ordinal', () => {
+  // a.md's 2nd refs:1 claim would round-robin ahead of b.md's 1st refs:1 claim, but any refs:2
+  // claim (regardless of its own ordinal) still sorts before every refs:1 claim.
+  const ranked = rankClaimCandidates([
+    { path: 'a.md', claims: [{ line: 1, text: 'a1', refs: 1 }, { line: 5, text: 'a2', refs: 1 }] },
+    { path: 'b.md', claims: [{ line: 9, text: 'b1', refs: 2 }] },
+  ]);
+  assert.deepEqual(
+    ranked.map((c) => `${c.path}:${c.line}`),
+    ['b.md:9', 'a.md:1', 'a.md:5']
+  );
+});
+
+test('rankClaimCandidates: result is identical regardless of perFile input order', () => {
+  const perFile = [
+    { path: 'a.md', claims: [{ line: 1, text: 'a1', refs: 1 }, { line: 2, text: 'a2', refs: 1 }, { line: 3, text: 'a3', refs: 2 }] },
+    { path: 'b.md', claims: [{ line: 1, text: 'b1', refs: 1 }, { line: 4, text: 'b2', refs: 1 }] },
+    { path: 'c.md', claims: [{ line: 1, text: 'c1', refs: 1 }] },
+  ];
+  const baseline = rankClaimCandidates(perFile).map((c) => `${c.path}:${c.line}`);
+  // Shuffle the file order (and, within a.md, the claim order) several ways; grouping is keyed by
+  // path/refs value, never by array position, so the result must not move.
+  const shuffled1 = [perFile[2], perFile[0], perFile[1]];
+  const shuffled2 = [perFile[1], perFile[2], perFile[0]];
+  assert.deepEqual(rankClaimCandidates(shuffled1).map((c) => `${c.path}:${c.line}`), baseline);
+  assert.deepEqual(rankClaimCandidates(shuffled2).map((c) => `${c.path}:${c.line}`), baseline);
 });
 
 // --- loadLedgerClaimHashes (#54) ---------------------------------------------------
@@ -1410,6 +1459,12 @@ test('loadLedgerRows: error text names the flag it was called for, and loadLedge
 // changed, but `placement.md` is a `judge_hash` input (`lib.mjs › JUDGE_FILES`), so the hash moves.
 // `reference/measure.md`/`MEASURE_BANDS` and `.docgrad.yml` are untouched, so `measure_hash` and
 // `corpus_hash` are unaffected.
+// **2.2.0 moves `judge_hash` a further time**: `judge.md` step 3's draw-order description and the
+// §Scoped audit "How to run it" sentence both change to describe the round-robin tie-break and the
+// `--include` no-match error (#60, #120), and `rubric.md`'s own draw-order line and §Version history
+// gain the same — all judge-side content, `judge_hash` inputs. `reference/measure.md`/
+// `MEASURE_BANDS` and `.docgrad.yml` are untouched, so `measure_hash` and `corpus_hash` are
+// unaffected.
 // The literals below were pinned rather than recomputed because a hash that quietly changed would
 // otherwise look exactly like one that did not.
 test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes stay independent', () => {
@@ -1419,7 +1474,7 @@ test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes st
 
   assert.deepEqual(Object.keys(meta), ['version', 'measure_hash', 'judge_hash', 'corpus_hash']);
   assert.equal(meta.measure_hash, 'bd0d4a1b', 'measure_hash after #85 (was dd15ca3f through 2.0.1, cc49bc6f through #102)');
-  assert.equal(meta.judge_hash, '41cb532f', 'judge_hash after E5a (was 9c31f7e3 through E3)');
+  assert.equal(meta.judge_hash, 'd856373f', 'judge_hash after 2.2.0/#60 (was 41cb532f through E5a)');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler
   // change; a placement.md edit is a judge-side one; neither may disturb the other, or #82's

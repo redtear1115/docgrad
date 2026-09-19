@@ -212,7 +212,7 @@ All five are zero-dependency Node (>=18) scripts that read `.docgrad.yml`, outpu
 ## Open questions (settled during implementation)
 
 - ~~approximation error of the anchor-slug algorithm on CJK headings~~ **resolved in 0.6.1**: aligned with github-slugger (spaces become dashes one by one, underscores within words are taken literally, explicit `<a id>`/`<a name>` are included in the slug set).
-- ~~Sampling strategy for `correctness_sample`: pure random vs. weighted (prioritize sampling paragraphs that "claim specific symbols/paths")~~ **resolved**: weighted, and mechanically so. The population is every non-heading line outside a fence carrying a code coordinate — path-shaped inline code, or API-shaped inline code whose every segment exists as an identifier under `src_dirs` — and the draw order is `claim_candidates`, sorted by reference count first, so the most specific claims are sampled first. The LLM picks nothing.
+- ~~Sampling strategy for `correctness_sample`: pure random vs. weighted (prioritize sampling paragraphs that "claim specific symbols/paths")~~ **resolved**: weighted, and mechanically so. The population is every non-heading line outside a fence carrying a code coordinate — path-shaped inline code, or API-shaped inline code whose every segment exists as an identifier under `src_dirs` — and the draw order is `claim_candidates`, sorted by reference count first (ties broken round-robin across documents, then by path, then by line — #60), so the most specific claims are sampled first without one document's claims crowding out every other document's. The LLM picks nothing.
 
 ## Attribution (full list in NOTICE.md)
 

@@ -190,10 +190,11 @@ try {
   // order shifts as the ledger grows, so "raising the cap only appends" no longer holds in that
   // mode. See claim_population.exclude_ledger below.
   //
-  // Out of scope for #54: the ranking below degrades to plain path/line order once `refs` stops
-  // discriminating (measured on a real repo: 77% of the population has refs: 1), and
-  // --exclude-ledger reaches that flat region sooner by excluding drawn candidates from the front.
-  // A better ranking signal is a design question, tracked separately at #60 — not fixed here.
+  // Once `refs` stops discriminating (measured on a real repo: 77% of the population has
+  // refs: 1), rankClaimCandidates draws round-robin across documents instead of degrading to plain
+  // path order (#60) — so a capped window doesn't fill up from one heavily-referenced document
+  // before every other document gets a turn, and --exclude-ledger reaching that flat region sooner
+  // (by excluding drawn candidates from the front) doesn't make that worse.
   const rankedCandidates = rankClaimCandidates(
     filesRaw.map((f) => ({ path: f.path, claims: f._claimLines }))
   );

@@ -73,7 +73,8 @@ Measurement: the claim ledger — draw `correctness_sample` concrete claims, re-
 existing ledger, and verify every one of them against the code (see [judge.md](judge.md) step 3).
 **The script decides the sample**: the population is `inventory.totals.claims_total` (non-heading
 lines outside fences that carry a code coordinate), the draw order is
-`inventory.claim_candidates` (stably sorted by ref count → path → line), at most 2 per document.
+`inventory.claim_candidates` (stably sorted by ref count → round-robin ordinal across documents →
+path → line — #60), at most 2 per document.
 `claim_candidates` is a **window** onto that order, not all of it: it holds the first
 `claim_candidates_cap` candidates (default 60), because emitting hundreds of claim texts would cost
 the reader the very thing the economy dimension measures. Draws come only from the window, so a
@@ -209,6 +210,31 @@ anchors (see its entry).
 <details>
 <summary>Expand</summary>
 
+- **v2.2.0 — `claim_candidates` draws round-robin across documents within an equal-refs tier, and the
+  scoped-audit `--include` sentence gained the no-match error** (**not an anchor change**): no ★1–★5
+  threshold moved and no default changed. `rankClaimCandidates()` used to degrade to plain path/line
+  order once `refs` stopped discriminating (#60) — on a real repo, 77% of the population sits at
+  refs: 1, so one heavily-referenced document could own the whole top of a capped draw and starve
+  every other document out of it. It now numbers each claim by its ordinal (by line) among its own
+  document's claims at that refs value, and interleaves those ordinals across documents before
+  falling back to path, then line. This is the draw order `judge.md` step 3 and this file's
+  §Mechanical signal → dimension map both describe, and both are `judge_hash` inputs, so the hash
+  moves. The §Scoped audit "How to run it" sentence about `--include` also changed, to say that a
+  pattern matching no file in the corpus is now an error (#120, carried here so `judge_hash` moves
+  exactly once for both edits) — also a `judge_hash` input. What a reader has to do about it:
+  - **Cumulative ledger coverage stays comparable across this move; the draw *sequence* does not.**
+    Neither the claim population nor `claim_hash` changed — the same set of claims exists either
+    side of the move, just visited in a different order — so a ledger's cumulative count of distinct
+    claims verified is still the same kind of number before and after. What is not comparable is
+    which claim a given round draws *next*: a round run against the old order and a round run
+    against the new order can draw different claims at the same cap, even from an unchanged corpus.
+  - `judge_hash` moves from `41cb532f` to `5781e476` on this repo. (This file is itself a
+    `judge_hash` input, so it cannot quote its own resulting value with byte-for-byte precision —
+    each edit to add or correct the quoted value moves the value again. `docgradMeta()` against the
+    merged tree, and the pinned literal in `tests/lib.test.mjs`, are the values of record; treat this
+    entry's number as accurate as of when it was last touched, not as a live-recomputed fixed point.)
+    `measure_hash` (`bd0d4a1b`) and `corpus_hash` (`71d1ce84`) are unaffected — nothing in
+    `measure.md`, `MEASURE_BANDS` or the corpus-selecting config fields changed.
 - **v1.6.0 — the claim-candidate window is configurable and disclosed** (**not an anchor change**):
   the ★1–★5 thresholds are untouched and no dimension gained or lost a criterion. `inventory.mjs` has always emitted only the
   first 60 ranked claim candidates; that number is now the config field `claim_candidates_cap`, **defaulting to 60**, so no
