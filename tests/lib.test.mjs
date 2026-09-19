@@ -1509,6 +1509,16 @@ test('summarizeLedgerConformance: no row has an integer round -> latest_round is
   assert.equal(summary.latest_round, null);
 });
 
+test('summarizeLedgerConformance: a ledger past ~124k rows does not overflow the call stack finding latest_round', () => {
+  // Math.max(...rounds) spread one argument per row and threw RangeError above ~124k rows — a
+  // regression against 2.1.0, where both ledger flags accepted a ledger of any size.
+  const rows = Array.from({ length: 200_000 }, (_, i) => ({ claim_hash: `h${i}`, round: (i % 7) + 1, missing: [] }));
+  const summary = summarizeLedgerConformance(rows);
+  assert.equal(summary.rows, 200_000);
+  assert.equal(summary.latest_round.round, 7);
+  assert.equal(summary.latest_round.rows, rows.filter((r) => r.round === 7).length);
+});
+
 test('ledgerConformanceNote: names how many rows miss each field, the borderline-count caveat, and the pre-v1.7.0 forward-only note', () => {
   const rows = [
     { claim_hash: 'a', round: 1, missing: ['borderline', 'rationale'] },

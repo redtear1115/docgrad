@@ -2097,18 +2097,6 @@ export function rankClaimCandidates(perFile) {
     .sort((a, b) => b.refs - a.refs || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0) || a.line - b.line);
 }
 
-// --- #54: --exclude-ledger --------------------------------------------------------
-//
-// Reads a `.docgrad/ledger.jsonl` and returns the set of `claim_hash` values it contains, so
-// inventory.mjs can filter them out of the ranked candidate list before `claim_candidates_cap` is
-// applied — every ledger row currently costs the emitted window one slot forever, and this is the
-// fix (#54).
-//
-// **Fails loudly on anything short of a well-formed ledger.** A missing file, an unreadable one, or
-// a line that isn't a JSON object with a `claim_hash` string all throw. The alternative — falling
-// back to "nothing excluded" — would silently re-emit the unfiltered window while the caller
-// believes it asked for a filtered one, which is the exact defect this flag exists to close, just
-// hidden one layer deeper. A malformed ledger must stop the run, not degrade it quietly.
 // --- #67: claim-ledger row conformance (checked and reported, never enforced) ---------------
 //
 // improve.md's row example, rubric.md §Correctness and judge.md's boundary rules together describe
@@ -2128,7 +2116,7 @@ function isMissingNonEmptyString(v) {
   return typeof v !== 'string' || v.length === 0;
 }
 
-// `rationale` is the one conditional field (improve.md:190-191, rubric.md:110, judge.md:133):
+// `rationale` is the one conditional field (improve.md §Steps in each round step 5, rubric.md §Correctness, judge.md step 3's boundary rules):
 // required on a `fail`, and on a borderline `pass` — a pass rate that moved because a borderline
 // call flipped needs the reasoning on record, a clean pass does not.
 function rationaleRequired(row) {
@@ -2151,6 +2139,18 @@ function missingLedgerFields(row) {
   return missing;
 }
 
+// --- #54: --exclude-ledger --------------------------------------------------------
+//
+// Reads a `.docgrad/ledger.jsonl` and returns the set of `claim_hash` values it contains, so
+// inventory.mjs can filter them out of the ranked candidate list before `claim_candidates_cap` is
+// applied — every ledger row currently costs the emitted window one slot forever, and this is the
+// fix (#54).
+//
+// **Fails loudly on anything short of a well-formed ledger.** A missing file, an unreadable one, or
+// a line that isn't a JSON object with a `claim_hash` string all throw. The alternative — falling
+// back to "nothing excluded" — would silently re-emit the unfiltered window while the caller
+// believes it asked for a filtered one, which is the exact defect this flag exists to close, just
+// hidden one layer deeper. A malformed ledger must stop the run, not degrade it quietly.
 export function loadLedgerRows(ledgerPath, flag = '--exclude-ledger') {
   let text;
   try {
@@ -2221,7 +2221,9 @@ export function summarizeLedgerConformance(rows) {
   const withIntRound = rows.filter((r) => Number.isInteger(r.round));
   let latest_round = null;
   if (withIntRound.length) {
-    const maxRound = Math.max(...withIntRound.map((r) => r.round));
+    // A loop, not Math.max(...rounds): spreading one argument per row overflows the call stack on
+    // a ledger past ~124k rows, and a ledger only grows.
+    const maxRound = withIntRound.reduce((m, r) => (r.round > m ? r.round : m), -Infinity);
     latest_round = { round: maxRound, ...tally(withIntRound.filter((r) => r.round === maxRound)) };
   }
   return { ...tally(rows), latest_round };
