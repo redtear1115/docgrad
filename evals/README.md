@@ -16,6 +16,7 @@ and isn't stable today.
 - [Why they exist](#why-they-exist)
 - [The three cases](#the-three-cases)
 - [How to run them](#how-to-run-them)
+- [v2.2.0 release run (2026-09-19)](#v220-release-run-2026-09-19)
 - [v2.1.0 release run (2026-09-19)](#v210-release-run-2026-09-19)
 - [First v2 run (2026-09-17)](#first-v2-run-2026-09-17)
 - [Current status: the harness runs, the suite does not score yet](#current-status-the-harness-runs-the-suite-does-not-score-yet)
@@ -63,6 +64,53 @@ claude plugin eval . --runs 5
   answer is **completely unknown** — that's exactly what this is meant to measure.
 - `--threshold`: everything must be green to pass; `linkage-known`'s `measure` verdict leaves no
   room for interpretation.
+
+## v2.2.0 release run (2026-09-19)
+
+```bash
+claude plugin eval . --runs 5 --scaffold --allow-tools Bash --keep-temp
+```
+
+Claude Code 2.1.278, on `main` at `845c6fe` — the 2.2.0 code (`judge_hash 0e1f37cc`), with the
+manifests still saying 2.1.0. Required before release because #60 changes the claim draw order, which
+is the judge sampling flow. Two arms, 30 runs, 51 minutes, `$24.96`.
+
+| case | with docgrad | without | Δ |
+|---|---|---|---|
+| `clean-baseline` | 1.00 — 3/3 votes ×5 | 0.00 | +1.00 |
+| `linkage-known` | 1.00 — 3/3 ×4, 2/3 ×1 | 0.00 | +1.00 |
+| `planted-contradiction` | 0.80 — 3/3 ×3, 2/3 ×1, **0/3 ×1** | 0.00 | +0.80 |
+
+**`measure` was identical in every run of each case.** All 15 with-plugin runs reported
+`measure_hash bd0d4a1b`; `dead_link_ratio` FAIL ×5 on `linkage-known`, every other verdict OK
+(`undocumented_dirs`/`drifted_dirs` `null` on `linkage-known`, as in 2.1.0).
+
+**The failing `planted-contradiction` run found the contradiction, but its closing line is
+ambiguous about criterion 1.** Read off its transcript: both draws were the same two claims every
+run drew; the planted claim (`ef1e33af74ad`) is in its "Claim ledger — round 1" table as `fail`,
+borderline, with the direction stated ("a positive value means A paid more and therefore
+**B owes A**") and both wrong sentences named; the consistency deduction says "Arbitrated against the
+code: the code is right, the document is wrong"; no file was written. So criteria 2–4 hold. But the
+message ends with "no `.docgrad/` directory exists in the target, so there is no ledger, … both
+`measure` and `judge` wrote nothing" and never ties that back to the table — and the grader judges
+the last message only (`focus: last_message`). A literal judge can read that as the run denying
+criterion 1 ("appears in the claim ledger"). Runs 1 and 2 (3/3) said outright that the table was
+this round's verified set, held only in the report; run 3, which also drew one FAIL vote, carried a
+similar "no ledger" line. But run 2 also said "No ledger was written" and still passed 3/3, and the judges leave no
+reasons, so this is a plausible cause, not a proven one — recorded as a grader-wording question
+alongside #69, not as a docgrad regression. It is not evidence against #60: the fixture has two claim
+candidates, both drawn in every run, so the draw order cannot change what is sampled here.
+
+**`judge` stars** (read off the transcripts' reports; a distribution, not a pass condition):
+
+| case | Completeness | Correctness | Consistency |
+|---|---|---|---|
+| `clean-baseline` | ★4 ★2 ★2 ★2 ★3 | ★4 ×5 | ★4 ×5 |
+| `linkage-known` | ★1 ★1 ★1 ★2 ★1 | n/a ×5 | ★4 ★4 ★3 ★4 ★4 |
+| `planted-contradiction` | ★2 ×5 | ★2 ×5 | ★2 ×5 |
+
+The planted case's correctness and consistency ★2 held in all five runs. `clean-baseline`'s
+completeness spread two steps this time (★2–★4), wider than the one step #70 names.
 
 ## v2.1.0 release run (2026-09-19)
 

@@ -1,6 +1,6 @@
 {
   "name": "docgrad",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Grade and converge a repo's documentation system as an AI-agent context source — measure (reproducible OK/WATCH/FAIL signals, including entry-file token cost) plus judge (LLM star ratings for completeness, correctness, consistency), with an improvement loop that fixes docs until every measure signal meets its target.",
   "author": {
     "name": "Ray Lee"
