@@ -118,14 +118,28 @@ test('freshness: measure array — ids in table order, right after docgrad/note,
   assert.equal(byId.date_drift.verdict, 'OK'); // 14 < 30
 });
 
-test('freshness: measure — files_total: 0 (an --include matching nothing) makes date_coverage null, not a 0/0 FAIL', () => {
+test('freshness: measure — files_total: 0 (an empty corpus) makes date_coverage null, not a 0/0 FAIL', () => {
+  // A no-match --include is now an error (#120) — reach the empty-corpus case a different way,
+  // via a config with nothing in scope at all, and keep asserting the null/"empty corpus" shape.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-empty-'));
+  try {
+    fs.writeFileSync(path.join(tmp, '.docgrad.yml'), 'docs_dirs: []\n');
+    const r = spawnSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.files_total, 0);
+    const dateCoverage = out.measure.find((m) => m.id === 'date_coverage');
+    assert.equal(dateCoverage.verdict, null);
+    assert.equal(dateCoverage.note, 'empty corpus');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('freshness: --include matching nothing in the corpus is an error, not a silent empty run (#120)', () => {
   const r = spawnSync(process.execPath, [SCRIPT, '--root', FIXTURE, '--include', 'nope/**'], { encoding: 'utf8' });
-  assert.equal(r.status, 0, r.stderr);
-  const out = JSON.parse(r.stdout);
-  assert.equal(out.files_total, 0);
-  const dateCoverage = out.measure.find((m) => m.id === 'date_coverage');
-  assert.equal(dateCoverage.verdict, null);
-  assert.equal(dateCoverage.note, 'empty corpus');
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /^docgrad: --include matched no files for: nope\/\*\*/);
 });
 
 test('freshness: measure — a scoped run nulls key_doc_age only; date_coverage and date_drift are still evaluated over the scope', () => {

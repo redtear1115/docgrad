@@ -485,12 +485,87 @@ test('collectFiles: excludes exclude, includes entry_files, paths sorted', () =>
 
 test('collectFiles: include narrows to scope; exclude still wins over scope', () => {
   const cfg = loadConfig(FIXTURE);
-  const { included, excluded } = collectFiles(FIXTURE, cfg, { include: ['docs/guide.md', 'docs/archive/**'] });
-  assert.deepEqual(included, ['docs/guide.md']);
+  // Every pattern here matches at least one *included* file (#120: a pattern that only ever
+  // matches excluded files is itself an error case, covered separately below) — `docs/**` also
+  // reaches docs/archive/old.md, which stays blocked by exclude even though it is in scope.
+  const { included, excluded } = collectFiles(FIXTURE, cfg, { include: ['docs/guide.md', 'docs/**'] });
+  assert.deepEqual(included, ['docs/README.md', 'docs/guide.md', 'docs/orphan.md']);
   assert.deepEqual(excluded, ['docs/archive/old.md']); // inside scope, but still blocked by exclude
   assert.deepEqual(collectFiles(FIXTURE, cfg, { include: ['docs/*.md'] }).included, [
     'docs/README.md', 'docs/guide.md', 'docs/orphan.md',
   ]);
+});
+
+// --- #120: --include matching no included file is an error, not a silent all-OK run ----------
+
+test('collectFiles: an --include literal path matching nothing collected throws, naming the pattern', () => {
+  const cfg = loadConfig(FIXTURE);
+  assert.throws(
+    () => collectFiles(FIXTURE, cfg, { include: ['docs/nope.md'] }),
+    /--include matched no files for: docs\/nope\.md \(matches no file under docs_dirs, docs_files, entry_files or index_file/
+  );
+});
+
+test('collectFiles: an --include glob matching nothing collected throws, naming the pattern', () => {
+  const cfg = loadConfig(FIXTURE);
+  assert.throws(
+    () => collectFiles(FIXTURE, cfg, { include: ['docs/nope/**'] }),
+    /--include matched no files for: docs\/nope\/\*\* \(matches no file under docs_dirs, docs_files, entry_files or index_file/
+  );
+});
+
+test('collectFiles: an --include pattern matching only an excluded file throws, naming exclude/out_of_scope', () => {
+  const cfg = loadConfig(FIXTURE);
+  assert.throws(
+    () => collectFiles(FIXTURE, cfg, { include: ['docs/archive/**'] }),
+    /--include matched no files for: docs\/archive\/\*\* \(matches only files removed by exclude \/ out_of_scope\)/
+  );
+});
+
+test('collectFiles: one matched + one unmatched --include pattern names only the unmatched one', () => {
+  const cfg = loadConfig(FIXTURE);
+  assert.throws(
+    () => collectFiles(FIXTURE, cfg, { include: ['docs/guide.md', 'docs/nope.md'] }),
+    (err) => {
+      assert.match(err.message, /docs\/nope\.md/);
+      assert.doesNotMatch(err.message, /docs\/guide\.md/);
+      return true;
+    }
+  );
+});
+
+test('collectFiles: --include where every pattern matches an included file is unaffected', () => {
+  const cfg = loadConfig(FIXTURE);
+  const { included, excluded } = collectFiles(FIXTURE, cfg, { include: ['docs/guide.md', 'docs/README.md'] });
+  assert.deepEqual(included, ['docs/README.md', 'docs/guide.md']);
+  assert.deepEqual(excluded, []);
+});
+
+test('collectFiles: an --include pattern only matching a file dropped by exclude_untracked names that cause', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-untracked-scope-'));
+  fs.mkdirSync(path.join(tmp, 'docs'), { recursive: true });
+  fs.writeFileSync(path.join(tmp, 'docs', 'tracked.md'), '# tracked\n');
+  fs.writeFileSync(path.join(tmp, '.docgrad.yml'), 'docs_dirs: [docs/]\nexclude_untracked: true\n');
+  const env = {
+    ...process.env,
+    GIT_CONFIG_GLOBAL: '/dev/null',
+    GIT_CONFIG_SYSTEM: '/dev/null',
+    GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com',
+    GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com',
+  };
+  execFileSync('git', ['init', '-q'], { cwd: tmp, env });
+  execFileSync('git', ['add', '-A'], { cwd: tmp, env });
+  execFileSync('git', ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'fixture'], { cwd: tmp, env });
+  fs.writeFileSync(path.join(tmp, 'docs', 'untracked.md'), '# untracked\n');
+  try {
+    const cfg = loadConfig(tmp);
+    assert.throws(
+      () => collectFiles(tmp, cfg, { include: ['docs/untracked.md'] }),
+      /--include matched no files for: docs\/untracked\.md \(matches only files excluded by exclude_untracked/
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test('collectFiles: docs_files pulls a single file outside docs_dirs into the corpus', () => {

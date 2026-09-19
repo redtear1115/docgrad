@@ -114,7 +114,11 @@ Four steps, all of them existing commands.
    broke an inline link or an anchor, whether a body changed without its date. `inventory.mjs`,
    `links.mjs` and `freshness.mjs` honour `--include`; `coverage.mjs` and `retrieval.mjs` accept it
    and deliberately ignore it, saying so in their own `note`, because coverage drift and retrieval
-   are whole-corpus concepts.
+   are whole-corpus concepts. Every file passed to `--include` must be in the graded corpus: one
+   that is not — outside `docs_dirs`/`docs_files`/`entry_files`/`index_file`, removed by
+   `exclude`/`out_of_scope`, or dropped by `exclude_untracked` — makes those three scripts exit
+   non-zero naming the file and the reason (#120), rather than silently checking nothing for it.
+   Bring the file into the corpus if it should be graded, or drop it from the post-check.
 4. **Read the diff and decide.** Merge it, or throw the branch away. The pass being its own commit is
    what keeps that a one-command decision.
 
