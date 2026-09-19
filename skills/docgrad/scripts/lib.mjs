@@ -2087,14 +2087,41 @@ export function extractClaimLines(text, srcDirs = [], { symbols = null } = {}) {
   return out;
 }
 
-// Aggregates claim candidates across files with a **stable** ordering: more refs comes first
-// (the more specific the claim, the more it deserves verification), ties broken by path, then by
-// line — the order this produces from the same corpus is always the same, so sampling is
-// reproducible.
+// Aggregates claim candidates across files with a **stable, total** ordering: more refs comes
+// first (the more specific the claim, the more it deserves verification). Within an equal-refs
+// tier, candidates are drawn round-robin across documents (#60) — each document's 1st claim at
+// that refs value, then each document's 2nd, and so on — instead of degrading to path order,
+// which used to let whichever document sorts first by path own the whole top of an equal-refs
+// tier and starve every other document out of the capped draw. A claim's round-robin ordinal is its position (by
+// line, ascending) among its own document's claims that share its refs value; two claims with the
+// same refs and the same ordinal (i.e. from different documents) are then broken by path, then by
+// line, so the order is total and deterministic and does not depend on the input order of
+// `perFile` — grouping is by path/refs value, never by array position.
 export function rankClaimCandidates(perFile) {
-  return perFile
-    .flatMap(({ path: p, claims }) => claims.map((c) => ({ path: p, ...c })))
-    .sort((a, b) => b.refs - a.refs || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0) || a.line - b.line);
+  const flat = perFile.flatMap(({ path: p, claims }) => claims.map((c) => ({ path: p, ...c })));
+
+  // Round-robin ordinal: within each (path, refs) group, claims are numbered 1, 2, 3, … in line
+  // order. Grouping by the values themselves (not by iteration order) is what keeps the result
+  // independent of how `perFile` was ordered coming in.
+  const groups = new Map(); // `${path}\u0000${refs}` -> claims, sorted by line once
+  for (const c of flat) {
+    const key = `${c.path}\u0000${c.refs}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(c);
+  }
+  const ordinal = new Map(); // claim -> its 1-based round-robin ordinal within its group
+  for (const group of groups.values()) {
+    group.sort((a, b) => a.line - b.line);
+    group.forEach((c, i) => ordinal.set(c, i + 1));
+  }
+
+  return flat.sort(
+    (a, b) =>
+      b.refs - a.refs ||
+      ordinal.get(a) - ordinal.get(b) ||
+      (a.path < b.path ? -1 : a.path > b.path ? 1 : 0) ||
+      a.line - b.line
+  );
 }
 
 // --- #67: claim-ledger row conformance (checked and reported, never enforced) ---------------

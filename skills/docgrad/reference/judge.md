@@ -58,8 +58,9 @@ Steps 1–3 below build those three parts in order.
    same date; `verified_at` alone cannot separate them. The `claim_hash` tiebreak is what makes two independent runs pick the same set.)
    Take the first `min(floor(correctness_sample / 2), number of pass entries)` of that ordering.
 3. **Draw `correctness_sample` new claims** — and do not let steps 1 and 2 reduce that number.
-   Consume `inventory.mjs`'s `claim_candidates` (already stably sorted by "ref count → path → line",
-   same order every time for the same corpus) — **unless `inventory.mjs` was run with `--exclude-ledger`
+   Consume `inventory.mjs`'s `claim_candidates` (already stably sorted by "ref count → round-robin
+   ordinal across documents → path → line" (#60), same order every time for the same corpus) —
+   **unless `inventory.mjs` was run with `--exclude-ledger`
    (#54)**, in which case the order consumed is a function of the corpus **and** the ledger: rows
    already in the ledger were filtered out before `claim_candidates_cap` was applied, so it is still
    stable for that one run but it shifts across rounds as the ledger grows. "Front to back" still
@@ -375,7 +376,7 @@ alias form: no write to `.docgrad/scorecard-latest.md` or `.docgrad/history.json
 Refuse even if the user asks to "log it while you're at it" — suggest running a full `audit` or `improve` instead.
 
 **How to run it**: pass the `--include <glob>` flag (repeatable or comma-separated) to the three scripts that accept it (inventory/links/freshness);
-`coverage.mjs`/`retrieval.mjs` accept the flag but deliberately ignore it and always run in full; both report `scope: null` to say so, and `coverage.mjs` explains why in its `note`. With `--dim`, run only the scripts that dimension needs
+`coverage.mjs`/`retrieval.mjs` accept the flag but deliberately ignore it and always run in full; both report `scope: null` to say so, and `coverage.mjs` explains why in its `note`. **A `--include` pattern that matches no file in the corpus is an error** (non-zero exit, the offending pattern named — #120), not a silently empty scope, so double-check the scope translation above rather than treating an error as "nothing there." With `--dim`, run only the scripts that dimension needs
 (cross-reference [rubric.md](rubric.md) §Mechanical signal → dimension map), skip the rest.
 
 **How each dimension behaves under scope** (skip this and you get a misleading star rating):
