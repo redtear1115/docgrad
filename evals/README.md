@@ -71,7 +71,7 @@ claude plugin eval . --runs 5 --scaffold --allow-tools Bash --keep-temp
 ```
 
 Claude Code 2.1.278, on `main` at `61d3543` — the 2.1.0 code, with the manifests still saying 2.0.1
-(the release commit only changes version fields and the CHANGELOG). Required before release by
+(the release commit changes only version fields, the CHANGELOG and this section). Required before release by
 [how-to §Run the skill-level evals](../docs/how-to.md#run-the-skill-level-evals), because #85 adds a
 measure row. Two arms, 30 runs, 54 minutes, `$25.31`.
 
