@@ -52,6 +52,8 @@ function lineRangeOf(anchor) {
 
 // Lines as GitHub numbers them: a trailing newline ends the last line rather than opening an empty
 // one, and an empty file has none. Split on `\n` alone, so a CRLF file counts the same.
+const RANGE_TARGET_NOT_A_FILE = 'not-a-file'; // a directory: no lines to count, not judged
+const RANGE_TARGET_UNREADABLE = 'unreadable'; // permissions, a race: not judged, and reported
 function countLines(absPath) {
   const text = fs.readFileSync(absPath, 'utf8');
   if (text === '') return 0;
@@ -166,6 +168,7 @@ try {
   const bad_anchors = [];
   const stale_ranges = [];
   let range_links = 0; // line-range links to an existing in-root file: stale_range_ratio's denominator
+  let unreadable_range_links = 0; // ...whose target could not be read: not judged, and the row says so
   const lineCounts = new Map(); // a file linked by range several times is read once
   const graph = new Map(included.map((p) => [p, new Set()]));
   let total_links = 0;
@@ -195,9 +198,22 @@ try {
       const range = anchor ? lineRangeOf(anchor) : null;
       if (range) {
         const abs = path.join(root, resolved);
-        if (!lineCounts.has(resolved)) lineCounts.set(resolved, fs.statSync(abs).isFile() ? countLines(abs) : null);
+        if (!lineCounts.has(resolved)) {
+          // An unreadable target is not judged — but it is counted and said, never folded into the
+          // quiet "no range links" reading. Before #85 this script never opened a non-markdown
+          // target, so one unreadable file here must not take the whole links measure down with it.
+          let count;
+          try {
+            count = fs.statSync(abs).isFile() ? countLines(abs) : RANGE_TARGET_NOT_A_FILE;
+          } catch {
+            count = RANGE_TARGET_UNREADABLE;
+          }
+          lineCounts.set(resolved, count);
+        }
         const targetLines = lineCounts.get(resolved);
-        if (targetLines !== null) {
+        if (targetLines === RANGE_TARGET_UNREADABLE) {
+          unreadable_range_links += 1;
+        } else if (targetLines !== RANGE_TARGET_NOT_A_FILE) {
           range_links += 1;
           if (range.first < 1 || range.last > targetLines) {
             stale_ranges.push({ file: rel, line, target, anchor, target_lines: targetLines });
@@ -265,14 +281,21 @@ try {
     // treats no links.
     evaluateMeasure(
       'stale_range_ratio',
-      range_links === 0
-        ? { value: 0, numerator: 0, denominator: 0, note: 'no line-range links' }
-        : {
-            value: Number((stale_ranges.length / range_links).toFixed(4)),
-            raw: stale_ranges.length / range_links,
-            numerator: stale_ranges.length,
-            denominator: range_links,
-          },
+      (() => {
+        const unreadNote = unreadable_range_links
+          ? `${unreadable_range_links} line-range link(s) not judged: target unreadable`
+          : null;
+        if (range_links === 0) {
+          return { value: 0, numerator: 0, denominator: 0, note: ['no line-range links', unreadNote].filter(Boolean).join('; ') };
+        }
+        return {
+          value: Number((stale_ranges.length / range_links).toFixed(4)),
+          raw: stale_ranges.length / range_links,
+          numerator: stale_ranges.length,
+          denominator: range_links,
+          ...(unreadNote ? { note: unreadNote } : {}),
+        };
+      })(),
       config,
       { scoped }
     ),

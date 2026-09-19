@@ -68,7 +68,9 @@ The eleven rows, across four scripts, each citing the rubric.md anchor its OK/FA
     blank is not stale. The denominator counts only line-range links into existing in-root files, of
     any type — ranges mostly point at source code, not at documents — so a directory, a dead target
     and an out-of-root target are not in it (the latter two are already `dead_links` and
-    `out_of_root_links`). With no range links the ratio is `0` with `note: "no line-range links"`.
+    `out_of_root_links`). A target that cannot be read is not judged either, and the row's `note`
+    counts how many were skipped — it is never folded into a quiet zero. With no range links the
+    ratio is `0` with `note: "no line-range links"`.
     Unlike `dead_link_ratio` there is no `ok_also`: a stale range is not a broken anchor, and nothing
     else holds this row off OK.
   - `orphan_ratio` — `orphans.length / included.length`. FAIL `> 20%`; OK `≤ 5%`. `null` (not `0`)

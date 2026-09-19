@@ -5,7 +5,7 @@ For version-number semantics (semver, docgrad-specific) see [docs/how-to.md](doc
 
 ## Unreleased
 
-**`measure_hash` moves, from `dd15ca3f` to `d6fb022e`**, because one row is added. `judge_hash`
+**`measure_hash` moves, from `dd15ca3f` to `b731d860`**, because one row is added. `judge_hash`
 `41cb532f` and `corpus_hash` `71d1ce84` are unchanged.
 
 **What can flip:** only the new row. A repo whose documents link line ranges past the end of their

@@ -372,6 +372,48 @@ test('links: a line range past the end of its target is a stale range, counted i
   }
 });
 
+// #85 introduced the first read of a non-markdown link target. An unreadable one must not take the
+// whole links measure down — before #85 that file was never opened, so a crash here would be a
+// regression in every row, not only the new one. It is not judged, and the row says so.
+test('links: an unreadable range target is not judged and is noted, and the script still exits 0 (#85)', (t) => {
+  if (process.getuid?.() === 0) return t.skip('running as root: chmod 000 does not block reads');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-stale-range-unreadable-'));
+  const locked = path.join(tmp, 'src', 'locked.ts');
+  try {
+    fs.mkdirSync(path.join(tmp, 'docs'));
+    fs.mkdirSync(path.join(tmp, 'src'));
+    fs.writeFileSync(path.join(tmp, '.docgrad.yml'), 'docs_dirs: [docs/]\nentry_files: []\nindex_file: docs/README.md\n');
+    fs.writeFileSync(path.join(tmp, 'src', 'crlf.ts'), 'x\r\ny\r\n'); // two lines, CRLF
+    fs.writeFileSync(path.join(tmp, 'src', 'nonl.ts'), 'x\ny'); // two lines, no trailing newline
+    fs.writeFileSync(path.join(tmp, 'src', 'empty.ts'), ''); // no lines
+    fs.writeFileSync(locked, 'secret\n');
+    fs.chmodSync(locked, 0o000);
+    fs.writeFileSync(
+      path.join(tmp, 'docs', 'README.md'),
+      [
+        '# Index',
+        '- [crlf inside](../src/crlf.ts#L2)',
+        '- [crlf past](../src/crlf.ts#L3)',
+        '- [no trailing newline](../src/nonl.ts#L2)',
+        '- [empty file](../src/empty.ts#L1)',
+        '- [unreadable](../src/locked.ts#L1)',
+        '',
+      ].join('\n')
+    );
+
+    const out = JSON.parse(execFileSync(process.execPath, [SCRIPT, '--root', tmp], { encoding: 'utf8' }));
+    assert.deepEqual(out.stale_ranges.map((s) => s.anchor).sort(), ['L1', 'L3']);
+    const row = out.measure.find((m) => m.id === 'stale_range_ratio');
+    assert.equal(row.denominator, 4, 'the unreadable target is not in the denominator');
+    assert.equal(row.numerator, 2);
+    assert.match(row.note, /1 line-range link\(s\) not judged: target unreadable/);
+    assert.equal(out.measure.find((m) => m.id === 'dead_link_ratio').verdict, 'OK', 'the other rows are untouched');
+  } finally {
+    fs.chmodSync(locked, 0o644);
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 // --- v2.0.0 E2c-1: targets / accept / meets_target / legacy-target note ------------------------
 
 test('links: measure — every row carries accept and meets_target, and legacy targets are absent by default', () => {
