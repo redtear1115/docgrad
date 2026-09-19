@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/basic/', import.meta.url));
@@ -43,6 +43,13 @@ test('links: --include only counts dead links/bad anchors/stale ranges, orphans 
   assert.equal(out.reachable_ratio, null);
   assert.equal(out.dead_links.length, 1); // dead links are judged per-file, still caught under scope
   assert.equal(out.bad_anchors.length, 1);
+});
+
+test('links: --include matching no included file exits non-zero, naming the pattern (#120)', () => {
+  const r = spawnSync(process.execPath, [SCRIPT, '--root', FIXTURE, '--include', 'docs/nope/**'], { encoding: 'utf8' });
+  assert.notEqual(r.status, 0);
+  assert.equal(r.stdout, '');
+  assert.match(r.stderr, /^docgrad: --include matched no files for: docs\/nope\/\*\*/);
 });
 
 test('links: docs_files are judged as orphans like any regular document (not a reachability starting point)', () => {

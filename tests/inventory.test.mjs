@@ -1182,7 +1182,10 @@ test('inventory: a scoped --locate-ledger run names scope narrowing as a cause o
   try {
     const hashes = runInventory(tmp).claim_candidates.map((c) => c.claim_hash);
     const ledgerPath = writeLocateLedger(tmp, hashes.map((h) => ({ claim_hash: h })));
-    const scoped = runInventory(tmp, '--locate-ledger', ledgerPath, '--include', 'docs/nothing/**');
+    // A second doc, included on its own, holds none of the ledgered claims — a no-match --include
+    // is now an error (#120), so the scope must still resolve to a real (if claim-empty) file.
+    fs.writeFileSync(path.join(tmp, 'docs', 'other.md'), '# Other\n\nNothing here references a rule.\n');
+    const scoped = runInventory(tmp, '--locate-ledger', ledgerPath, '--include', 'docs/other.md');
     assert.equal(scoped.locate_ledger.located, 0, 'the scoped corpus contains none of them');
     assert.equal(scoped.locate_ledger.not_located, hashes.length);
     assert.match(

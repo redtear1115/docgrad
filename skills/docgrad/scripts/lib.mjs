@@ -914,8 +914,39 @@ export function collectFiles(rootDir, config, { include = [], tracked } = {}) {
   const isExcluded = (p) => matchesPathPrefix(p, config.exclude);
   const isOutOfScope = (p) => !isExcluded(p) && matchesPathPrefix(p, config.out_of_scope);
   const inScope = (p) => matchesScope(p, include);
+  const included = collected.filter((p) => !isExcluded(p) && !isOutOfScope(p) && inScope(p)).sort();
+
+  // A --include pattern that matches nothing in the final `included` set is a silent no-op today:
+  // the caller thinks it scoped a run and instead got everything filtered away, and every row
+  // downstream reads as "OK" over an empty corpus (#120 — observed as `links.mjs --include
+  // CHANGELOG.md` reporting total_links 0 instead of failing). Every pattern must earn its keep.
+  // Checked against three widening sets — `all` (everything docs_dirs/docs_files/entry_files/
+  // index_file put in the corpus, before any filtering), `collected` (after exclude_untracked),
+  // and `included` (after the exclude/out_of_scope split) — so the message can name *why* a
+  // pattern missed rather than just that it did, per the check that failed first:
+  if (include.length > 0) {
+    const matchesAny = (pattern, paths) => paths.some((p) => matchesScope(p, [pattern]));
+    const unmatched = include
+      .filter((pattern) => !matchesAny(pattern, included))
+      .map((pattern) => {
+        let reason;
+        if (!matchesAny(pattern, all)) {
+          reason = 'matches no file under docs_dirs, docs_files, entry_files or index_file — '
+            + 'add it to docs_files if it should be checked';
+        } else if (!matchesAny(pattern, collected)) {
+          reason = 'matches only files excluded by exclude_untracked (not tracked by git)';
+        } else {
+          reason = 'matches only files removed by exclude / out_of_scope';
+        }
+        return `${pattern} (${reason})`;
+      });
+    if (unmatched.length > 0) {
+      throw new Error(`--include matched no files for: ${unmatched.join('; ')}`);
+    }
+  }
+
   return {
-    included: collected.filter((p) => !isExcluded(p) && !isOutOfScope(p) && inScope(p)).sort(),
+    included,
     excluded: collected.filter((p) => isExcluded(p) && inScope(p)).sort(),
     // Narrowed by `include` exactly like `excluded` is: under a scoped run every bucket describes
     // the same slice of the tree, so the three add up to what the scope collected.
