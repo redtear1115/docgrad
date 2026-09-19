@@ -36,7 +36,7 @@ five comparisons — `<`, `<=`, `>`, `>=`, `==` — read in their ordinary arith
 exact equality, used for presence checks (`index_present`) and zero checks (`undocumented_dirs`,
 `drifted_dirs`) rather than for a ratio.
 
-A ratio row (`dead_link_ratio`, `orphan_ratio`, `date_coverage`, and `reachable_ratio` where it
+A ratio row (`dead_link_ratio`, `stale_range_ratio`, `orphan_ratio`, `date_coverage`, and `reachable_ratio` where it
 applies) is **evaluated against the unrounded division**, not against the four-decimal `value` it
 reports: 51 orphans over 1019 included documents is 0.050049…, which rounds to the same `0.0500`
 a reader sees whether or not the true ratio actually cleared the retired ★4 "orphans ≤5%" line, so
@@ -53,7 +53,8 @@ Since v2.0.0 these lines replace the linkage, freshness and economy star anchors
 and these verdict lines coexisted, describing the same boundaries side by side; that intermediate
 state is over.
 
-The eleven rows, across four scripts, each citing the rubric.md anchor its OK/FAIL lines come from:
+The twelve rows, across four scripts, each citing where its OK/FAIL lines come from — a retired
+rubric.md anchor for eleven of them, #85 for `stale_range_ratio`, the first row with no star behind it:
 
 - **links.mjs**
   - `dead_link_ratio` — `dead_links.length / total_links`. FAIL `> 2%`; OK requires the ratio to be

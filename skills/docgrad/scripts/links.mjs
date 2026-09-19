@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// links.mjs — dead links/bad anchors/orphans (reachability computed transitively from index_file + entry_files)
+// links.mjs — dead links/bad anchors/stale ranges/orphans (reachability computed transitively from index_file + entry_files)
 // Usage: node links.mjs [--root <repo>] [--config <file>] [--include <glob>] [--exclude-ledger <path>] [--locate-ledger <path>]; JSON -> stdout.
-// When scope-limited, only dead links/bad anchors are emitted: orphans and reachable ratio are
+// When scope-limited, only dead links/bad anchors/stale ranges are emitted: orphans and reachable ratio are
 // full-index concepts that go wrong once scope narrows, so they're never computed under scope.
 // --exclude-ledger (#54) is a no-op here: only inventory.mjs draws claim candidates from a claim
 // ledger; link checking has nothing to do with it. Accepted and ignored, like --include above.
@@ -50,10 +50,11 @@ function lineRangeOf(anchor) {
   return { first: Math.min(start, end), last: Math.max(start, end) };
 }
 
-// Lines as GitHub numbers them: a trailing newline ends the last line rather than opening an empty
-// one, and an empty file has none. Split on `\n` alone, so a CRLF file counts the same.
 const RANGE_TARGET_NOT_A_FILE = 'not-a-file'; // a directory: no lines to count, not judged
 const RANGE_TARGET_UNREADABLE = 'unreadable'; // permissions, a race: not judged, and reported
+
+// Lines as GitHub numbers them: a trailing newline ends the last line rather than opening an empty
+// one, and an empty file has none. Split on `\n` alone, so a CRLF file counts the same.
 function countLines(absPath) {
   const text = fs.readFileSync(absPath, 'utf8');
   if (text === '') return 0;
@@ -229,7 +230,7 @@ try {
   }
 
   const scopeNoteText = scoped
-    ? 'scope-limited: orphans/reachable ratio not computed (reachability is a full-index concept), only dead links and bad anchors are counted'
+    ? 'scope-limited: orphans/reachable ratio not computed (reachability is a full-index concept), only dead links, bad anchors and stale ranges are counted'
     : null;
   const combinedNoteText = [scopeNoteText, excludeLedgerNoteText, locateLedgerNoteText, legacyTargetsNote(config)].filter(Boolean).join('; ') || null;
 

@@ -1343,7 +1343,7 @@ test('docgradMeta: judge_hash folds in rubric.md at E4b, and the three hashes st
   const meta = docgradMeta(skillRoot, config);
 
   assert.deepEqual(Object.keys(meta), ['version', 'measure_hash', 'judge_hash', 'corpus_hash']);
-  assert.equal(meta.measure_hash, 'b731d860', 'measure_hash after #85 (was dd15ca3f through 2.0.1, cc49bc6f through #102)');
+  assert.equal(meta.measure_hash, '31915af2', 'measure_hash after #85 (was dd15ca3f through 2.0.1, cc49bc6f through #102)');
   assert.equal(meta.judge_hash, '41cb532f', 'judge_hash after E5a (was 9c31f7e3 through E3)');
 
   // Each hash answers for its own layer and nothing else. A threshold edit is a measure-side ruler

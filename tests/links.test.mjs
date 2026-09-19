@@ -29,12 +29,13 @@ test('links: dead links/bad anchors/orphans/reachable ratio', () => {
   assert.equal(out.scope, null);
 });
 
-test('links: --include only counts dead links/bad anchors, orphans and reachable ratio are never computed', () => {
+test('links: --include only counts dead links/bad anchors/stale ranges, orphans and reachable ratio are never computed', () => {
   const out = JSON.parse(
     execFileSync(process.execPath, [SCRIPT, '--root', FIXTURE, '--include', 'docs/**'], { encoding: 'utf8' })
   );
   assert.deepEqual(out.scope, ['docs/**']);
   assert.match(out.note, /reachable ratio/);
+  assert.match(out.note, /dead links, bad anchors and stale ranges are counted/, 'the note names every per-link count (#85)');
   // docs/orphan.md is an orphan on a full run; not judged under scope -> null ("not computed"),
   // never [] ("computed, and there are none")
   assert.equal(out.orphans, null);
