@@ -16,9 +16,9 @@ const MD_TARGET_RE = /\.(md|mdx|markdown)$/i;
 
 // `#L39-L86` is GitHub's line-range convention, not a heading reference (#74). `extractHeadings`
 // can never match it, so every link written that way was reported as a broken anchor — a permanent
-// linkage deduction for a convention that is not broken. It is now judged as nothing rather than as
-// a heading: docgrad has no concept of a line range, and reporting a defect it cannot define is
-// worse than staying quiet about it.
+// linkage deduction for a convention that is not broken. #74 made it judged as nothing rather than
+// as a heading: docgrad had no concept of a line range then, and reporting a defect it could not
+// define was worse than staying quiet about it. #85 has since given it one — see below.
 //
 // It lives here rather than inside `githubSlug()` because that function answers "what slug does
 // this text produce", which is a different question from "is this text a heading reference at

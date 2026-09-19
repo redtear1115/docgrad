@@ -27,7 +27,7 @@ For a scoped run: see [judge.md](judge.md) §Scoped audit.
 Every script except `retrieval.mjs` (report-only) now emits a top-level `measure` array: each row
 carries `id`, `value` (with `numerator`/`denominator` when it is a ratio), `verdict`
 (`"OK" | "WATCH" | "FAIL" | null`) and `line` — the boundary that decided the verdict, in the
-number's own units — plus the anchor `source` it was read from. **Report the number first and the
+number's own units — plus the `source` its lines were read from. **Report the number first and the
 verdict next to it**; the verdict names which line fired, it does not replace the number. The
 evaluation order is fixed for every row: **FAIL is checked first, then OK, else WATCH.** A row
 with no calibrated FAIL line (`fail: null` in `lib.mjs › MEASURE_BANDS`) can be OK or WATCH but
@@ -53,8 +53,9 @@ Since v2.0.0 these lines replace the linkage, freshness and economy star anchors
 and these verdict lines coexisted, describing the same boundaries side by side; that intermediate
 state is over.
 
-The twelve rows, across four scripts, each citing where its OK/FAIL lines come from — a retired
-rubric.md anchor for eleven of them, #85 for `stale_range_ratio`, the first row with no star behind it:
+The twelve rows, across four scripts, each citing where its OK/FAIL lines come from: the retired
+rubric.md anchor it replaces, except `stale_range_ratio` (#85, added after the retirement) and
+`undocumented_dirs` / `drifted_dirs` (`none calibrated` — rubric.md never had a FAIL line for them):
 
 - **links.mjs**
   - `dead_link_ratio` — `dead_links.length / total_links`. FAIL `> 2%`; OK requires the ratio to be
