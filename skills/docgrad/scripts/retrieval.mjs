@@ -39,7 +39,7 @@ function commitsSince(root, rel, days) {
     const sinceIso = new Date(Date.now() - days * 86400000).toISOString();
     const out = execFileSync(
       'git',
-      ['rev-list', '--count', 'HEAD', `--since=${sinceIso}`, '--', rel],
+      ['--literal-pathspecs', 'rev-list', '--count', 'HEAD', `--since=${sinceIso}`, '--', rel],
       { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
     ).trim();
     return out === '' ? null : Number(out);

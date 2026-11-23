@@ -2214,3 +2214,45 @@ test('evaluateMeasure: accept/meets_target keys sit right after verdict', () => 
   assert.equal(keys[keys.indexOf('verdict') + 1], 'accept');
   assert.equal(keys[keys.indexOf('accept') + 1], 'meets_target');
 });
+
+test('extractClaimedDate: rejects impossible calendar dates and digit-adjacent numbers, falls through to next valid date', () => {
+  const fm = { convention: 'frontmatter', field: 'last_updated' };
+  const hl = { convention: 'heading-line', heading_field: 'Last updated:' };
+  assert.equal(extractClaimedDate('---\nlast_updated: 2026-02-30\n---\n', fm), null);
+  assert.equal(extractClaimedDate('---\nlast_updated: 2026-13-45\n---\n', fm), null);
+  assert.equal(extractClaimedDate('---\nlast_updated: 12026-01-012\n---\n', fm), null);
+  assert.equal(
+    extractClaimedDate('# Doc\n\n> Last updated: 2026-02-29 (corrected 2026-03-01)\n', hl),
+    '2026-03-01'
+  );
+});
+
+test('gitAddCommitSubjects: handles non-ASCII paths, literal bracket pathspecs, and subdirectory roots', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-git-subjects-'));
+  try {
+    const sub = path.join(tmp, 'packages', 'app');
+    fs.mkdirSync(path.join(sub, 'docs'), { recursive: true });
+    fs.writeFileSync(path.join(sub, 'docs', '指南.md'), '# 指南\n');
+    fs.writeFileSync(path.join(sub, 'docs', '[id].md'), '# bracket\n');
+    fs.writeFileSync(path.join(sub, 'docs', 'i.md'), '# plain\n');
+    const env = {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_CONFIG_SYSTEM: '/dev/null',
+      GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com',
+      GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com',
+    };
+    execFileSync('git', ['init', '-q'], { cwd: tmp, env });
+    execFileSync('git', ['add', 'packages/app/docs/i.md'], { cwd: tmp, env });
+    execFileSync('git', ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'docs(docgrad): add i'], { cwd: tmp, env });
+    execFileSync('git', ['add', 'packages/app/docs/指南.md', 'packages/app/docs/[id].md'], { cwd: tmp, env });
+    execFileSync('git', ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'feat: add non-ascii and bracket docs'], { cwd: tmp, env });
+
+    const subjects = gitAddCommitSubjects(sub, ['docs/指南.md', 'docs/[id].md']);
+    assert.equal(subjects.get('docs/指南.md'), 'feat: add non-ascii and bracket docs');
+    assert.equal(subjects.get('docs/[id].md'), 'feat: add non-ascii and bracket docs');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+

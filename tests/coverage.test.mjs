@@ -331,3 +331,72 @@ test('coverage: legacy star target keys produce the shared warning clause in not
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test('coverage: src_dirs containing "." resolves repo-relative area names instead of "./area"', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-cov-dot-'));
+  try {
+    write(tmp, '.docgrad.yml', 'docs_dirs: [docs/]\nentry_files: [CLAUDE.md]\nsrc_dirs: [.]\n');
+    write(tmp, 'CLAUDE.md', '# Root\n\nSee `api/` for the HTTP layer.\n');
+    write(tmp, 'docs/api.md', '# API\n\nLives in `api/`.\n');
+    write(tmp, 'api/server.js', 'export const serve = () => {};\n');
+    const env = {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null',
+      GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com',
+      GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com',
+      GIT_AUTHOR_DATE: '2026-08-01T10:00:00Z', GIT_COMMITTER_DATE: '2026-08-01T10:00:00Z',
+    };
+    execFileSync('git', ['init', '-q'], { cwd: tmp, env });
+    execFileSync('git', ['add', '-A'], { cwd: tmp, env });
+    execFileSync('git', ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'init'], { cwd: tmp, env });
+
+    const out = run(tmp);
+    const apiArea = out.areas.find((a) => a.area === 'api');
+    assert.ok(apiArea, JSON.stringify(out.areas.map((a) => a.area)));
+    assert.equal(apiArea.status, 'covered');
+    assert.equal(out.undocumented.includes('./api'), false);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('coverage: sorts doc commit timestamps chronologically across timezones and uses literal pathspecs', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-cov-tz-'));
+  try {
+    write(tmp, '.docgrad.yml', 'docs_dirs: [docs/]\nentry_files: [CLAUDE.md]\nsrc_dirs: [src/]\n');
+    write(tmp, 'CLAUDE.md', '# Root\n');
+    write(tmp, 'src/[x]/mod.js', 'export const x = 1;\n');
+    write(tmp, 'src/x/other.js', 'export const y = 1;\n');
+    write(tmp, 'docs/a.md', '# A\n\nCovers `src/[x]`.\n');
+    write(tmp, 'docs/b.md', '# B\n\nAlso covers `src/[x]`.\n');
+    const baseEnv = {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null',
+      GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com',
+      GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com',
+    };
+    const commitAt = (iso, msg) => {
+      const env = { ...baseEnv, GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso };
+      execFileSync('git', ['add', '-A'], { cwd: tmp, env });
+      execFileSync('git', ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', msg], { cwd: tmp, env });
+    };
+    execFileSync('git', ['init', '-q'], { cwd: tmp, env: baseEnv });
+    // Commit 1: docs/a.md at 2026-08-02T01:00:00+09:00 (= 2026-08-01T16:00:00Z, earlier instant but larger string!)
+    commitAt('2026-08-02T01:00:00+09:00', 'init');
+    // Commit 2: docs/b.md at 2026-08-01T20:00:00-05:00 (= 2026-08-02T01:00:00Z, later instant!)
+    write(tmp, 'docs/b.md', '# B\n\nUpdated coverage for `src/[x]`.\n');
+    commitAt('2026-08-01T20:00:00-05:00', 'update doc b');
+    // Commit 3: only touches src/x (NOT literal src/[x]) after doc update
+    write(tmp, 'src/x/other.js', 'export const y = 2;\n');
+    commitAt('2026-08-15T12:00:00Z', 'touch src/x only');
+
+    const out = run(tmp);
+    const bracketArea = out.areas.find((a) => a.area === 'src/[x]');
+    assert.ok(bracketArea, JSON.stringify(out.areas.map((a) => a.area)));
+    assert.equal(bracketArea.last_doc_commit, '2026-08-01');
+    assert.equal(bracketArea.commits_since_doc, 0);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+

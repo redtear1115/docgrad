@@ -27,7 +27,7 @@ function mentionRegex(area) {
 // The full ISO timestamp (%cI) of git's last commit; failure or empty -> null.
 function gitLastCommit(root, rel) {
   try {
-    const out = execFileSync('git', ['log', '-1', '--format=%cI', '--', rel], {
+    const out = execFileSync('git', ['--literal-pathspecs', 'log', '-1', '--format=%cI', '--', rel], {
       cwd: root,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
@@ -45,7 +45,7 @@ function gitLastCommit(root, rel) {
 function gitCountSince(root, docIso, rel) {
   const sinceIso = new Date(Date.parse(docIso) + 1000).toISOString();
   try {
-    const out = execFileSync('git', ['rev-list', '--count', 'HEAD', `--since=${sinceIso}`, '--', rel], {
+    const out = execFileSync('git', ['--literal-pathspecs', 'rev-list', '--count', 'HEAD', `--since=${sinceIso}`, '--', rel], {
       cwd: root,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
@@ -132,14 +132,15 @@ try {
     // own: it recurses only into Dirent.isDirectory(), which is false for a symlink, and it reads
     // nothing.
     const absSrc = resolveInRoot(root, srcDir, 'src_dirs');
-    const base = srcDir.replace(/\/+$/, ''); // strip trailing slash, POSIX area prefix
     let loose = 0;
     if (fs.existsSync(absSrc)) {
       for (const entry of fs.readdirSync(absSrc, { withFileTypes: true })) {
         if (entry.name.startsWith('.')) continue; // skip hidden dirs/files
         if (entry.isDirectory()) {
           if (SKIP_DIRS.has(entry.name)) continue;
-          areaEntries.push({ area: `${base}/${entry.name}`, absDir: path.join(absSrc, entry.name) });
+          const absDir = path.join(absSrc, entry.name);
+          const area = path.relative(root, absDir).split(path.sep).join('/');
+          areaEntries.push({ area, absDir });
         } else {
           loose += 1;
         }
@@ -158,7 +159,9 @@ try {
     const mentioned_by = docTexts.filter((d) => re.test(d.text)).map((d) => d.rel);
 
     const docIsos = mentioned_by.map((rel) => gitLastCommit(root, rel)).filter((x) => x);
-    const last_doc_iso = docIsos.length ? docIsos.sort().at(-1) : null;
+    const last_doc_iso = docIsos.length
+      ? docIsos.sort((a, b) => Date.parse(a) - Date.parse(b)).at(-1)
+      : null;
 
     const commits_since_doc = last_doc_iso ? gitCountSince(root, last_doc_iso, area) : null;
     const drift_days = last_code_iso && last_doc_iso ? dayDiff(last_code_iso, last_doc_iso) : null;

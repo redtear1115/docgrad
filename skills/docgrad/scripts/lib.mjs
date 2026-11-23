@@ -812,6 +812,9 @@ export function gitTrackedFiles(rootDir) {
     const out = execFileSync('git', ['ls-files', '-z'], {
       cwd: rootDir,
       encoding: 'utf8',
+      // Force C locale so git's "not a git repository" diagnostic matches NOT_A_WORK_TREE_RE
+      // regardless of host LANG/LC_ALL (e.g. zh_TW.UTF-8).
+      env: { ...process.env, LC_ALL: 'C', LANG: 'C', LANGUAGE: 'C' },
       // stderr is captured, not discarded: it is the only thing that separates "not a work tree"
       // from "git is broken here". Piped rather than inherited, so a normal run stays quiet.
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -1111,7 +1114,21 @@ export function resolveLinkTarget(root, rel, target) {
 
 // --- Freshness date extraction --------------------------------------------------
 
-const DATE_RE = /(\d{4}-\d{2}-\d{2})/;
+const DATE_RE = /(?<!\d)(\d{4}-\d{2}-\d{2})(?!\d)/g;
+
+export function isValidIsoDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+function findValidIsoDate(line) {
+  for (const m of line.matchAll(DATE_RE)) {
+    if (isValidIsoDate(m[1])) return m[1];
+  }
+  return null;
+}
 
 // convention accepts a single value or a comma/`+`-separated list of values
 // ("frontmatter,heading-line" or "frontmatter+heading-line"); unset/falsy is always treated as 'none'.
@@ -1142,8 +1159,8 @@ function extractClaimedDateOne(text, convention, freshness) {
     const fields = parseFreshnessFields(freshness.field);
     for (const l of fm[1].split(/\r?\n/)) {
       if (!fields.some((field) => l.trimStart().startsWith(`${field}:`))) continue;
-      const m = l.match(DATE_RE);
-      if (m) return m[1];
+      const date = findValidIsoDate(l);
+      if (date) return date;
     }
     return null;
   }
@@ -1154,8 +1171,8 @@ function extractClaimedDateOne(text, convention, freshness) {
     if (fields.length === 0) return null;
     for (const line of text.split(/\r?\n/).slice(0, 30)) {
       if (fields.some((field) => line.includes(field))) {
-        const m = line.match(DATE_RE);
-        if (m) return m[1];
+        const date = findValidIsoDate(line);
+        if (date) return date;
       }
     }
   }
@@ -1391,7 +1408,7 @@ export function gitAddCommitSubjects(rootDir, relPaths = []) {
       const chunk = relPaths.slice(i, i + GIT_PATHSPEC_CHUNK);
       const out = execFileSync(
         'git',
-        ['log', '--reverse', '--diff-filter=A', '--name-only', '--format=%x00%s', '--', ...chunk],
+        ['-c', 'core.quotePath=false', '--literal-pathspecs', 'log', '--relative', '--reverse', '--diff-filter=A', '--name-only', '--format=%x00%s', '--', ...chunk],
         { cwd: rootDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 }
       );
       let subject = null;
