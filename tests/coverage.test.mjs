@@ -400,3 +400,38 @@ test('coverage: sorts doc commit timestamps chronologically across timezones and
   }
 });
 
+test('coverage: same-instant commits with different offsets produce identical commit-count boundary', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-cov-tie-'));
+  try {
+    write(tmp, '.docgrad.yml', 'docs_dirs: [docs/]\nentry_files: [CLAUDE.md]\nsrc_dirs: [src/]\n');
+    write(tmp, 'CLAUDE.md', '# Root\n');
+    write(tmp, 'src/core/app.js', 'export const v = 1;\n');
+    write(tmp, 'docs/a.md', '# A\n\nCovers `src/core`.\n');
+    write(tmp, 'docs/b.md', '# B\n\nCovers `src/core`.\n');
+    const baseEnv = {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null',
+      GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com',
+      GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com',
+    };
+    const commitAt = (iso, msg) => {
+      const env = { ...baseEnv, GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso };
+      execFileSync('git', ['add', '-A'], { cwd: tmp, env });
+      execFileSync('git', ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', msg], { cwd: tmp, env });
+    };
+    execFileSync('git', ['init', '-q'], { cwd: tmp, env: baseEnv });
+    commitAt('2026-08-02T01:00:00+09:00', 'doc a at 16:00Z');
+    write(tmp, 'docs/b.md', '# B\n\nUpdated `src/core`.\n');
+    commitAt('2026-08-01T16:00:00Z', 'doc b at exact same instant');
+    write(tmp, 'src/core/app.js', 'export const v = 2;\n');
+    commitAt('2026-08-01T16:00:05Z', 'code change 5s later');
+
+    const out = run(tmp);
+    const area = out.areas.find((a) => a.area === 'src/core');
+    assert.ok(area);
+    assert.equal(area.commits_since_doc, 1);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
