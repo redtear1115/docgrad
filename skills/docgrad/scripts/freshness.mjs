@@ -24,7 +24,7 @@ function gitDate(root, rel) {
   try {
     // Get the date of the most recent **non-docgrad** commit: fetch a handful at once and filter,
     // to avoid calling git one commit at a time.
-    const out = execFileSync('git', ['log', '-20', '--format=%as%x00%s', '--', rel], {
+    const out = execFileSync('git', ['--literal-pathspecs', 'log', '-20', '--format=%as%x00%s', '--', rel], {
       cwd: root,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],

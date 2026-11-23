@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { parseYamlSubset, loadConfig, resolveRoot, parseArgs, matchesScope, collectFiles, estimateTokens, githubSlug, extractHeadings, extractLinks, extractClaimedDate, parseFreshnessConventions, parseFreshnessFields, extractCodeRefs, validateConfigTypes, docgradMeta, corpusHash, gitTrackedFiles, extractClaimLines, rankClaimCandidates, claimHash, CLAIM_HASH_CHARS, buildSrcSymbolIndex, gitAddCommitSubjects, isDocgradAuthored, measureHash, judgeHash, loadLedgerClaimHashes, loadLedgerRows, summarizeLedgerConformance, ledgerConformanceNote, LEDGER_REQUIRED_FIELDS, MEASURE_BANDS, evaluateMeasure, measureDigest, MEASURE_FILES } from '../skills/docgrad/scripts/lib.mjs';
+import { parseYamlSubset, loadConfig, resolveRoot, parseArgs, matchesScope, collectFiles, estimateTokens, githubSlug, extractHeadings, extractLinks, extractClaimedDate, isValidIsoDate, parseFreshnessConventions, parseFreshnessFields, extractCodeRefs, validateConfigTypes, docgradMeta, corpusHash, gitTrackedFiles, gitUnavailableReason, extractClaimLines, rankClaimCandidates, claimHash, CLAIM_HASH_CHARS, buildSrcSymbolIndex, gitAddCommitSubjects, isDocgradAuthored, measureHash, judgeHash, loadLedgerClaimHashes, loadLedgerRows, summarizeLedgerConformance, ledgerConformanceNote, LEDGER_REQUIRED_FIELDS, MEASURE_BANDS, evaluateMeasure, measureDigest, MEASURE_FILES } from '../skills/docgrad/scripts/lib.mjs';
 import { fileURLToPath } from 'node:url';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/basic/', import.meta.url));
@@ -2214,3 +2214,74 @@ test('evaluateMeasure: accept/meets_target keys sit right after verdict', () => 
   assert.equal(keys[keys.indexOf('verdict') + 1], 'accept');
   assert.equal(keys[keys.indexOf('accept') + 1], 'meets_target');
 });
+
+test('extractClaimedDate: rejects impossible calendar dates and digit-adjacent numbers, falls through to next valid date', () => {
+  const fm = { convention: 'frontmatter', field: 'last_updated' };
+  const hl = { convention: 'heading-line', heading_field: 'Last updated:' };
+  assert.equal(isValidIsoDate('0001-01-01'), true);
+  assert.equal(isValidIsoDate('0099-12-31'), true);
+  assert.equal(isValidIsoDate('2024-02-29'), true);
+  assert.equal(isValidIsoDate('2026-02-29'), false);
+  assert.equal(extractClaimedDate('---\nlast_updated: 2026-02-30\n---\n', fm), null);
+  assert.equal(extractClaimedDate('---\nlast_updated: 2026-13-45\n---\n', fm), null);
+  assert.equal(extractClaimedDate('---\nlast_updated: 12026-01-012\n---\n', fm), null);
+  assert.equal(
+    extractClaimedDate('# Doc\n\n> Last updated: 2026-02-29 (corrected 2026-03-01)\n', hl),
+    '2026-03-01'
+  );
+});
+
+test('gitTrackedFiles: classifies non-git directory as not-a-work-tree under non-English locale', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-locale-'));
+  const prev = { LC_ALL: process.env.LC_ALL, LANG: process.env.LANG, LANGUAGE: process.env.LANGUAGE };
+  try {
+    process.env.LC_ALL = 'zh_TW.UTF-8';
+    process.env.LANG = 'zh_TW.UTF-8';
+    process.env.LANGUAGE = 'zh_TW:zh';
+    assert.equal(gitTrackedFiles(tmp), null);
+    assert.equal(gitUnavailableReason(), 'not-a-work-tree');
+  } finally {
+    for (const [k, v] of Object.entries(prev)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('gitAddCommitSubjects: handles non-ASCII paths, literal bracket pathspecs, and subdirectory isolation', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-git-subjects-'));
+  try {
+    const sub = path.join(tmp, 'packages', 'app');
+    const sibling = path.join(tmp, 'packages', 'other');
+    fs.mkdirSync(path.join(sub, 'docs'), { recursive: true });
+    fs.mkdirSync(path.join(sibling, 'docs'), { recursive: true });
+    fs.writeFileSync(path.join(sub, 'docs', '指南.md'), '# 指南\n');
+    fs.writeFileSync(path.join(sub, 'docs', '[id].md'), '# bracket\n');
+    fs.writeFileSync(path.join(sub, 'docs', 'i.md'), '# plain\n');
+    fs.writeFileSync(path.join(sub, 'docs', 'README.md'), '# app\n');
+    fs.writeFileSync(path.join(sibling, 'docs', 'README.md'), '# other\n');
+    const env = {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_CONFIG_SYSTEM: '/dev/null',
+      GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com',
+      GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com',
+    };
+    execFileSync('git', ['init', '-q'], { cwd: tmp, env });
+    execFileSync('git', ['add', 'packages/other/docs/README.md'], { cwd: tmp, env });
+    execFileSync('git', ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'docs(docgrad): sibling readme'], { cwd: tmp, env });
+    execFileSync('git', ['add', 'packages/app/docs/i.md'], { cwd: tmp, env });
+    execFileSync('git', ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'docs(docgrad): add i'], { cwd: tmp, env });
+    execFileSync('git', ['add', 'packages/app/docs/指南.md', 'packages/app/docs/[id].md', 'packages/app/docs/README.md'], { cwd: tmp, env });
+    execFileSync('git', ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'feat: add non-ascii and bracket docs'], { cwd: tmp, env });
+
+    const subjects = gitAddCommitSubjects(sub, ['docs/指南.md', 'docs/[id].md', 'docs/README.md']);
+    assert.equal(subjects.get('docs/指南.md'), 'feat: add non-ascii and bracket docs');
+    assert.equal(subjects.get('docs/[id].md'), 'feat: add non-ascii and bracket docs');
+    assert.equal(subjects.get('docs/README.md'), 'feat: add non-ascii and bracket docs');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+

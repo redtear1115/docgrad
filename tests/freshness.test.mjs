@@ -494,3 +494,43 @@ test('freshness: legacy star target keys produce the shared warning clause in no
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test('freshness: gitDate treats bracket filenames as literal pathspecs rather than globs', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'docgrad-fresh-lit-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'docs'));
+    fs.writeFileSync(
+      path.join(tmp, '.docgrad.yml'),
+      'docs_dirs: [docs/]\nfreshness:\n  convention: heading-line\n  field: "Last updated:"\n'
+    );
+    fs.writeFileSync(path.join(tmp, 'docs', '[i].md'), '# Bracket\n\n> Last updated: 2026-07-01\n');
+    fs.writeFileSync(path.join(tmp, 'docs', 'i.md'), '# Plain\n\n> Last updated: 2026-08-20\n');
+    const baseEnv = {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null',
+      GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com',
+      GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com',
+    };
+    execFileSync('git', ['init', '-q'], { cwd: tmp, env: baseEnv });
+    execFileSync('git', ['add', '.docgrad.yml', 'docs/[i].md'], { cwd: tmp, env: baseEnv });
+    execFileSync('git', ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'add bracket doc'], {
+      cwd: tmp,
+      env: { ...baseEnv, GIT_AUTHOR_DATE: '2026-07-01T12:00:00Z', GIT_COMMITTER_DATE: '2026-07-01T12:00:00Z' },
+    });
+    execFileSync('git', ['add', 'docs/i.md'], { cwd: tmp, env: baseEnv });
+    execFileSync('git', ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'add plain doc later'], {
+      cwd: tmp,
+      env: { ...baseEnv, GIT_AUTHOR_DATE: '2026-08-20T12:00:00Z', GIT_COMMITTER_DATE: '2026-08-20T12:00:00Z' },
+    });
+
+    const out = JSON.parse(spawnSync(process.execPath, [SCRIPT, '--root', tmp], {
+      encoding: 'utf8',
+      env: { ...process.env, DOCGRAD_TODAY: '2026-09-01' },
+    }).stdout);
+    const mismatchBracket = out.mismatches.find((m) => m.path === 'docs/[i].md');
+    assert.equal(mismatchBracket, undefined, JSON.stringify(out.mismatches));
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
